@@ -1,9 +1,0 @@
-{
-    "require": {
-        "guzzlehttp/guzzle": "~6.0",
-        "zozlak/util": "*",
-        "acdh-oeaw/repo-php-util": "~2",
-        "acdh-oeaw/epic-handle": "*",
-        "nette/mail": "~3"
-    }
-}
