@@ -1,3 +1,11 @@
+metadataManagment:
+    nonRelationProperties:
+        - http://www.w3.org/1999/02/22-rdf-syntax-ns#type
+        - http://www.w3.org/2000/01/rdf-schema#range
+        - http://www.w3.org/2000/01/rdf-schema#domain
+        - http://www.w3.org/2002/07/owl#onProperty
+        - http://www.w3.org/2002/07/owl#onDataRange
+        - http://www.w3.org/2002/07/owl#onClass
 rest:
     handlers:
         methods:
@@ -14,7 +22,7 @@ rest:
                 - type: function
                   function: \acdhOeaw\arche\Doorkeeper::onTxCommit
 schema:
-    epicPid: 'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'
+    pid: 'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'
     hosting: 'https://vocabs.acdh.oeaw.ac.at/schema#hasHosting'
     availableDate: 'https://vocabs.acdh.oeaw.ac.at/schema#hasAvailableDate'
     extent: 'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'
@@ -27,7 +35,7 @@ schema:
         sharedObject: 'https://vocabs.acdh.oeaw.ac.at/schema#AgentOrPlaceOrPublication'
         container: 'https://vocabs.acdh.oeaw.ac.at/schema#Container'
     namespaces:
-        ontology: 'https://vocabs.acdh.oeaw.ac.at/schema#'
+        ontology: 'https://vocabs.acdh.oeaw.ac.at/schema#%'
 doorkeeper:
     default:
         hosting: 'https://id.acdh.oeaw.ac.at/arche'

@@ -38,7 +38,7 @@ use acdhOeaw\acdhRepo\RepoException;
 class DoorkeeperException extends RepoException {
 
     public function __construct(string $message = '', int $code = 400,
-                                Throwable $previous = NULL): Exception {
+                                Throwable $previous = NULL) {
         parent::__construct($message, $code, $previous);
     }
 

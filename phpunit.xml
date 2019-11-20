@@ -2,6 +2,9 @@
 	<testsuite name="tests">
 		<directory>tests</directory>
 	</testsuite>
+    <extensions>
+        <extension class="\acdhOeaw\arche\Bootstrap"/>
+    </extensions>
 	<filter>
 		<whitelist processUncoveredFilesFromWhitelist="true">
 			<directory suffix=".php">src</directory>

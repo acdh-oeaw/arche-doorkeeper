@@ -26,9 +26,15 @@
 
 namespace acdhOeaw\arche;
 
-use InvalidArgumentException;
+use DateTime;
 use RuntimeException;
+use EasyRdf\Literal;
 use EasyRdf\Resource;
+use EasyRdf\Literal\Boolean as lBoolean;
+use EasyRdf\Literal\Date as lDate;
+use EasyRdf\Literal\DateTime as lDateTime;
+use EasyRdf\Literal\Decimal as lDecimal;
+use EasyRdf\Literal\Integer as lInteger;
 use acdhOeaw\UriNormalizer;
 use acdhOeaw\epicHandle\HandleService;
 use acdhOeaw\acdhRepo\RestController as RC;
@@ -40,6 +46,9 @@ use zozlak\RdfConstants as RDF;
  * @author zozlak
  */
 class Doorkeeper {
+
+    const NON_NEGATIVE_NUMBERS = [RDF::XSD_NON_NEGATIVE_INTEGER, RDF::XSD_UNSIGNED_LONG,
+        RDF::XSD_UNSIGNED_INT, RDF::XSD_UNSIGNED_SHORT, RDF::XSD_UNSIGNED_BYTE];
 
     /**
      *
@@ -56,22 +65,19 @@ class Doorkeeper {
     static public function onResEdit(Resource $meta, ?string $path): Resource {
         self::maintainPid($meta);
 
-        self::loadOntology($d);
+        self::loadOntology();
         if (self::$ontology->isA($meta, RC::$config->schema->classes->repoObject)) {
             self::maintainHosting($meta);
-            self::maintainAvailableDate($meta);
-        }
-        if (is_file($path)) {
-            self::maintainExtent($meta);
-            self::maintainFormat($meta);
         }
         self::maintainAccessRestriction($meta);
         self::maintainAccessRights($meta);
         self::maintainPropertyRange($meta);
-        self::maintainIdNorm($meta);
+        self::normalizeIds($meta);
         self::checkCardinalities($meta);
-        self::checkIdProp($meta, []);
+        self::checkIdCount($meta);
         self::checkTitleProp($meta);
+
+        return $meta;
     }
 
     static public function onTxCommit(string $method, int $txId,
@@ -80,26 +86,26 @@ class Doorkeeper {
     }
 
     static private function maintainPid(Resource $meta): void {
+        $cfg     = RC::$config->doorkeeper->epicPid;
         $idProp  = RC::$config->schema->id;
-        $pidProp = RC::$config->schema->epicPid;
+        $pidProp = RC::$config->schema->pid;
         $curPid  = null;
         foreach ($meta->allResources($idProp) as $i) {
-            if (strpos((string) $i, RC::$config->epicPid->resolver) === 0) {
+            if (strpos((string) $i, $cfg->resolver) === 0) {
                 $curPid = (string) $i;
                 break;
             }
         }
         if ($meta->getLiteral($pidProp)) {
             if ($curPid === null) {
-                if (RC::$config->epicPid->pswd === '') {
+                if ($cfg->pswd === '') {
                     RC::$log->info('  skipping PID generation - no EPIC password provided');
                     return;
                 }
                 $meta->delete($pidProp);
-                $c   = RC::$config->epicPid;
-                $ps  = new HandleService($c->url, $c->prefix, $c->user, $c->pswd);
+                $ps  = new HandleService($c->url, $cfg->prefix, $cfg->user, $cfg->pswd);
                 $pid = $ps->create($meta->getUri());
-                $pid = str_replace($c->url, $c->resolver, $pid);
+                $pid = str_replace($c->url, $cfg->resolver, $pid);
                 RC::$log->info('  registered PID ' . $pid . ' pointing to ' . $meta->getUri());
                 $meta->addResource($pidProp, $pid);
             } else {
@@ -127,33 +133,8 @@ class Doorkeeper {
         }
     }
 
-    static private function maintainAvailableDate(Resource $meta): void {
-        $prop  = RC::$config->schema->availableDate;
-        $value = $meta->getLiteral($prop);
-        if ($value === null) {
-            $meta->addLiteral($prop, new DateTime());
-            RC::$log->info('  ' . $prop . ' added');
-        }
-    }
-
-    static private function maintainExtent(Resource $meta): void {
-        $prop     = RC::$config->schema->binarySize;
-        $propAcdh = RC::$config->schema->extent;
-        $meta->delete($propAcdh);
-        $meta->addLiteral($propAcdh, $meta->getLiteral($prop));
-        RC::$log->info('  ' . $propAcdh . ' added/updated');
-    }
-
-    static private function maintainFormat(FedoraResource $meta): void {
-        $prop     = RC::$config->schema->mime;
-        $propAcdh = RC::$config->schema->format;
-        $meta->delete($propAcdh);
-        $meta->addLiteral($propAcdh, $meta->getLiteral($prop));
-        RC::$log->info('  ' . $prop . ' added/updated');
-    }
-
     static private function maintainAccessRestriction(Resource $meta): void {
-        $isRepoObj = self::$ontology->isA($meta, RC::$config->schema->classes->repoObject);
+        $isRepoObj   = self::$ontology->isA($meta, RC::$config->schema->classes->repoObject);
         $isSharedObj = self::$ontology->isA($meta, RC::$config->schema->classes->sharedObject);
         $isContainer = self::$ontology->isA($meta, RC::$config->schema->classes->container);
         if (!$isRepoObj && !$isSharedObj && !$isContainer) {
@@ -229,7 +210,7 @@ class Doorkeeper {
     static private function maintainPropertyRange(Resource $meta): void {
         foreach ($meta->propertyUris() as $prop) {
             $range = self::$ontology->getProperty($meta, $prop);
-            if ($range === null) {
+            if ($range === null || $range->range === null) {
                 continue;
             } else {
                 $range = $range->range;
@@ -252,8 +233,8 @@ class Doorkeeper {
                         RC::$log->info('    casting ' . $prop . ' value from ' . $type . ' to ' . $range);
                     } catch (RuntimeException $ex) {
                         RC::$log->info('    ' . $ex->getMessage());
-                    } catch (InvalidArgumentException $ex) {
-                        throw new InvalidArgumentException('property ' . $prop . ': ' . $ex->getMessage(), $ex->getCode(), $ex);
+                    } catch (DoorkeeperException $ex) {
+                        throw new DoorkeeperException('property ' . $prop . ': ' . $ex->getMessage(), $ex->getCode(), $ex);
                     }
                 } else {
                     RC::$log->info('    unknown type: ' . $type);
@@ -262,16 +243,16 @@ class Doorkeeper {
         }
     }
 
-    static private function maintainIdNorm(Resource $meta): void {
+    static private function normalizeIds(Resource $meta): void {
         if (self::$uriNorm === null) {
-            self::$uriNorm = new UriNormalizer(RC::$config->doorkeeper->uriMappings);
+            self::$uriNorm = new UriNormalizer((array) RC::$config->doorkeeper->uriMappings);
         }
 
         $idProp = RC::$config->schema->id;
         foreach ($meta->allResources($idProp) as $id) {
             $ids = (string) $id;
             $std = self::$uriNorm->normalize($id);
-            if ($std !== $id) {
+            if ($std !== (string) $id) {
                 $meta->deleteResource($idProp, $ids);
                 $meta->addResource($idProp, $std);
                 RC::$log->info("  id URI $ids standardized to $std");
@@ -319,14 +300,10 @@ class Doorkeeper {
      * @param \EasyRdf\Resource $meta
      * @throws DoorkeeperException
      */
-    static private function checkIdProp(Resource $meta): void {
+    static private function checkIdCount(Resource $meta): void {
         $idProp       = RC::$config->schema->id;
         $repoNmsp     = RC::getBaseUrl();
         $ontologyNmsp = RC::$config->schema->namespaces->ontology;
-
-        if (count($meta->allLiterals($idProp)) > 0) {
-            throw new DoorkeeperException('There are literal IDs');
-        }
 
         $ontologyIdCount = $repoIdCount     = $nonRepoIdCount  = 0;
         $ids             = $meta->allResources($idProp);
@@ -342,9 +319,6 @@ class Doorkeeper {
 
         if ($ontologyIdCount > 1) {
             throw new DoorkeeperException('More than one ontology id');
-        }
-        if ($repoIdCount > 1) {
-            throw new DoorkeeperException('More than one repository id');
         }
         if ($nonRepoIdCount === 0 && $ontologyIdCount === 0) {
             throw new DoorkeeperException('No non-repository id');
@@ -419,6 +393,7 @@ class Doorkeeper {
     }
 
     static private function updateCollectionExtent(int $txId, array $resourceIds): void {
+        return;
         $relProp   = RC::$config->schema->parent;
         $extProp   = RC::$config->schema->extent;
         $countProp = RC::$config->schema->count;
@@ -515,6 +490,50 @@ class Doorkeeper {
         return array_map(function($x) {
             return (string) $x;
         }, $a);
+    }
+
+    static private function castLiteral(Literal $l, string $range): Literal {
+        switch ($range) {
+            case RDF::XSD_DATE:
+                $value = new lDate(is_numeric((string) $l) ? $l . '-01-01' : (string) $l, null, $range);
+                break;
+            case RDF::XSD_DATE_TIME:
+                $value = new lDateTime(is_numeric((string) $l) ? $l . '-01-01' : (string) $l, null, $range);
+                break;
+            case RDF::XSD_DECIMAL:
+            case RDF::XSD_FLOAT:
+            case RDF::XSD_DOUBLE:
+                $value = new lDecimal((string) $l, null, $range);
+                break;
+            case RDF::XSD_INTEGER:
+            case RDF::XSD_NEGATIVE_INTEGER:
+            case RDF::XSD_NON_NEGATIVE_INTEGER:
+            case RDF::XSD_NON_POSITIVE_INTEGER:
+            case RDF::XSD_POSITIVE_INTEGER:
+            case RDF::XSD_LONG:
+            case RDF::XSD_INT:
+            case RDF::XSD_SHORT:
+            case RDF::XSD_BYTE:
+            case RDF::XSD_UNSIGNED_LONG:
+            case RDF::XSD_UNSIGNED_INT:
+            case RDF::XSD_UNSIGNED_SHORT:
+            case RDF::XSD_UNSIGNED_BYTE:
+                $value = new lInteger((int) ((string) $l), null, $range);
+                break;
+            case RDF::XSD_BOOLEAN:
+                $value = new lBoolean((string) $l, null, $range);
+                break;
+            default:
+                throw new RuntimeException('unknown range data type: ' . $range);
+        }
+        $c1 = in_array($range, self::NON_NEGATIVE_NUMBERS) && $value->getValue() < 0;
+        $c2 = $range == RDF::XSD_NON_POSITIVE_INTEGER && $value->getValue() > 0;
+        $c3 = $range == RDF::XSD_NEGATIVE_INTEGER && $value->getValue() >= 0;
+        $c4 = $range == RDF::XSD_POSITIVE_INTEGER && $value->getValue() <= 0;
+        if ($c1 || $c2 || $c3 || $c4) {
+            throw new DoorkeeperException('value does not match data type: ' . $value->getValue() . ' (' . $range . ')');
+        }
+        return $value;
     }
 
 }
