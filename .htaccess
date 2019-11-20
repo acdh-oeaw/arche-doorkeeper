@@ -1,4 +1,0 @@
-php_value max_execution_time 3600
-
-RewriteEngine on
-RewriteRule ^.*$ index.php
