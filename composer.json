@@ -1,0 +1,31 @@
+{
+    "name": "acdh-oeaw/acdh-repo-doorkeeper",
+    "description": "Doorkeeping handlers for the ARCHE",
+    "keywords": [],
+    "homepage": "https://github.com/zozlak/acdh-repo-doorkeeper",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Mateusz Żółtak",
+            "email": "mzoltak@oeaw.ac.at"
+        }
+    ],
+    "require": {
+        "acdh-oeaw/easyrdf": "*",
+        "acdh-oeaw/acdh-repo": "*",
+        "acdh-oeaw/epic-handle": "*",
+        "acdh-oeaw/uri-normalizer": "*",
+        "acdh-oeaw/arche-ontology-api": "*",
+        "zozlak/rdf-constants": ">=0.2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "acdhOeaw\\": "src/acdhOeaw",
+            "acdhOeaw\\arche\\": "tests"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^8.4",
+        "acdh-oeaw/acdh-repo-lib": "*"
+    }
+}
