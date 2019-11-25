@@ -26,7 +26,7 @@
 
 namespace acdhOeaw\arche;
 
-use DateTime;
+use PDO;
 use RuntimeException;
 use EasyRdf\Literal;
 use EasyRdf\Resource;
@@ -37,6 +37,7 @@ use EasyRdf\Literal\Decimal as lDecimal;
 use EasyRdf\Literal\Integer as lInteger;
 use acdhOeaw\UriNormalizer;
 use acdhOeaw\epicHandle\HandleService;
+use acdhOeaw\acdhRepo\Resource as Res;
 use acdhOeaw\acdhRepo\RestController as RC;
 use zozlak\RdfConstants as RDF;
 
@@ -62,12 +63,13 @@ class Doorkeeper {
      */
     static private $uriNorm;
 
-    static public function onResEdit(Resource $meta, ?string $path): Resource {
+    static public function onResEdit(int $id, Resource $meta, ?string $path): Resource {
         self::maintainPid($meta);
 
         self::loadOntology();
         if (self::$ontology->isA($meta, RC::$config->schema->classes->repoObject)) {
             self::maintainHosting($meta);
+            self::maintainBinarySize($meta);
         }
         self::maintainAccessRestriction($meta);
         self::maintainAccessRights($meta);
@@ -82,13 +84,20 @@ class Doorkeeper {
 
     static public function onTxCommit(string $method, int $txId,
                                       array $resourceIds): void {
-        self::updateCollectionExtent($txId, $resourceIds);
+        // current state database handler
+        $pdo = new PDO(RC::$config->dbConnStr->admin);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->beginTransaction();
+
+        self::updateCollectionExtent($pdo, $txId, $resourceIds);
+
+        $pdo->commit();
     }
 
     static private function maintainPid(Resource $meta): void {
         $cfg     = RC::$config->doorkeeper->epicPid;
         $idProp  = RC::$config->schema->id;
-        $pidProp = RC::$config->schema->pid;
+        $pidProp = RC::$config->schema->acdh->pid;
         $curPid  = null;
         foreach ($meta->allResources($idProp) as $i) {
             if (strpos((string) $i, $cfg->resolver) === 0) {
@@ -99,19 +108,19 @@ class Doorkeeper {
         if ($meta->getLiteral($pidProp)) {
             if ($curPid === null) {
                 if ($cfg->pswd === '') {
-                    RC::$log->info('  skipping PID generation - no EPIC password provided');
+                    RC::$log->info("\t\tskipping PID generation - no EPIC password provided");
                     return;
                 }
                 $meta->delete($pidProp);
                 $ps  = new HandleService($c->url, $cfg->prefix, $cfg->user, $cfg->pswd);
                 $pid = $ps->create($meta->getUri());
                 $pid = str_replace($c->url, $cfg->resolver, $pid);
-                RC::$log->info('  registered PID ' . $pid . ' pointing to ' . $meta->getUri());
+                RC::$log->info("\t\tregistered PID $pid pointing to " . $meta->getUri());
                 $meta->addResource($pidProp, $pid);
             } else {
                 $meta->delete($pidProp);
                 $meta->addResource($pidProp, $curPid);
-                RC::$log->info('  recreating PID ' . $curPid . ' pointing to ' . $meta->getUri());
+                RC::$log->info("\t\trecreating PID $curPid pointing to " . $meta->getUri());
             }
         }
         // promote PIDs to IDs
@@ -125,12 +134,18 @@ class Doorkeeper {
     }
 
     static private function maintainHosting(Resource $meta): void {
-        $prop  = RC::$config->schema->hosting;
+        $prop  = RC::$config->schema->acdh->hosting;
         $value = $meta->getResource($prop);
         if ($value === null) {
             $meta->addResource($prop, RC::$config->doorkeeper->default->hosting);
-            RC::$log->info('  ' . $prop . ' added');
+            RC::$log->info("\t\t$prop added");
         }
+    }
+
+    static private function maintainBinarySize(Resource $meta): void {
+        $prop  = RC::$config->schema->acdh->binarySize;
+        $meta->delete($prop);
+        $meta->add($prop, $meta->getLiteral(RC::$config->schema->binarySize));
     }
 
     static private function maintainAccessRestriction(Resource $meta): void {
@@ -141,7 +156,7 @@ class Doorkeeper {
             return;
         }
 
-        $prop      = RC::$config->schema->accessRestriction;
+        $prop      = RC::$config->schema->acdh->accessRestriction;
         $resources = $meta->allResources($prop);
         $literals  = $meta->allLiterals($prop);
         $allowed   = [
@@ -155,7 +170,7 @@ class Doorkeeper {
             $default = RC::$config->doorkeeper->default->accessRestriction;
             $meta->delete($prop);
             $meta->addResource($prop, $default);
-            RC::$log->info('  ' . $prop . ' = ' . $default . ' added');
+            RC::$log->info("\t\t$prop = $default added");
         }
     }
 
@@ -174,35 +189,31 @@ class Doorkeeper {
      * @param \EasyRdf\Resource $meta repository resource's metadata
      */
     static public function maintainAccessRights(Resource $meta): void {
-        $accessRestr = (string) $meta->getResource(RC::$config->schema->accessRestriction);
+        $accessRestr = (string) $meta->getResource(RC::$config->schema->acdh->accessRestriction);
         if (empty($accessRestr)) {
             return;
         }
 
-        RC::$log->info('  maintaining access rights');
+        RC::$log->info("\t\tmaintaining access rights");
         $propRead     = RC::$config->accessControl->schema->read;
-        $propWrite    = RC::$config->accessControl->schema->write;
-        $propRoles    = RC::$config->schema->accessRole;
+        $propRoles    = RC::$config->schema->acdh->accessRole;
         $rolePublic   = RC::$config->doorkeeper->rolePublic;
         $roleAcademic = RC::$config->doorkeeper->roleAcademic;
 
-        $meta->delete($propWrite, $rolePublic);
-        $meta->delete($propWrite, $roleAcademic);
-
         if ($accessRestr === 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public') {
             $meta->addLiteral($propRead, $rolePublic);
-            RC::$log->info('    public');
+            RC::$log->info("\t\t\t\tpublic");
         } else {
             $meta->delete($propRead, $rolePublic);
             if ($accessRestr === 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic') {
                 $meta->addLiteral($propRead, $roleAcademic);
-                RC::$log->info('    academic');
+                RC::$log->info("\t\t\t\tacademic");
             } else {
                 $meta->delete($propRead, $roleAcademic);
                 foreach ($meta->all($propRoles) as $role) {
                     $meta->addLiteral($propRead, $role);
                 }
-                RC::$log->info('    restricted');
+                RC::$log->info("\t\t\t\trestricted");
             }
         }
     }
@@ -224,20 +235,18 @@ class Doorkeeper {
                 if ($range === RDF::XSD_STRING) {
                     $meta->delete($prop, $l);
                     $meta->addLiteral($prop, (string) $l);
-                    RC::$log->info('    casting ' . $prop . ' value from ' . $type . ' to string');
-                } elseif ($type === RDF::XSD_STRING) {
+                    RC::$log->info("\t\tcasting $prop value from $type to string");
+                } else {
                     try {
                         $value = self::castLiteral($l, $range);
                         $meta->delete($prop, $l);
                         $meta->addLiteral($prop, $value);
-                        RC::$log->info('    casting ' . $prop . ' value from ' . $type . ' to ' . $range);
+                        RC::$log->info("\t\tcasting $prop value from $type to $range");
                     } catch (RuntimeException $ex) {
                         RC::$log->info('    ' . $ex->getMessage());
                     } catch (DoorkeeperException $ex) {
                         throw new DoorkeeperException('property ' . $prop . ': ' . $ex->getMessage(), $ex->getCode(), $ex);
                     }
-                } else {
-                    RC::$log->info('    unknown type: ' . $type);
                 }
             }
         }
@@ -255,7 +264,7 @@ class Doorkeeper {
             if ($std !== (string) $id) {
                 $meta->deleteResource($idProp, $ids);
                 $meta->addResource($idProp, $std);
-                RC::$log->info("  id URI $ids standardized to $std");
+                RC::$log->info("\t\tid URI $ids standardized to $std");
             }
         }
     }
@@ -387,97 +396,116 @@ class Doorkeeper {
         }
 
         // if we are here, the title has to be updated
-        RC::$log->info("    setting title to $title");
+        RC::$log->info("\t\tsetting title to $title");
         $meta->delete($titleProp);
         $meta->addLiteral($titleProp, $title);
     }
 
-    static private function updateCollectionExtent(int $txId, array $resourceIds): void {
-        return;
-        $relProp   = RC::$config->schema->parent;
-        $extProp   = RC::$config->schema->extent;
-        $countProp = RC::$config->schema->count;
+    static private function updateCollectionExtent(PDO $pdo, int $txId,
+                                                   array $resourceIds): void {
+        $sizeProp      = RC::$config->schema->binarySize;
+        $acdhSizeProp  = RC::$config->schema->acdh->binarySize;
+        $acdhCountProp = RC::$config->schema->acdh->count;
 
-        RC::$log->info('  Updating size of collections affected by the transaction');
+        RC::$log->info("\t\tUpdating size of collections affected by the transaction");
 
+        $query  = $pdo->prepare("
+            SELECT id 
+            FROM resources 
+            WHERE transaction_id = ?
+        ");
+        $query->execute([$txId]);
+        $resIds = $query->fetchAll(PDO::FETCH_COLUMN);
+
+        // find all pre-transaction parents of resources affected by the current transaction
+        if (count($resIds) > 0) {
+            $pdoOld    = RC::$transaction->getPreTransactionDbHandle();
+            $query     = "
+            WITH RECURSIVE t(id, n) AS (
+                SELECT * FROM (VALUES %ids%) t1
+              UNION
+                SELECT target_id, n + 1
+                FROM t JOIN relations USING (id)
+                WHERE property = ?
+            )
+            SELECT DISTINCT id FROM t WHERE n > 0
+        ";
+            $query     = str_replace('%ids%', substr(str_repeat('(?::bigint, 0), ', count($resIds)), 0, -2), $query);
+            $query     = $pdoOld->prepare($query);
+            $query->execute(array_merge($resIds, [RC::$config->schema->parent]));
+            $parentIds = $query->fetchAll(PDO::FETCH_COLUMN);
+        } else {
+            $parentIds = [];
+        }
+
+        // find all affected parents (gr, pp), then find all the children (ch) and their size (chm)
+        // finaly group by parent and compute their size 
         $query = "
             CREATE TEMPORARY TABLE _collsizeupdate AS
-            WITH
-                RECURSIVE r(id, trid) AS (
-                    SELECT id, id FROM resources WHERE transaction_id = ?
-                  UNION
-                    SELECT target_id, trid
-                    FROM 
-                        relations 
-                        JOIN r USING (id)
-                    WHERE
-                        property = ?
-                ),
-                d AS (
-                    SELECT 
-                        id, 
-                        coalesce(cur::bigint, 0) - coalesce(prev::bigint, 0) AS sizediff,
-                        (prev IS NULL)::int - (cur IS NULL)::int AS countdiff
-                    FROM (
-                        SELECT
-                            id,
-                            first_value(mh.value) OVER (PARTITION BY id ORDER BY date) AS prev,
-                            m.value AS cur
-                        FROM 
-                            transactions t
-                            JOIN resources r USING (transaction_id)
-                            LEFT JOIN metadata_history mh USING (id)
-                            LEFT JOIN metadata m USING (id)
-                        WHERE
-                            transaction_id = ?
-                            AND (mh.property = ? AND mh.date >= t.started OR mh.id IS NULL)
-                            AND (m.property = ? OR m.id IS NULL)
-                    ) d1
-                )
-            SELECT id, ? AS property, m.value, coalesce(m.value::bigint, 0) + sizediff AS newval
-            FROM 
-                r 
-                JOIN d USING (trid)
-                LEFT JOIN metadata m USING (id)
-            WHERE
-                (m.property = ? OR m.id IS NULL)
-          UNION
-            SELECT id, ? AS property, m.value, coalesce(m.value::bigint, 0) + countdiff
-            FROM 
-                r 
-                JOIN d USING (trid)
-                LEFT JOIN metadata m USING (id)
-            WHERE
-                (m.property = ? OR m.id IS NULL)
+            SELECT 
+                p.id, 
+                coalesce(sum(CASE ra.state = ? WHEN true THEN chm.value_n ELSE 0 END), 0) AS size, 
+                greatest(sum((ra.state = 'active')::int) - 1, 0) AS count
+            FROM
+                (
+                    SELECT DISTINCT gr.id
+                    FROM resources r, LATERAL get_relatives(r.id, ?, 0) gr
+                    WHERE r.transaction_id = ?
+                  " . (count($parentIds) > 0 ? "UNION SELECT * FROM (VALUES %ids%) pp" : "") . "
+                ) p,
+                LATERAL get_relatives(p.id, ?, 999999, 0) ch
+                LEFT JOIN resources ra ON ra.id = ch.id
+                LEFT JOIN metadata chm ON chm.id = ch.id AND chm.property = ?
+            GROUP BY 1
         ";
-        $param = [
-            $txId, $relProp, // r table
-            $txId, $extProp, $extProp, // d table
-            $extProp, $extProp, $countProp, $countProp, // final select
-        ];
-        $query = RC::$pdo->prepare($query);
+        $query = str_replace('%ids%', substr(str_repeat('(?::bigint), ', count($parentIds)), 0, -2), $query);
+        $param = array_merge(
+            [Res::STATE_ACTIVE, RC::$config->schema->parent, $txId], // case in main select, gr, r
+            $parentIds,
+            [RC::$config->schema->parent, $sizeProp]// p, ch, chm
+        );
+        $query = $pdo->prepare($query);
         $query->execute($param);
 
-        RC::$pdo->query("
-            INSERT INTO metadata_history (id, property, type, lang, value)
-            SELECT id, property, type, lang, m.value
+        // try to lock resources to be updated
+        $query  = $pdo->prepare("
+            UPDATE resources SET transaction_id = ? 
+            WHERE id IN (SELECT id FROM _collsizeupdate) AND transaction_id IS NULL
+        ");
+        $query->execute([$txId]);
+        $query  = $pdo->prepare("
+            SELECT 
+                count(*) AS all, 
+                coalesce(sum((transaction_id = ?)::int), 0) AS locked
             FROM 
-                metadata m
-                JOIN _collsizeupdate USING (id, property)
+                _collsizeupdate
+                JOIN resources r USING (id)
         ");
-        RC::$pdo->query("
-            DELETE FROM metadata WHERE (id, property) IN (SELECT id, property FROM _collsizeupdate)
-        ");
-        $query = RC::$pdo->prepare("
-            INSERT INTO metadata (id, property, type, lang, value_n, value)
-            SELECT id, property, ?, '', newval, newval FROM _collsizeupdate
-        ");
-        $query->execute([RDF::XSD_DECIMAL]);
+        $query->execute([$txId]);
+        $result = $query->fetch(PDO::FETCH_OBJ);
+        if ($result !== false && $result->all !== $result->locked) {
+            $msg = "Some resources locked by another transaction (" . ($result->all - $result->locked) . " out of " . $result->all . ")";
+            throw new DoorkeeperException($msg, 409);
+        }
 
-        $query = RC::$pdo->query("
-            SELECT json_agg(row_to_json(c)) FROM _collsizeupdate c;
+        // remove old values
+        $query = $pdo->prepare("
+            DELETE FROM metadata WHERE id IN (SELECT id FROM _collsizeupdate) AND property IN (?, ?)
         ");
-        RC::$log->debug('    ' . $query->fetchColumn());
+        $query->execute([$acdhSizeProp, $acdhCountProp]);
+        // insert new values
+        $query = $pdo->prepare("
+            INSERT INTO metadata (id, property, type, lang, value_n, value)
+                SELECT id, ?, ?, '', size, size FROM _collsizeupdate
+              UNION
+                SELECT id, ?, ?, '', count, count FROM _collsizeupdate
+        ");
+        $query->execute([$acdhSizeProp, RDF::XSD_DECIMAL, $acdhCountProp, RDF::XSD_DECIMAL]);
+
+        $query = $pdo->query("
+            SELECT json_agg(row_to_json(c)) FROM (SELECT * FROM _collsizeupdate) c
+        ");
+        RC::$log->debug("\t\t\tupdated resources: " . $query->fetchColumn());
     }
 
     static private function loadOntology(): void {

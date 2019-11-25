@@ -52,6 +52,9 @@ class Bootstrap implements AfterLastTestHook, BeforeFirstTestHook {
 
         $localCfg                              = yaml_parse_file(__DIR__ . '/../config-sample.yaml');
         $restCfg                               = yaml_parse_file($this->config->doorkeeper->restConfigSrcPath);
+        foreach ($localCfg['schema'] as $k => $v){
+            unset($restCfg['schema'][$k]); // array_merge_recursive turns ['a' => 'x'], ['a' => 'y'] into ['a' => ['x', 'y']] and we want ['a' => 'y']
+        }
         $cfg                                   = array_merge_recursive($restCfg, $localCfg);
         // use admin user from the rest config
         $clientAuthCfg                         = [

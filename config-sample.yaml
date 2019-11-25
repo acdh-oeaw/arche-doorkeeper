@@ -22,14 +22,15 @@ rest:
                 - type: function
                   function: \acdhOeaw\arche\Doorkeeper::onTxCommit
 schema:
-    pid: 'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'
-    hosting: 'https://vocabs.acdh.oeaw.ac.at/schema#hasHosting'
-    availableDate: 'https://vocabs.acdh.oeaw.ac.at/schema#hasAvailableDate'
-    extent: 'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'
-    format: 'https://vocabs.acdh.oeaw.ac.at/schema#hasFormat'
-    accessRestriction: 'https://vocabs.acdh.oeaw.ac.at/schema#hasAccessRestriction'
-    accessRole: 'https://vocabs.acdh.oeaw.ac.at/schema#hasRestrictionRole'
-    count: 'https://vocabs.acdh.oeaw.ac.at/schema#hasNumberOfItems'
+    creationDate: 'https://vocabs.acdh.oeaw.ac.at/schema#hasAvailableDate'
+    mime: 'https://vocabs.acdh.oeaw.ac.at/schema#hasFormat'
+    acdh:
+        binarySize: 'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'
+        pid: 'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'
+        hosting: 'https://vocabs.acdh.oeaw.ac.at/schema#hasHosting'
+        accessRestriction: 'https://vocabs.acdh.oeaw.ac.at/schema#hasAccessRestriction'
+        accessRole: 'https://vocabs.acdh.oeaw.ac.at/schema#hasRestrictionRole'
+        count: 'https://vocabs.acdh.oeaw.ac.at/schema#hasNumberOfItems'
     classes:
         repoObject: 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject'
         sharedObject: 'https://vocabs.acdh.oeaw.ac.at/schema#AgentOrPlaceOrPublication'
