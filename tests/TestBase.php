@@ -28,6 +28,8 @@ namespace acdhOeaw\arche;
 
 use PDO;
 use EasyRdf\Graph;
+use EasyRdf\Literal;
+use EasyRdf\Literal\Date;
 use EasyRdf\Resource;
 use zozlak\RdfConstants as RDF;
 use acdhOeaw\acdhRepoLib\Repo;
@@ -59,7 +61,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
         $localCfg       = yaml_parse_file(__DIR__ . '/../config-sample.yaml');
         self::$config   = json_decode(json_encode(yaml_parse_file($localCfg['doorkeeper']['restConfigDstPath'])));
         self::$repo     = Repo::factory(self::$config->doorkeeper->restConfigDstPath);
-        self::$ontology = new Ontology(new PDO(self::$config->dbConnStr->admin), self::$config->schema->namespaces->ontology .'%');
+        self::$ontology = new Ontology(new PDO(self::$config->dbConnStr->admin), self::$config->schema->namespaces->ontology . '%');
     }
 
     /**
@@ -132,17 +134,39 @@ class TestBase extends \PHPUnit\Framework\TestCase {
             $r->addResource(RDF::RDF_TYPE, $class);
             $class = self::$ontology->getClass($class);
             foreach ($class->properties as $i) {
-                if ($i->min > 0 && count($r->get($i->property)) === 0) {
-                    if ($i->type === RDF::OWL_DATATYPE_PROPERTY) {
-                        $r->addLiteral($i->property, 'sample');
-                    } else {
-                        $r->addResource($i->property, 'https://sample');
-                    }
+                if ($i->min > 0 && $r->get($i->property) === null) {
+                    $r->add($i->property, self::createSampleProperty($i));
                 }
             }
         }
 
         return $r;
+    }
+
+    static protected function createSampleProperty(PropertyDesc $i) {
+        if ($i->type === RDF::OWL_DATATYPE_PROPERTY) {
+            switch ($i->range) {
+                case RDF::XSD_DECIMAL:
+                case RDF::XSD_BYTE;
+                case RDF::XSD_DOUBLE;
+                case RDF::XSD_FLOAT;
+                case RDF::XSD_INT;
+                case RDF::XSD_INTEGER;
+                case RDF::XSD_NON_NEGATIVE_INTEGER;
+                case RDF::XSD_POSITIVE_INTEGER;
+                    return new Literal(123);
+                case RDF::XSD_NON_POSITIVE_INTEGER;
+                case RDF::XSD_NEGATIVE_INTEGER;
+                    return new Literal(-321);
+                case RDF::XSD_DATE:
+                case RDF::XSD_DATE_TIME:
+                    return new Date('2019-01-01');
+                default:
+                    return new Literal('sample');
+            }
+        } else {
+            return new Resource('https://sample');
+        }
     }
 
 }

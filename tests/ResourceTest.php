@@ -153,7 +153,7 @@ class ResourceTest extends TestBase {
         $this->assertEquals('2017-01-01', (string) $date);
 
         $int = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize');
-        $this->assertEquals(RDF::XSD_BYTE, $int->getDatatypeUri());
+        $this->assertEquals(RDF::XSD_NON_NEGATIVE_INTEGER, $int->getDatatypeUri());
         $this->assertEquals(300, $int->getValue());
 
         $str = $om->getLiteral('https://other/property');
@@ -178,11 +178,7 @@ class ResourceTest extends TestBase {
         $class = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         foreach ($class->properties as $i) {
             if ($i->min > 0) {
-                if ($i->type === RDF::OWL_DATATYPE_PROPERTY) {
-                    $im->addLiteral($i->property, 'sample');
-                } else {
-                    $im->addResource($i->property, 'https://sample');
-                }
+                $im->add($i->property, self::createSampleProperty($i));
             }
         }
         $r = self::$repo->createResource($im);
@@ -190,19 +186,18 @@ class ResourceTest extends TestBase {
     }
 
     public function testDefaultProperties(): void {
-        $accessRestProp = self::$config->schema->acdh->accessRestriction;
-        $im    = self::createMetadata([
+        $accessRestProp   = self::$config->schema->acdh->accessRestriction;
+        $creationDateProp = self::$config->schema->creationDate;
+        $im               = self::createMetadata([
                 RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject',
         ]);
-        $skip  = [self::$config->schema->acdh->hosting, $accessRestProp];
-        $class = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+        $skip             = [
+            self::$config->schema->acdh->hosting, $accessRestProp, $creationDateProp
+        ];
+        $class            = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
         foreach ($class->properties as $i) {
             if ($i->min > 0 && !in_array($i->property, $skip)) {
-                if ($i->type === RDF::OWL_DATATYPE_PROPERTY) {
-                    $im->addLiteral($i->property, 'sample');
-                } else {
-                    $im->addResource($i->property, 'https://sample');
-                }
+                $im->add($i->property, self::createSampleProperty($i));
             }
         }
         self::$repo->begin();
@@ -215,7 +210,7 @@ class ResourceTest extends TestBase {
         $rar = new RepoResource((string) $rm->get($accessRestProp), self::$repo);
         $this->assertContains(self::$config->doorkeeper->default->accessRestriction, $rar->getIds());
 
-        $this->assertEquals(date('Y-m-d'), substr($rm->getLiteral(self::$config->schema->creationDate), 0, 10));
+        $this->assertEquals(date('Y-m-d'), substr($rm->getLiteral($creationDateProp), 0, 10));
         $this->assertEquals('text/plain', (string) $rm->getLiteral(self::$config->schema->mime));
         $this->assertEquals('7', (string) $rm->getLiteral(self::$config->schema->acdh->binarySize));
     }
@@ -233,13 +228,13 @@ class ResourceTest extends TestBase {
 
     public function testAccessRightsAcademic(): void {
         $accessRestProp = self::$config->schema->acdh->accessRestriction;
-        $im = self::createMetadata([
+        $im             = self::createMetadata([
                 $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
                 ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
         self::$repo->begin();
-        $r  = self::$repo->createResource($im);
-        $om = $r->getGraph();
-        $ar = new RepoResource((string) $om->getResource($accessRestProp), self::$repo);
+        $r              = self::$repo->createResource($im);
+        $om             = $r->getGraph();
+        $ar             = new RepoResource((string) $om->getResource($accessRestProp), self::$repo);
         $this->assertContains('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic', $ar->getIds());
         $this->assertContains(self::$config->doorkeeper->roleAcademic, self::toStr($om->all(self::$config->accessControl->schema->read)));
         $this->assertNotContains(self::$config->doorkeeper->roleAcademic, self::toStr($om->all(self::$config->accessControl->schema->write)));
@@ -253,14 +248,14 @@ class ResourceTest extends TestBase {
 
     public function testAccessRightsRestricted(): void {
         $accessRestProp = self::$config->schema->acdh->accessRestriction;
-        $im = self::createMetadata([
-                $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
-                self::$config->schema->acdh->accessRole        => 'foo',
+        $im             = self::createMetadata([
+                $accessRestProp                         => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
+                self::$config->schema->acdh->accessRole => 'foo',
                 ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
         self::$repo->begin();
-        $r  = self::$repo->createResource($im);
-        $om = $r->getGraph();
-        $ar = new RepoResource((string) $om->getResource($accessRestProp), self::$repo);
+        $r              = self::$repo->createResource($im);
+        $om             = $r->getGraph();
+        $ar             = new RepoResource((string) $om->getResource($accessRestProp), self::$repo);
         $this->assertContains('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted', $ar->getIds());
         $this->assertNotContains(self::$config->doorkeeper->rolePublic, self::toStr($om->all(self::$config->accessControl->schema->read)));
         $this->assertNotContains(self::$config->doorkeeper->roleAcademic, self::toStr($om->all(self::$config->accessControl->schema->write)));
@@ -283,7 +278,7 @@ class ResourceTest extends TestBase {
      */
     public function testAccessRightsRise(): void {
         $accessRestProp = self::$config->schema->acdh->accessRestriction;
-        $client = new Client(['http_errors' => false]);
+        $client         = new Client(['http_errors' => false]);
 
         $im = self::createMetadata([
                 $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
@@ -316,7 +311,7 @@ class ResourceTest extends TestBase {
      */
     public function testAccessRightsLower(): void {
         $accessRestrProp = self::$config->schema->acdh->accessRestriction;
-        $client = new Client(['http_errors' => false]);
+        $client          = new Client(['http_errors' => false]);
 
         $im = self::createMetadata([
                 $accessRestrProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public',
