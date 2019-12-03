@@ -15,7 +15,7 @@
         "acdh-oeaw/acdh-repo": "*",
         "acdh-oeaw/epic-handle": "*",
         "acdh-oeaw/uri-normalizer": "*",
-        "acdh-oeaw/arche-ontology-api": "*",
+        "acdh-oeaw/arche-ontology-api": ">=0.4",
         "zozlak/rdf-constants": ">=0.2.0"
     },
     "autoload": {
