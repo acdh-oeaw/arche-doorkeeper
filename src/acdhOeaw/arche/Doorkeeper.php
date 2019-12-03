@@ -107,12 +107,12 @@ class Doorkeeper {
         }
         if ($meta->getLiteral($pidProp)) {
             if ($curPid === null) {
-                if ($cfg->pswd === '') {
+                if (empty($cfg->pswd)) {
                     RC::$log->info("\t\tskipping PID generation - no EPIC password provided");
                     return;
                 }
                 $meta->delete($pidProp);
-                $ps  = new HandleService($c->url, $cfg->prefix, $cfg->user, $cfg->pswd);
+                $ps  = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
                 $pid = $ps->create($meta->getUri());
                 $pid = str_replace($c->url, $cfg->resolver, $pid);
                 RC::$log->info("\t\tregistered PID $pid pointing to " . $meta->getUri());
