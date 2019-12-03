@@ -53,7 +53,7 @@ class Doorkeeper {
 
     /**
      *
-     * @var type \acdhOeaw\arche\Ontology
+     * @var \acdhOeaw\arche\Ontology
      */
     static private $ontology;
 
@@ -408,7 +408,7 @@ class Doorkeeper {
         $acdhCountProp = RC::$config->schema->acdh->count;
 
         RC::$log->info("\t\tUpdating size of collections affected by the transaction");
-
+        
         $query  = $pdo->prepare("
             SELECT id 
             FROM resources 
@@ -510,7 +510,7 @@ class Doorkeeper {
 
     static private function loadOntology(): void {
         if (self::$ontology === null) {
-            self::$ontology = new Ontology(RC::$pdo, RC::$config->schema->namespaces->ontology . '%');
+            self::$ontology = new Ontology(RC::$pdo, RC::getBaseUrl() . '%');
         }
     }
 

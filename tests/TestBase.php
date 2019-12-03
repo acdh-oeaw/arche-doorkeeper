@@ -61,7 +61,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
         $localCfg       = yaml_parse_file(__DIR__ . '/../config-sample.yaml');
         self::$config   = json_decode(json_encode(yaml_parse_file($localCfg['doorkeeper']['restConfigDstPath'])));
         self::$repo     = Repo::factory(self::$config->doorkeeper->restConfigDstPath);
-        self::$ontology = new Ontology(new PDO(self::$config->dbConnStr->admin), self::$config->schema->namespaces->ontology . '%');
+        self::$ontology = new Ontology(new PDO(self::$config->dbConnStr->admin), self::$repo->getBaseUrl() . '%');
     }
 
     /**
