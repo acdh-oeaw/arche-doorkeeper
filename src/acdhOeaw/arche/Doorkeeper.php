@@ -128,6 +128,7 @@ class Doorkeeper {
         foreach ($meta->allResources($pidProp) as $i) {
             $i = (string) $i;
             if (!in_array($i, $ids)) {
+                RC::$log->info("\t\tpromoting PID $i to an id");
                 $meta->addResource($idProp, $i);
             }
         }
