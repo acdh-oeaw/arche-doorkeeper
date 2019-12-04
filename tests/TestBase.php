@@ -112,7 +112,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
             $r->addResource($idProp, 'https://random/' . microtime(true));
         }
         if (!isset($props[$labelProp])) {
-            $r->addLiteral($labelProp, 'Sample label');
+            $r->addLiteral($labelProp, 'Sample label', 'en');
         }
 
         foreach ($props as $p => $i) {
@@ -125,7 +125,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
                 } elseif (preg_match('|^https?://.|', $v)) {
                     $r->addResource($p, $v);
                 } else {
-                    $r->addLiteral($p, $v);
+                    $r->addLiteral($p, $v, 'en');
                 }
             }
         }

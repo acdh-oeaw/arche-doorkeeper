@@ -78,6 +78,7 @@ class Doorkeeper {
         self::checkCardinalities($meta);
         self::checkIdCount($meta);
         self::checkTitleProp($meta);
+        self::checkLanguage($meta);
 
         return $meta;
     }
@@ -144,7 +145,7 @@ class Doorkeeper {
     }
 
     static private function maintainBinarySize(Resource $meta): void {
-        $prop  = RC::$config->schema->acdh->binarySize;
+        $prop = RC::$config->schema->acdh->binarySize;
         $meta->delete($prop);
         $meta->add($prop, $meta->getLiteral(RC::$config->schema->binarySize));
     }
@@ -270,6 +271,36 @@ class Doorkeeper {
         }
     }
 
+    static private function checkLanguage(Resource $meta): void {
+        $toCheck = [
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasTitle',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasAlternativeTitle',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasDescription',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasTechnicalInfo',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasAppliedMethodDescription',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasExtent',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasArrangement',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasNamingScheme',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasCompleteness',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasEditorialPractice',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasSeriesInformation',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasTableOfContents',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasNote',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasTemporalCoverage',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasCity',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasCountry',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasRegion',
+        ];
+        foreach ($toCheck as $prop) {
+            foreach ($meta->allLiterals($prop) as $value) {
+                /* @var $value \EasyRdf\Literal */
+                if (empty($value->getLang())) {
+                    throw new DoorkeeperException("Property $prop with value " . (string) $value . " is not tagged with a language");
+                }
+            }
+        }
+    }
+
     /**
      * Checks property cardinalities according to the ontology.
      * 
@@ -345,20 +376,9 @@ class Doorkeeper {
      * @throws DoorkeeperException
      */
     static private function checkTitleProp(Resource $meta): void {
-        $searchProps = [
-            'http://purl.org/dc/elements/1.1/title',
-            'http://purl.org/dc/terms/title',
-            'http://www.w3.org/2004/02/skos/core#prefLabel',
-            'http://www.w3.org/2000/01/rdf-schema#label',
-            'http://xmlns.com/foaf/0.1/name',
-        ];
-        $titleProp   = RC::$config->schema->label;
+        $titleProp = RC::$config->schema->label;
 
-        // special case acdh:hasFirstName and acdh:hasLastName
-        $first = $meta->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName');
-        $last  = $meta->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasLastName');
-        $title = trim((string) $first . ' ' . (string) $last);
-
+        // check existing titles
         $titles = $meta->allLiterals($titleProp);
         $langs  = [];
         foreach ($titles as $i) {
@@ -371,35 +391,48 @@ class Doorkeeper {
             }
             $langs[$lang] = '';
         }
-        if (count($titles) > 0 && ($title === '' || (string) $titles[0] === $title)) {
+        if (count($titles) > 0) {
             return;
         }
 
-        if (empty($title)) {
-            // no direct hit - search for candidates
-            foreach ($searchProps as $prop) {
-                $matches = $meta->allLiterals($prop);
-                if (count($matches) > 0 && trim($matches[0]) !== '') {
-                    $title = trim((string) $matches[0]);
+        // try to create a title if it's missing
+        $searchProps = [
+            [
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName',
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasLastName',
+            ],
+            [
+                'http://xmlns.com/foaf/0.1/givenName',
+                'http://xmlns.com/foaf/0.1/familyName',
+            ],
+            ['http://purl.org/dc/elements/1.1/title'],
+            ['http://purl.org/dc/terms/title'],
+            ['http://www.w3.org/2004/02/skos/core#prefLabel'],
+            ['http://www.w3.org/2000/01/rdf-schema#label'],
+            ['http://xmlns.com/foaf/0.1/name'],
+        ];
+        $langs       = [];
+        foreach ($searchProps as $parts) {
+            foreach ($parts as $prop) {
+                foreach ($meta->allLiterals($prop) as $value) {
+                    $lang         = $value->getLang();
+                    $langs[$lang] = ($langs[$lang] ?? '') . ' ' . (string) $value;
                 }
             }
         }
 
-        // special case - foaf:givenName and foaf:familyName
-        if ($title === '') {
-            $given  = $meta->getLiteral('http://xmlns.com/foaf/0.1/givenName');
-            $family = $meta->getLiteral('http://xmlns.com/foaf/0.1/familyName');
-            $title  = trim((string) $given . ' ' . (string) $family);
+        $count = 0;
+        foreach ($langs as $lang => $title) {
+            $title = trim($title);
+            if (!empty($title)) {
+                RC::$log->info("\t\tsetting title to $title");
+                $meta->addLiteral($titleProp, $title, $lang);
+                $count++;
+            }
         }
-
-        if (empty($title)) {
+        if ($count === 0) {
             throw new DoorkeeperException("$titleProp is missing");
         }
-
-        // if we are here, the title has to be updated
-        RC::$log->info("\t\tsetting title to $title");
-        $meta->delete($titleProp);
-        $meta->addLiteral($titleProp, $title);
     }
 
     static private function updateCollectionExtent(PDO $pdo, int $txId,
@@ -409,7 +442,7 @@ class Doorkeeper {
         $acdhCountProp = RC::$config->schema->acdh->count;
 
         RC::$log->info("\t\tUpdating size of collections affected by the transaction");
-        
+
         $query  = $pdo->prepare("
             SELECT id 
             FROM resources 

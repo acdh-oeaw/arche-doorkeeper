@@ -62,7 +62,7 @@ class ResourceTest extends TestBase {
 
         $im = (new Graph())->resource('.');
         $im->addResource($prop, $nmsp . '/foo');
-        $im->addLiteral($label, 'bar');
+        $im->addLiteral($label, 'bar', 'en');
         self::$repo->begin();
         $r  = self::$repo->createResource($im);
         $this->assertIsObject($r);
@@ -71,7 +71,7 @@ class ResourceTest extends TestBase {
         $im = (new Graph())->resource('.');
         $im->addResource($prop, $nmsp . '/foo');
         $im->addResource($prop, $nmsp . '/bar');
-        $im->addLiteral($label, 'bar');
+        $im->addLiteral($label, 'bar', 'en');
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
@@ -86,7 +86,7 @@ class ResourceTest extends TestBase {
         $im = (new Graph())->resource('.');
         $im->addResource($prop, $nmsp . '/foo');
         $im->addResource($prop, 'https://my/id');
-        $im->addLiteral($label, 'bar');
+        $im->addLiteral($label, 'bar', 'en');
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
@@ -360,6 +360,15 @@ class ResourceTest extends TestBase {
         $r  = self::$repo->createResource($im);
         $this->assertEquals('foo bar', (string) $r->getGraph()->getLiteral($titleProp));
 
+
+        // combined from acdh:hasFirstName
+        $im = self::createMetadata([
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName' => 'foo'
+        ]);
+        $im->delete($titleProp);
+        $r  = self::$repo->createResource($im);
+        $this->assertEquals('foo', (string) $r->getGraph()->getLiteral($titleProp));
+        
         // combined from foaf:givenName and foaf:familyName
         $im = self::createMetadata([
                 'http://xmlns.com/foaf/0.1/givenName'  => 'foo',
@@ -372,7 +381,7 @@ class ResourceTest extends TestBase {
         // many titles
         $im     = (new Graph())->resource('.');
         $im->addResource(self::$config->schema->id, 'https://id/prop' . time() . rand());
-        $im->addLiteral($titleProp, new Literal('foo'));
+        $im->addLiteral($titleProp, new Literal('foo', 'en'));
         $im->addLiteral($titleProp, new Literal('bar', 'de'));
         $r      = self::$repo->createResource($im);
         $titles = self::toStr($r->getGraph()->allLiterals($titleProp));
@@ -392,7 +401,7 @@ class ResourceTest extends TestBase {
         // empty title
         $im = (new Graph())->resource('.');
         $im->addResource(self::$config->schema->id, 'https://id/prop' . time() . rand());
-        $im->addLiteral($titleProp, '');
+        $im->addLiteral($titleProp, '', 'en');
         try {
             self::$repo->createResource($im);
             $this->assertTrue(false);
