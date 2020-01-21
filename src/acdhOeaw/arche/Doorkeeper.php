@@ -386,10 +386,10 @@ class Doorkeeper {
             if (isset($langs[$lang])) {
                 throw new DoorkeeperException("more than one $titleProp property");
             }
-            if ((string) $i === '') {
+            if (empty((string) $i)) {
                 throw new DoorkeeperException("$titleProp value is empty");
             }
-            $langs[$lang] = '';
+            $langs[$lang] = (string) $i;
         }
         if (count($titles) > 0) {
             return;
