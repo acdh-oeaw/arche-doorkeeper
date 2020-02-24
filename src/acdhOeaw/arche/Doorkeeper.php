@@ -75,9 +75,9 @@ class Doorkeeper {
         self::maintainAccessRights($meta);
         self::maintainPropertyRange($meta);
         self::normalizeIds($meta);
+        self::checkTitleProp($meta); // before cardinalities check
         self::checkCardinalities($meta);
         self::checkIdCount($meta);
-        self::checkTitleProp($meta);
         self::checkLanguage($meta);
 
         return $meta;
@@ -458,7 +458,7 @@ class Doorkeeper {
             WITH RECURSIVE t(id, n) AS (
                 SELECT * FROM (VALUES %ids%) t1
               UNION
-                SELECT target_id, n + 1
+                SELECT target_id, 1
                 FROM t JOIN relations USING (id)
                 WHERE property = ?
             )
