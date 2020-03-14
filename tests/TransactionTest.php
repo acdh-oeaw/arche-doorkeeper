@@ -36,8 +36,8 @@ use acdhOeaw\acdhRepoLib\BinaryPayload;
 class TransactionTest extends TestBase {
 
     public function testCollectionExtent(): void {
-        $sizeProp  = self::$config->schema->acdh->binarySize;
-        $countProp = self::$config->schema->acdh->count;
+        $sizeProp  = self::$config->schema->binarySizeCumulative;
+        $countProp = self::$config->schema->countCumulative;
 
         self::$repo->begin();
         $rCol1          = self::$repo->createResource(self::createMetadata());
@@ -116,8 +116,8 @@ class TransactionTest extends TestBase {
 
     public function testCollectionExtent2(): void {
         // move between two independent collections
-        $sizeProp   = self::$config->schema->acdh->binarySize;
-        $countProp  = self::$config->schema->acdh->count;
+        $sizeProp   = self::$config->schema->binarySizeCumulative;
+        $countProp  = self::$config->schema->countCumulative;
         $parentProp = self::$config->schema->parent;
 
         self::$repo->begin();

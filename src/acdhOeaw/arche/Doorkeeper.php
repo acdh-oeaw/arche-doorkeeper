@@ -98,7 +98,7 @@ class Doorkeeper {
     static private function maintainPid(Resource $meta): void {
         $cfg     = RC::$config->doorkeeper->epicPid;
         $idProp  = RC::$config->schema->id;
-        $pidProp = RC::$config->schema->acdh->pid;
+        $pidProp = RC::$config->schema->pid;
         $curPid  = null;
         foreach ($meta->allResources($idProp) as $i) {
             if (strpos((string) $i, $cfg->resolver) === 0) {
@@ -136,7 +136,7 @@ class Doorkeeper {
     }
 
     static private function maintainHosting(Resource $meta): void {
-        $prop  = RC::$config->schema->acdh->hosting;
+        $prop  = RC::$config->schema->hosting;
         $value = $meta->getResource($prop);
         if ($value === null) {
             $meta->addResource($prop, RC::$config->doorkeeper->default->hosting);
@@ -145,7 +145,7 @@ class Doorkeeper {
     }
 
     static private function maintainBinarySize(Resource $meta): void {
-        $prop = RC::$config->schema->acdh->binarySize;
+        $prop = RC::$config->schema->binarySizeCumulative;
         $meta->delete($prop);
         $meta->add($prop, $meta->getLiteral(RC::$config->schema->binarySize));
     }
@@ -158,7 +158,7 @@ class Doorkeeper {
             return;
         }
 
-        $prop      = RC::$config->schema->acdh->accessRestriction;
+        $prop      = RC::$config->schema->accessRestriction;
         $resources = $meta->allResources($prop);
         $literals  = $meta->allLiterals($prop);
         $allowed   = [
@@ -191,14 +191,14 @@ class Doorkeeper {
      * @param \EasyRdf\Resource $meta repository resource's metadata
      */
     static public function maintainAccessRights(Resource $meta): void {
-        $accessRestr = (string) $meta->getResource(RC::$config->schema->acdh->accessRestriction);
+        $accessRestr = (string) $meta->getResource(RC::$config->schema->accessRestriction);
         if (empty($accessRestr)) {
             return;
         }
 
         RC::$log->info("\t\tmaintaining access rights");
         $propRead     = RC::$config->accessControl->schema->read;
-        $propRoles    = RC::$config->schema->acdh->accessRole;
+        $propRoles    = RC::$config->schema->accessRole;
         $rolePublic   = RC::$config->doorkeeper->rolePublic;
         $roleAcademic = RC::$config->doorkeeper->roleAcademic;
 
@@ -256,7 +256,7 @@ class Doorkeeper {
 
     static private function normalizeIds(Resource $meta): void {
         if (self::$uriNorm === null) {
-            self::$uriNorm = new UriNormalizer((array) RC::$config->doorkeeper->uriMappings);
+            self::$uriNorm = new UriNormalizer((array) RC::$config->doorkeeper->uriNorm);
         }
 
         $idProp = RC::$config->schema->id;
@@ -438,8 +438,8 @@ class Doorkeeper {
     static private function updateCollectionExtent(PDO $pdo, int $txId,
                                                    array $resourceIds): void {
         $sizeProp      = RC::$config->schema->binarySize;
-        $acdhSizeProp  = RC::$config->schema->acdh->binarySize;
-        $acdhCountProp = RC::$config->schema->acdh->count;
+        $acdhSizeProp  = RC::$config->schema->binarySizeCumulative;
+        $acdhCountProp = RC::$config->schema->countCumulative;
 
         RC::$log->info("\t\tUpdating size of collections affected by the transaction");
 
