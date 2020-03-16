@@ -1,5 +1,5 @@
 {
-    "name": "acdh-oeaw/acdh-repo-doorkeeper",
+    "name": "acdh-oeaw/arche-doorkeeper",
     "description": "Doorkeeping handlers for the ARCHE",
     "keywords": [],
     "homepage": "https://github.com/acdh-oeaw/repo-doorkeeper",
@@ -12,10 +12,10 @@
     ],
     "require": {
         "acdh-oeaw/easyrdf": "*",
-        "acdh-oeaw/acdh-repo": "*",
+        "acdh-oeaw/arche-core": "*",
         "acdh-oeaw/epic-handle": "*",
         "acdh-oeaw/uri-normalizer": "*",
-        "acdh-oeaw/arche-ontology-api": ">=0.4",
+        "acdh-oeaw/arche-lib-schema": ">=0.4",
         "zozlak/rdf-constants": ">=0.2.0"
     },
     "autoload": {
@@ -26,6 +26,6 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^8.4",
-        "acdh-oeaw/acdh-repo-lib": "*"
+        "acdh-oeaw/arche-lib": "*"
     }
 }
