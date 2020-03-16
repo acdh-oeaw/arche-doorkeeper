@@ -12,11 +12,11 @@
     ],
     "require": {
         "acdh-oeaw/easyrdf": "*",
-        "acdh-oeaw/arche-core": "*",
+        "acdh-oeaw/arche-core": "1^",
         "acdh-oeaw/epic-handle": "*",
         "acdh-oeaw/uri-normalizer": "*",
-        "acdh-oeaw/arche-lib-schema": ">=0.4",
-        "zozlak/rdf-constants": ">=0.2.0"
+        "acdh-oeaw/arche-lib-schema": "^1",
+        "zozlak/rdf-constants": "*"
     },
     "autoload": {
         "psr-4": {
