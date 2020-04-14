@@ -544,7 +544,12 @@ class Doorkeeper {
 
     static private function loadOntology(): void {
         if (self::$ontology === null) {
-            self::$ontology = new Ontology(RC::$pdo, RC::getBaseUrl() . '%');
+            $cfg = (object) [
+                'skipNamespace' => RC::getBaseUrl() . '%',
+                'order'         => RC::$config->schema->ontology->order,
+                'recommended'   => RC::$config->schema->ontology->recommended,
+            ];
+            self::$ontology = new Ontology(RC::$pdo, $cfg);
         }
     }
 
