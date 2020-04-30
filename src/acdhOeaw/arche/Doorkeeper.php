@@ -447,6 +447,8 @@ class Doorkeeper {
         $acdhSizeProp  = RC::$config->schema->binarySizeCumulative;
         $acdhCountProp = RC::$config->schema->countCumulative;
 
+        $prolongQuery = $pdo->prepare("UPDATE transactions SET last_request = clock_timestamp() WHERE transaction_id = ?");
+
         RC::$log->info("\t\tUpdating size of collections affected by the transaction");
 
         $query  = $pdo->prepare("
@@ -478,6 +480,7 @@ class Doorkeeper {
             $parentIds = [];
         }
 
+        $prolongQuery->execute([$txId]);
         // find all affected parents (gr, pp), then find all the children (ch) and their size (chm)
         // finaly group by parent and compute their size 
         $query = "
@@ -506,6 +509,7 @@ class Doorkeeper {
         );
         $query = $pdo->prepare($query);
         $query->execute($param);
+        $prolongQuery->execute([$txId]);
 
         // try to lock resources to be updated
         $query  = $pdo->prepare("
