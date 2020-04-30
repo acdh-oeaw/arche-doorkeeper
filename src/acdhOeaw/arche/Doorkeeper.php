@@ -64,21 +64,27 @@ class Doorkeeper {
     static private $uriNorm;
 
     static public function onResEdit(int $id, Resource $meta, ?string $path): Resource {
-        self::maintainPid($meta);
-
         self::loadOntology();
+        $errors = [];
+        // checkTitleProp before checkCardinalities!
+        $functions = [
+            'maintainPid', 'maintainAccessRestriction', 'maintainAccessRights', 'maintainPropertyRange',
+            'normalizeIds', 'checkTitleProp', 'checkCardinalities', 'checkIdCount',
+            'checkLanguage'
+        ];        
         if (self::$ontology->isA($meta, RC::$config->schema->classes->repoObject)) {
-            self::maintainHosting($meta);
-            self::maintainBinarySize($meta);
+            $functions = array_merge(['maintainHosting', 'maintainBinarySize'], $functions);
         }
-        self::maintainAccessRestriction($meta);
-        self::maintainAccessRights($meta);
-        self::maintainPropertyRange($meta);
-        self::normalizeIds($meta);
-        self::checkTitleProp($meta); // before cardinalities check
-        self::checkCardinalities($meta);
-        self::checkIdCount($meta);
-        self::checkLanguage($meta);
+        foreach ($functions as $f) {
+            try {
+                self::$f($meta);
+            } catch (DoorkeeperException $ex) {
+                $errors[] = $ex->getMessage();
+            }
+        }
+        if (count($errors) > 0) {
+            throw new DoorkeeperException(implode("\n", $errors));
+        }
 
         return $meta;
     }
@@ -530,9 +536,9 @@ class Doorkeeper {
         // insert new values
         $query = $pdo->prepare("
             INSERT INTO metadata (id, property, type, lang, value_n, value)
-                SELECT id, ?, ?, '', size, size FROM _collsizeupdate
+                SELECT id, ?, ?, '', size, size FROM _collsizeupdate JOIN resources USING (id) WHERE state = 'active'
               UNION
-                SELECT id, ?, ?, '', count, count FROM _collsizeupdate
+                SELECT id, ?, ?, '', count, count FROM _collsizeupdate JOIN resources USING (id) WHERE state = 'active'
         ");
         $query->execute([$acdhSizeProp, RDF::XSD_DECIMAL, $acdhCountProp, RDF::XSD_DECIMAL]);
 
@@ -544,10 +550,10 @@ class Doorkeeper {
 
     static private function loadOntology(): void {
         if (self::$ontology === null) {
-            $cfg = (object) [
-                'skipNamespace' => RC::getBaseUrl() . '%',
-                'order'         => RC::$config->schema->ontology->order,
-                'recommended'   => RC::$config->schema->ontology->recommended,
+            $cfg            = (object) [
+                    'skipNamespace' => RC::getBaseUrl() . '%',
+                    'order'         => RC::$config->schema->ontology->order,
+                    'recommended'   => RC::$config->schema->ontology->recommended,
             ];
             self::$ontology = new Ontology(RC::$pdo, $cfg);
         }
