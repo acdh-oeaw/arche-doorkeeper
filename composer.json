@@ -15,7 +15,7 @@
         "acdh-oeaw/arche-core": "^1",
         "acdh-oeaw/epic-handle": "*",
         "acdh-oeaw/uri-normalizer": "*",
-        "acdh-oeaw/arche-lib-schema": "^2",
+        "acdh-oeaw/arche-lib-schema": "^2.1.0",
         "zozlak/rdf-constants": "*"
     },
     "autoload": {

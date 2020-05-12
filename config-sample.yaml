@@ -35,6 +35,11 @@ schema:
         container: https://vocabs.acdh.oeaw.ac.at/schema#Container
     namespaces:
         ontology: https://vocabs.acdh.oeaw.ac.at/schema#
+    ontology:
+        order: https://vocabs.acdh.oeaw.ac.at/schema#ordering
+        recommended: https://vocabs.acdh.oeaw.ac.at/schema#recommendedClass
+        langTag: https://vocabs.acdh.oeaw.ac.at/schema#langTag
+        vocabs: https://vocabs.acdh.oeaw.ac.at/schema#vocabs
 doorkeeper:
     default:
         hosting: 'https://id.acdh.oeaw.ac.at/arche'

@@ -558,6 +558,8 @@ class Doorkeeper {
                     'skipNamespace' => RC::getBaseUrl() . '%',
                     'order'         => RC::$config->schema->ontology->order,
                     'recommended'   => RC::$config->schema->ontology->recommended,
+                    'langTag'       => RC::$config->schema->ontology->langTag,
+                    'vocabs'        => RC::$config->schema->ontology->vocabs,
             ];
             self::$ontology = new Ontology(RC::$pdo, $cfg);
         }
