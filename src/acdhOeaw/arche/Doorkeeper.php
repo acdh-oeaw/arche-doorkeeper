@@ -65,13 +65,13 @@ class Doorkeeper {
 
     static public function onResEdit(int $id, Resource $meta, ?string $path): Resource {
         self::loadOntology();
-        $errors = [];
+        $errors    = [];
         // checkTitleProp before checkCardinalities!
         $functions = [
             'maintainPid', 'maintainAccessRestriction', 'maintainAccessRights', 'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkCardinalities', 'checkIdCount',
             'checkLanguage'
-        ];        
+        ];
         if (self::$ontology->isA($meta, RC::$config->schema->classes->repoObject)) {
             $functions = array_merge(['maintainHosting', 'maintainBinarySize'], $functions);
         }
@@ -262,7 +262,7 @@ class Doorkeeper {
 
     static private function normalizeIds(Resource $meta): void {
         if (self::$uriNorm === null) {
-            self::$uriNorm = new UriNormalizer((array) RC::$config->doorkeeper->uriNorm);
+            self::$uriNorm = UriNormalizer::factory();
         }
 
         $idProp = RC::$config->schema->id;
@@ -488,7 +488,7 @@ class Doorkeeper {
             SELECT 
                 p.id, 
                 coalesce(sum(CASE ra.state = ? WHEN true THEN chm.value_n ELSE 0 END), 0) AS size, 
-                greatest(sum((ra.state = 'active')::int) - 1, 0) AS count
+                greatest(sum((ra.state = ?)::int) - 1, 0) AS count
             FROM
                 (
                     SELECT DISTINCT gr.id
@@ -503,7 +503,7 @@ class Doorkeeper {
         ";
         $query = str_replace('%ids%', substr(str_repeat('(?::bigint), ', count($parentIds)), 0, -2), $query);
         $param = array_merge(
-            [Res::STATE_ACTIVE, RC::$config->schema->parent, $txId], // case in main select, gr, r
+            [Res::STATE_ACTIVE, Res::STATE_ACTIVE, RC::$config->schema->parent, $txId], // case in main select, gr, r
             $parentIds,
             [RC::$config->schema->parent, $sizeProp]// p, ch, chm
         );
@@ -540,11 +540,14 @@ class Doorkeeper {
         // insert new values
         $query = $pdo->prepare("
             INSERT INTO metadata (id, property, type, lang, value_n, value)
-                SELECT id, ?, ?, '', size, size FROM _collsizeupdate JOIN resources USING (id) WHERE state = 'active'
+                SELECT id, ?, ?, '', size, size FROM _collsizeupdate JOIN resources USING (id) WHERE state = ?
               UNION
-                SELECT id, ?, ?, '', count, count FROM _collsizeupdate JOIN resources USING (id) WHERE state = 'active'
+                SELECT id, ?, ?, '', count, count FROM _collsizeupdate JOIN resources USING (id) WHERE state = ?
         ");
-        $query->execute([$acdhSizeProp, RDF::XSD_DECIMAL, $acdhCountProp, RDF::XSD_DECIMAL]);
+        $query->execute([
+            $acdhSizeProp, RDF::XSD_DECIMAL, Res::STATE_ACTIVE,
+            $acdhCountProp, RDF::XSD_DECIMAL, Res::STATE_ACTIVE
+        ]);
 
         $query = $pdo->query("
             SELECT json_agg(row_to_json(c)) FROM (SELECT * FROM _collsizeupdate) c
