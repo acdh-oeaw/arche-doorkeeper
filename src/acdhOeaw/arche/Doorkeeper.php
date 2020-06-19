@@ -157,12 +157,15 @@ class Doorkeeper {
     }
 
     static private function maintainAccessRestriction(Resource $meta): void {
+        /*
+         * Apply access restrictions to all resources
         $isRepoObj   = self::$ontology->isA($meta, RC::$config->schema->classes->repoObject);
         $isSharedObj = self::$ontology->isA($meta, RC::$config->schema->classes->sharedObject);
         $isContainer = self::$ontology->isA($meta, RC::$config->schema->classes->container);
         if (!$isRepoObj && !$isSharedObj && !$isContainer) {
             return;
         }
+         */
 
         $prop      = RC::$config->schema->accessRestriction;
         $resources = $meta->allResources($prop);
