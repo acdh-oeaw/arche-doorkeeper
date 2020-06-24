@@ -11,12 +11,13 @@ jobs:
       run: |
         git clone --depth 1 --branch arche https://github.com/acdh-oeaw/arche-docker-config.git config
         rm -f config/run.d/gui.sh config/run.d/oaipmh.sh config/run.d/resolver.sh config/initScripts/30-dissServices.php
+        cp .github/workflows/test-postgresql_config.sh config/run.d/
         cp .github/workflows/30-testSetup.sh config/initScripts/
         cp config-sample.yaml config/yaml/doorkeeper.yaml
     - name: run repo docker
       run: |
         mkdir -p build/logs log
-        docker run --name arche -p 80:80 -v `pwd`/build:/home/www-data/docroot/api/build -v `pwd`/log:/home/www-data/log -v `pwd`/config:/home/www-data/config -v `pwd`:/home/www-data/arche-doorkeeper -e USER_UID=`id -u` -e USER_GID=`id -g` -d acdhch/arche
+        docker run --name arche -p 80:80 -p 5432:5432 -v `pwd`/build:/home/www-data/docroot/api/build -v `pwd`/log:/home/www-data/log -v `pwd`/config:/home/www-data/config -v `pwd`:/home/www-data/arche-doorkeeper -e USER_UID=`id -u` -e USER_GID=`id -g` -d acdhch/arche
     - name: composer update
       run: |
         composer update
