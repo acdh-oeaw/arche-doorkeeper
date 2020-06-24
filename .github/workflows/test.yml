@@ -1,0 +1,43 @@
+name: phpunit
+
+on: push
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: clone repo config
+      run: |
+        git clone --depth 1 --branch arche https://github.com/acdh-oeaw/arche-docker-config.git config
+        rm -f config/run.d/gui.sh config/run.d/oaipmh.sh config/run.d/resolver.sh config/initScripts/30-dissServices.php
+        cp .github/workflows/test-postgresql_config.sh config/run.d/
+        cp .github/workflows/test-setupVendor.sh config/run.d/
+        cp .github/workflows/30-fixVocabularies.sh config/initScripts/
+        cp config-sample.yaml config/yaml/doorkeeper.yaml
+    - name: run repo docker
+      run: |
+        mkdir -p build/logs log
+        docker run --name arche -p 80:80 -p 5432:5432 -v `pwd`/build:/home/www-data/docroot/api/build -v `pwd`/log:/home/www-data/log -v `pwd`/config:/home/www-data/config -v `pwd`:/home/www-data/arche-doorkeeper -e USER_UID=`id -u` -e USER_GID=`id -g` -d acdhch/arche
+    - name: composer update
+      run: |
+        composer update
+    - name: wait
+      run: |
+        while [ "`grep '# INIT SCRIPTS ENDED' log/initScripts.log | wc -l`" != "1" ]; do
+          tail log/initScripts.log || true
+          echo "Waiting until repository is ready..."
+          echo "-----"
+          sleep 10
+        done
+        cat log/initScripts.log
+    - name: test
+      run: |
+        mkdir -p build/logs
+        ./vendor/phpunit/phpunit/phpunit
+    - name: coveralls
+      run: |
+        export COVERALLS_RUN_LOCALLY=1
+        export COVERALLS_REPO_TOKEN=${{ secrets.coverallsToken }}
+        composer require php-coveralls/php-coveralls
+        php vendor/bin/php-coveralls -v

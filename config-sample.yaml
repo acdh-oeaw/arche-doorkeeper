@@ -52,8 +52,4 @@ doorkeeper:
         user: user21.11115-01
         pswd: 
         prefix: 21.11115
-    # used only by tests
-    restConfigSrcPath: /home/zozlak/roboty/ACDH/repo/arche-core/tests/config.yaml
-    # used only by tests
-    restConfigDstPath: /home/zozlak/roboty/ACDH/repo/arche-core/config.yaml
         

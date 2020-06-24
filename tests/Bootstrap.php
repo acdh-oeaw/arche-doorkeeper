@@ -47,6 +47,7 @@ class Bootstrap implements AfterLastTestHook, BeforeFirstTestHook {
     }
 
     public function executeBeforeFirstTest(): void {
+        /*
         $buildlogsDir = dirname($this->config->doorkeeper->restConfigDstPath) . '/build/logs';
         system('rm -fR ' . escapeshellarg($buildlogsDir) . ' ; mkdir ' . escapeshellarg($buildlogsDir));
 
@@ -66,8 +67,8 @@ class Bootstrap implements AfterLastTestHook, BeforeFirstTestHook {
         // disable full text search - the doorkeeper doesn't depend on it
         $cfg['fullTextSearch']['tikaLocation'] = '';
         yaml_emit_file($this->config->doorkeeper->restConfigDstPath, $cfg);
-
         $this->config = json_decode(json_encode(yaml_parse_file($this->config->doorkeeper->restConfigDstPath)));
+        */
 
         if (file_exists($this->config->transactionController->logging->file)) {
             unlink($this->config->transactionController->logging->file);
