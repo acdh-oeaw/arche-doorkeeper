@@ -52,4 +52,6 @@ doorkeeper:
         user: user21.11115-01
         pswd: 
         prefix: 21.11115
+    # used only by tests
+    restConfigDstPath: config/yaml/config-repo.yaml
         

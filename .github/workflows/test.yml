@@ -11,9 +11,8 @@ jobs:
       run: |
         git clone --depth 1 --branch arche https://github.com/acdh-oeaw/arche-docker-config.git config
         rm -f config/run.d/gui.sh config/run.d/oaipmh.sh config/run.d/resolver.sh config/initScripts/30-dissServices.php
-        cp .github/workflows/test-postgresql_config.sh config/run.d/
-        cp .github/workflows/test-setupVendor.sh config/run.d/
         cp .github/workflows/30-fixVocabularies.sh config/initScripts/
+        cp .github/workflows/test-setup.sh config/run.d/
         cp config-sample.yaml config/yaml/doorkeeper.yaml
     - name: run repo docker
       run: |
@@ -33,7 +32,6 @@ jobs:
         cat log/initScripts.log
     - name: test
       run: |
-        mkdir -p build/logs
         ./vendor/phpunit/phpunit/phpunit
     - name: coveralls
       run: |

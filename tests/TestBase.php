@@ -58,10 +58,13 @@ class TestBase extends \PHPUnit\Framework\TestCase {
     static public function setUpBeforeClass(): void {
         parent::setUpBeforeClass();
 
-        $localCfg       = yaml_parse_file(__DIR__ . '/../config-sample.yaml');
-        self::$config   = json_decode(json_encode(yaml_parse_file($localCfg['doorkeeper']['restConfigDstPath'])));
-        self::$repo     = Repo::factory(self::$config->doorkeeper->restConfigDstPath);
-        self::$ontology = new Ontology(new PDO(self::$config->dbConnStr->admin), self::$repo->getBaseUrl() . '%');
+        self::$config          = json_decode(json_encode(yaml_parse_file(__DIR__ . '/../config.yaml')));
+        self::$repo            = Repo::factory(__DIR__ . '/../config.yaml');
+        $cfgObj                = self::$config->schema->ontology;
+        $cfgObj->skipNamespace = self::$repo->getBaseUrl() . '%';
+        $cfgObj->parent        = self::$config->schema->parent;
+        $cfgObj->label         = self::$config->schema->label;
+        self::$ontology        = new Ontology(new PDO(self::$config->dbConnStr->admin), $cfgObj);
     }
 
     /**
