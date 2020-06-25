@@ -51,7 +51,8 @@ class ResourceTest extends TestBase {
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
-            $this->assertEquals('No non-repository id', (string) $resp->getBody());
+            $errors = explode("\n", (string) $resp->getBody());
+            $this->assertContains('No non-repository id', $errors);
         }
     }
 
@@ -139,7 +140,7 @@ class ResourceTest extends TestBase {
 
     public function testMaintainRange(): void {
         $im = self::createMetadata([
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasUpdatedDate' => '2017',
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedDate' => '2017',
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'  => '300.54',
                 'https://other/property'                               => new Literal('test value', 'en'),
         ]);
@@ -148,7 +149,7 @@ class ResourceTest extends TestBase {
         $r  = self::$repo->createResource($im);
         $om = $r->getGraph();
 
-        $date = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasUpdatedDate');
+        $date = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedDate');
         $this->assertEquals(RDF::XSD_DATE, $date->getDatatypeUri());
         $this->assertEquals('2017-01-01', (string) $date);
 
@@ -434,7 +435,9 @@ class ResourceTest extends TestBase {
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
-            $this->assertEquals("more than one $titleProp property", (string) $resp->getBody());
+            $errors = explode("\n", (string) $resp->getBody());
+            $this->assertContains("more than one $titleProp property", $errors);
+            $this->assertContains("Property $titleProp with value foo is not tagged with a language", $errors);
         }
 
         // with language

@@ -103,7 +103,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
             return (string) $x;
         }, $v);
     }
-
+    
     static protected function createMetadata(array $props = [],
                                              string $class = null): Resource {
         $idProp    = self::$config->schema->id;
