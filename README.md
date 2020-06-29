@@ -8,3 +8,4 @@
 A set of [arche-core](https://github.com/acdh-oeaw/arche-core) handlers implementing the ACDH business logic.
 
 Checks metadata consistency, manages automatically managed metadata properties, etc.
+
