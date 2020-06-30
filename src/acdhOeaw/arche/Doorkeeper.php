@@ -180,6 +180,7 @@ class Doorkeeper {
         if ($condCount || $condValue) {
             $default = RC::$config->doorkeeper->default->accessRestriction;
             $meta->delete($prop);
+            $meta->deleteResource($prop);
             $meta->addResource($prop, $default);
             RC::$log->info("\t\t$prop = $default added");
         }
