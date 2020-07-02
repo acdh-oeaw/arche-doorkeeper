@@ -121,7 +121,7 @@ class Doorkeeper {
                 $meta->delete($pidProp);
                 $ps  = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
                 $pid = $ps->create($meta->getUri());
-                $pid = str_replace($c->url, $cfg->resolver, $pid);
+                $pid = str_replace($cfg->url, $cfg->resolver, $pid);
                 RC::$log->info("\t\tregistered PID $pid pointing to " . $meta->getUri());
                 $meta->addResource($pidProp, $pid);
             } else {
