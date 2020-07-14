@@ -104,34 +104,41 @@ class Doorkeeper {
     static private function maintainPid(Resource $meta): void {
         $cfg     = RC::$config->doorkeeper->epicPid;
         $idProp  = RC::$config->schema->id;
+        $idNmsp  = RC::$config->schema->namespaces->id;
         $pidProp = RC::$config->schema->pid;
-        $curPid  = null;
-        foreach ($meta->allResources($idProp) as $i) {
-            if (strpos((string) $i, $cfg->resolver) === 0) {
-                $curPid = (string) $i;
-                break;
+        $ids     = self::toString($meta->allResources($idProp));
+
+        $curPid = null;
+        $id     = null;
+        foreach ($ids as $i) {
+            if (strpos($i, $cfg->resolver) === 0) {
+                $curPid = $i;
+            }
+            if (strpos($i, $idNmsp) === 0) {
+                $id = $i;
             }
         }
-        if ($meta->getLiteral($pidProp)) {
+        if ($meta->getLiteral($pidProp) && $id !== null) {
+            $ps = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
             if ($curPid === null) {
                 if (empty($cfg->pswd)) {
                     RC::$log->info("\t\tskipping PID generation - no EPIC password provided");
                     return;
                 }
                 $meta->delete($pidProp);
-                $ps  = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
-                $pid = $ps->create($meta->getUri());
+                $pid = $ps->create($id);
                 $pid = str_replace($cfg->url, $cfg->resolver, $pid);
-                RC::$log->info("\t\tregistered PID $pid pointing to " . $meta->getUri());
+                RC::$log->info("\t\tregistered PID $pid pointing to " . $id);
                 $meta->addResource($pidProp, $pid);
             } else {
                 $meta->delete($pidProp);
                 $meta->addResource($pidProp, $curPid);
-                RC::$log->info("\t\trecreating PID $curPid pointing to " . $meta->getUri());
+                $pid = str_replace($cfg->resolver, $cfg->url, $curPid);
+                RC::$log->info("\t\trecreating PID $pid pointing to " . $meta->getUri());
+                $ps->update($pid, $id);
             }
         }
         // promote PIDs to IDs
-        $ids = self::toString($meta->allResources($idProp));
         foreach ($meta->allResources($pidProp) as $i) {
             $i = (string) $i;
             if (!in_array($i, $ids)) {
@@ -159,12 +166,12 @@ class Doorkeeper {
     static private function maintainAccessRestriction(Resource $meta): void {
         /*
          * Apply access restrictions to all resources
-        $isRepoObj   = self::$ontology->isA($meta, RC::$config->schema->classes->repoObject);
-        $isSharedObj = self::$ontology->isA($meta, RC::$config->schema->classes->sharedObject);
-        $isContainer = self::$ontology->isA($meta, RC::$config->schema->classes->container);
-        if (!$isRepoObj && !$isSharedObj && !$isContainer) {
-            return;
-        }
+          $isRepoObj   = self::$ontology->isA($meta, RC::$config->schema->classes->repoObject);
+          $isSharedObj = self::$ontology->isA($meta, RC::$config->schema->classes->sharedObject);
+          $isContainer = self::$ontology->isA($meta, RC::$config->schema->classes->container);
+          if (!$isRepoObj && !$isSharedObj && !$isContainer) {
+          return;
+          }
          */
 
         $prop      = RC::$config->schema->accessRestriction;
