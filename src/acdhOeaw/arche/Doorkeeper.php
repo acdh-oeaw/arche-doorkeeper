@@ -134,8 +134,8 @@ class Doorkeeper {
                 $meta->delete($pidProp);
                 $meta->addResource($pidProp, $curPid);
                 $pid = str_replace($cfg->resolver, $cfg->url, $curPid);
-                RC::$log->info("\t\trecreating PID $pid pointing to " . $meta->getUri());
-                $ps->update($pid, $id);
+                $ret = $ps->update($pid, $id);
+                RC::$log->info("\t\trecreated PID $pid pointing to " . $id . " with return code " . $ret);
             }
         }
         // promote PIDs to IDs
