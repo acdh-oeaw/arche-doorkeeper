@@ -162,7 +162,7 @@ class ResourceTest extends TestBase {
         $this->assertEquals('en', $str->getLang());
     }
 
-    public function testCardinalities(): void {
+    public function testCardinalitiesMin(): void {
         $im = self::createMetadata([
                 RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#Collection',
         ]);
@@ -185,7 +185,34 @@ class ResourceTest extends TestBase {
         $r = self::$repo->createResource($im);
         $this->assertIsObject($r);
     }
+    
+    public function testCardinalitiesMax(): void {
+        $prop = 'https://vocabs.acdh.oeaw.ac.at/schema#hasTransferDate';
+        $im = self::createMetadata([
+                RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent',
+        ]);
+        $class = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
+        foreach ($class->getProperties() as $i) {
+            if ($i->min > 0) {
+                $im->add($i->uri, self::createSampleProperty($i));
+            }
+        }
+        $im->addLiteral($prop, '2020-07-01');
+        self::$repo->begin();
+        $r = self::$repo->createResource($im);
+        $this->assertIsObject($r);
 
+        $im->addLiteral($prop, '2020-08-01');
+        try {
+            self::$repo->createResource($im);
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $resp = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $this->assertRegExp('/^Max property count for .* but resource has 2$/', (string) $resp->getBody());
+        }
+    }
+    
     public function testDefaultProperties(): void {
         $accessRestProp   = self::$config->schema->accessRestriction;
         $creationDateProp = self::$config->schema->creationDate;

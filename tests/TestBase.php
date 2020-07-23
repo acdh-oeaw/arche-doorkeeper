@@ -168,7 +168,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
                         return new Date('2019-01-01');
                 }
             }
-            return new Literal('sample');
+            return new Literal('sample', 'en');
         } else {
             return new Resource('https://sample');
         }
