@@ -49,7 +49,7 @@ class ResourceTest extends TestBase {
             self::$repo->createResource($im);
             $this->assertTrue(false);
         } catch (ClientException $e) {
-            $resp = $e->getResponse();
+            $resp   = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
             $errors = explode("\n", (string) $resp->getBody());
             $this->assertContains('No non-repository id', $errors);
@@ -177,9 +177,9 @@ class ResourceTest extends TestBase {
         }
 
         $class = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
-        foreach ($class->properties as $i) {
+        foreach ($class->getProperties() as $i) {
             if ($i->min > 0) {
-                $im->add($i->property, self::createSampleProperty($i));
+                $im->add($i->uri, self::createSampleProperty($i));
             }
         }
         $r = self::$repo->createResource($im);
@@ -196,9 +196,9 @@ class ResourceTest extends TestBase {
             self::$config->schema->hosting, $accessRestProp, $creationDateProp
         ];
         $class            = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
-        foreach ($class->properties as $i) {
-            if ($i->min > 0 && !in_array($i->property, $skip)) {
-                $im->add($i->property, self::createSampleProperty($i));
+        foreach ($class->getProperties() as $i) {
+            if ($i->min > 0 && !in_array($i->uri, $skip)) {
+                $im->add($i->property[0], self::createSampleProperty($i));
             }
         }
         self::$repo->begin();
@@ -250,7 +250,7 @@ class ResourceTest extends TestBase {
     public function testAccessRightsRestricted(): void {
         $accessRestProp = self::$config->schema->accessRestriction;
         $im             = self::createMetadata([
-                $accessRestProp                         => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
+                $accessRestProp                   => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
                 self::$config->schema->accessRole => 'foo',
                 ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
         self::$repo->begin();
@@ -369,7 +369,7 @@ class ResourceTest extends TestBase {
         $im->delete($titleProp);
         $r  = self::$repo->createResource($im);
         $this->assertEquals('foo', (string) $r->getGraph()->getLiteral($titleProp));
-        
+
         // combined from foaf:givenName and foaf:familyName
         $im = self::createMetadata([
                 'http://xmlns.com/foaf/0.1/givenName'  => 'foo',
@@ -433,7 +433,7 @@ class ResourceTest extends TestBase {
             self::$repo->createResource($im);
             $this->assertTrue(false);
         } catch (ClientException $e) {
-            $resp = $e->getResponse();
+            $resp   = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
             $errors = explode("\n", (string) $resp->getBody());
             $this->assertContains("more than one $titleProp property", $errors);

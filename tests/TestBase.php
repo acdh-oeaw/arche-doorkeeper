@@ -58,13 +58,14 @@ class TestBase extends \PHPUnit\Framework\TestCase {
     static public function setUpBeforeClass(): void {
         parent::setUpBeforeClass();
 
-        self::$config          = json_decode(json_encode(yaml_parse_file(__DIR__ . '/../config.yaml')));
-        self::$repo            = Repo::factory(__DIR__ . '/../config.yaml');
-        $cfgObj                = self::$config->schema->ontology;
-        $cfgObj->skipNamespace = self::$repo->getBaseUrl() . '%';
-        $cfgObj->parent        = self::$config->schema->parent;
-        $cfgObj->label         = self::$config->schema->label;
-        self::$ontology        = new Ontology(new PDO(self::$config->dbConnStr->admin), $cfgObj);
+        self::$config   = json_decode(json_encode(yaml_parse_file(__DIR__ . '/../config.yaml')));
+        self::$repo     = Repo::factory(__DIR__ . '/../config.yaml');
+        $cfgObj         = (object) [
+                'ontologyNamespace' => self::$config->schema->namespaces->ontology,
+                'parent'            => self::$config->schema->parent,
+                'label'             => self::$config->schema->label,
+        ];
+        self::$ontology = new Ontology(new PDO(self::$config->dbConnStr->admin), $cfgObj);
     }
 
     /**
@@ -103,7 +104,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
             return (string) $x;
         }, $v);
     }
-    
+
     static protected function createMetadata(array $props = [],
                                              string $class = null): Resource {
         $idProp    = self::$config->schema->id;
@@ -136,9 +137,9 @@ class TestBase extends \PHPUnit\Framework\TestCase {
         if (!empty($class)) {
             $r->addResource(RDF::RDF_TYPE, $class);
             $class = self::$ontology->getClass($class);
-            foreach ($class->properties as $i) {
-                if ($i->min > 0 && $r->get($i->property) === null) {
-                    $r->add($i->property, self::createSampleProperty($i));
+            foreach ($class->getProperties() as $i) {
+                if ($i->min > 0 && $r->get($i->uri) === null) {
+                    $r->add($i->uri, self::createSampleProperty($i));
                 }
             }
         }
@@ -148,25 +149,26 @@ class TestBase extends \PHPUnit\Framework\TestCase {
 
     static protected function createSampleProperty(PropertyDesc $i) {
         if ($i->type === RDF::OWL_DATATYPE_PROPERTY) {
-            switch ($i->range) {
-                case RDF::XSD_DECIMAL:
-                case RDF::XSD_BYTE;
-                case RDF::XSD_DOUBLE;
-                case RDF::XSD_FLOAT;
-                case RDF::XSD_INT;
-                case RDF::XSD_INTEGER;
-                case RDF::XSD_NON_NEGATIVE_INTEGER;
-                case RDF::XSD_POSITIVE_INTEGER;
-                    return new Literal(123);
-                case RDF::XSD_NON_POSITIVE_INTEGER;
-                case RDF::XSD_NEGATIVE_INTEGER;
-                    return new Literal(-321);
-                case RDF::XSD_DATE:
-                case RDF::XSD_DATE_TIME:
-                    return new Date('2019-01-01');
-                default:
-                    return new Literal('sample');
+            foreach ($i->range as $j) {
+                switch ($j) {
+                    case RDF::XSD_DECIMAL:
+                    case RDF::XSD_BYTE;
+                    case RDF::XSD_DOUBLE;
+                    case RDF::XSD_FLOAT;
+                    case RDF::XSD_INT;
+                    case RDF::XSD_INTEGER;
+                    case RDF::XSD_NON_NEGATIVE_INTEGER;
+                    case RDF::XSD_POSITIVE_INTEGER;
+                        return new Literal(123);
+                    case RDF::XSD_NON_POSITIVE_INTEGER;
+                    case RDF::XSD_NEGATIVE_INTEGER;
+                        return new Literal(-321);
+                    case RDF::XSD_DATE:
+                    case RDF::XSD_DATE_TIME:
+                        return new Date('2019-01-01');
+                }
             }
+            return new Literal('sample');
         } else {
             return new Resource('https://sample');
         }

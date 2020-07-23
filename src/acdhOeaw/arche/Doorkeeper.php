@@ -50,6 +50,11 @@ class Doorkeeper {
 
     const NON_NEGATIVE_NUMBERS = [RDF::XSD_NON_NEGATIVE_INTEGER, RDF::XSD_UNSIGNED_LONG,
         RDF::XSD_UNSIGNED_INT, RDF::XSD_UNSIGNED_SHORT, RDF::XSD_UNSIGNED_BYTE];
+    const LITERAL_TYPES        = [RDF::XSD_DATE, RDF::XSD_DATE_TIME, RDF::XSD_DECIMAL,
+        RDF::XSD_FLOAT, RDF::XSD_DOUBLE, RDF::XSD_INTEGER, RDF::XSD_NEGATIVE_INTEGER,
+        RDF::XSD_NON_NEGATIVE_INTEGER, RDF::XSD_NON_POSITIVE_INTEGER, RDF::XSD_POSITIVE_INTEGER,
+        RDF::XSD_LONG, RDF::XSD_INT, RDF::XSD_SHORT, RDF::XSD_BYTE, RDF::XSD_UNSIGNED_LONG,
+        RDF::XSD_UNSIGNED_INT, RDF::XSD_UNSIGNED_SHORT, RDF::XSD_UNSIGNED_BYTE, RDF::XSD_BOOLEAN];
 
     /**
      *
@@ -221,34 +226,34 @@ class Doorkeeper {
 
         if ($accessRestr === 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public') {
             $meta->addLiteral($propRead, $rolePublic);
-            RC::$log->info("\t\t\t\tpublic");
+            RC::$log->info("\t\t\tpublic");
         } else {
             $meta->delete($propRead, $rolePublic);
             if ($accessRestr === 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic') {
                 $meta->addLiteral($propRead, $roleAcademic);
-                RC::$log->info("\t\t\t\tacademic");
+                RC::$log->info("\t\t\tacademic");
             } else {
                 $meta->delete($propRead, $roleAcademic);
                 foreach ($meta->all($propRoles) as $role) {
                     $meta->addLiteral($propRead, $role);
                 }
-                RC::$log->info("\t\t\t\trestricted");
+                RC::$log->info("\t\t\trestricted");
             }
         }
     }
 
     static private function maintainPropertyRange(Resource $meta): void {
         foreach ($meta->propertyUris() as $prop) {
-            $range = self::$ontology->getProperty($meta, $prop);
-            if ($range === null || $range->range === null) {
+            $propDesc = self::$ontology->getProperty($meta, $prop);
+            if ($propDesc === null || !is_array($propDesc->range) || count($propDesc->range) === 0) {
                 continue;
             } else {
-                $range = $range->range;
+                $range = $propDesc->range;
             }
             foreach ($meta->allLiterals($prop) as $l) {
                 /* @var $l \EasyRdf\Literal */
                 $type = $l->getDatatypeUri() ?? RDF::XSD_STRING;
-                if ($type === $range) {
+                if (in_array($type, $range)) {
                     continue;
                 }
                 if ($range === RDF::XSD_STRING) {
@@ -257,7 +262,9 @@ class Doorkeeper {
                     RC::$log->info("\t\tcasting $prop value from $type to string");
                 } else {
                     try {
-                        $value = self::castLiteral($l, $range);
+                        $rangeTmp = array_intersect($range, self::LITERAL_TYPES);
+                        $range    = reset($rangeTmp) ?? reset($range);
+                        $value    = self::castLiteral($l, $range);
                         $meta->delete($prop, $l);
                         $meta->addLiteral($prop, $value);
                         RC::$log->info("\t\tcasting $prop value from $type to $range");
@@ -334,9 +341,12 @@ class Doorkeeper {
             }
             foreach ($classDef->properties as $p) {
                 if ($p->min > 0) {
-                    $count = count($meta->all($p->property));
+                    $count = 0;
+                    foreach ($p->property as $i) {
+                        $count += count($meta->all($i));
+                    }
                     if ($count < $p->min) {
-                        throw new DoorkeeperException('Min property count for ' . $p->property . ' is ' . $p->min . ' but resource has ' . $count);
+                        throw new DoorkeeperException('Min property count for ' . $p->uri . ' is ' . $p->min . ' but resource has ' . $count);
                     }
                 }
             }
@@ -569,11 +579,9 @@ class Doorkeeper {
     static private function loadOntology(): void {
         if (self::$ontology === null) {
             $cfg            = (object) [
-                    'skipNamespace' => RC::getBaseUrl() . '%',
-                    'order'         => RC::$config->schema->ontology->order,
-                    'recommended'   => RC::$config->schema->ontology->recommended,
-                    'langTag'       => RC::$config->schema->ontology->langTag,
-                    'vocabs'        => RC::$config->schema->ontology->vocabs,
+                    'ontologyNamespace' => RC::$config->schema->namespaces->ontology,
+                    'parent'            => RC::$config->schema->parent,
+                    'label'             => RC::$config->schema->label,
             ];
             self::$ontology = new Ontology(RC::$pdo, $cfg);
         }
