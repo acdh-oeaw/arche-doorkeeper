@@ -169,6 +169,16 @@ class Doorkeeper {
     }
 
     static private function maintainAccessRestriction(Resource $meta): void {
+        /*
+         * Apply access restrictions to all resources
+          $isRepoObj   = self::$ontology->isA($meta, RC::$config->schema->classes->repoObject);
+          $isSharedObj = self::$ontology->isA($meta, RC::$config->schema->classes->sharedObject);
+          $isContainer = self::$ontology->isA($meta, RC::$config->schema->classes->container);
+          if (!$isRepoObj && !$isSharedObj && !$isContainer) {
+          return;
+          }
+         */
+
         $prop      = RC::$config->schema->accessRestriction;
         $resources = $meta->allResources($prop);
         $literals  = $meta->allLiterals($prop);
@@ -253,7 +263,7 @@ class Doorkeeper {
                 } else {
                     try {
                         $rangeTmp = array_intersect($range, self::LITERAL_TYPES);
-                        $rangeTmp    = reset($rangeTmp) ?? reset($range);
+                        $rangeTmp = reset($rangeTmp) ?? reset($range);
                         $value    = self::castLiteral($l, $rangeTmp);
                         $meta->delete($prop, $l);
                         $meta->addLiteral($prop, $value);
@@ -330,31 +340,13 @@ class Doorkeeper {
                 continue;
             }
             foreach ($classDef->properties as $p) {
-                if ($p->min > 0 || $p->max !== null) {
-                    $co  = $cd  = 0;
-                    $cdl = ['' => 0];
+                if ($p->min > 0) {
+                    $count = 0;
                     foreach ($p->property as $i) {
-                        foreach ($meta->all($i) as $j) {
-                            if ($j instanceof Literal) {
-                                $cd++;
-                                $lang       = $j->getLang() ?? '';
-                                $cdl[$lang] = 1 + ($cdl[$lang] ?? 0);
-                            } else {
-                                $co++;
-                            }
-                        }
+                        $count += count($meta->all($i));
                     }
-                    if ($p->type === RDF::OWL_DATATYPE_PROPERTY && $co > 0) {
-                        throw new DoorkeeperException('URI value for a datatype property ' . $p->uri);
-                    }
-                    if ($p->type === RDF::OWL_OBJECT_PROPERTY && $cd > 0) {
-                        throw new DoorkeeperException('Literal value for an object property ' . $p->uri);
-                    }
-                    if ($p->min > 0 && $co + $cd < $p->min) {
-                        throw new DoorkeeperException('Min property count for ' . $p->uri . ' is ' . $p->min . ' but resource has ' . ($co + $cd));
-                    }
-                    if ($p->max > 0 && $co + max($cdl) > $p->max) {
-                        throw new DoorkeeperException('Max property count for ' . $p->uri . ' is ' . $p->max . ' but resource has ' . ($co + max($cdl)));
+                    if ($count < $p->min) {
+                        throw new DoorkeeperException('Min property count for ' . $p->uri . ' is ' . $p->min . ' but resource has ' . $count);
                     }
                 }
             }
