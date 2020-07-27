@@ -4,3 +4,6 @@
 /.phpunit.result.cache
 /.phpdoc
 /build/logs
+/config.yaml
+/log
+/config

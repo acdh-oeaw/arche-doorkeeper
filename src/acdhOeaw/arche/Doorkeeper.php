@@ -342,13 +342,19 @@ class Doorkeeper {
             foreach ($classDef->properties as $p) {
                 if ($p->min > 0 || $p->max > 0) {
                     $count = 0;
+                    $countL = ['' => 0];
                     foreach ($p->property as $i) {
                         $count += count($meta->all($i));
+                        foreach ($meta->allLiterals($i) as $j) {
+                            $lang = $j->getLang() ?? '';
+                            $countL[$lang] = ($countL[$lang] ?? 0) + 1;
+                        }
+                        $countL[''] += count($meta->allResources($i));
                     }
                     if ($p->min !== null && $count < $p->min) {
                         throw new DoorkeeperException('Min property count for ' . $p->uri . ' is ' . $p->min . ' but resource has ' . $count);
                     }
-                    if ($p->max !== null && $count > $p->max) {
+                    if ($p->max !== null && max($countL) > $p->max) {
                         throw new DoorkeeperException('Max property count for ' . $p->uri . ' is ' . $p->max . ' but resource has ' . $count);
                     }
                 }
