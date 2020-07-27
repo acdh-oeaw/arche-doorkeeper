@@ -185,13 +185,14 @@ class ResourceTest extends TestBase {
         $r = self::$repo->createResource($im);
         $this->assertIsObject($r);
     }
-    
+
     public function testCardinalitiesMax(): void {
-        $prop = 'https://vocabs.acdh.oeaw.ac.at/schema#hasTransferDate';
-        $im = self::createMetadata([
+        $idProp = self::$config->schema->id;
+        $prop   = 'https://vocabs.acdh.oeaw.ac.at/schema#hasTransferDate';
+        $im     = self::createMetadata([
                 RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent',
         ]);
-        $class = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
+        $class  = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
         foreach ($class->getProperties() as $i) {
             if ($i->min > 0) {
                 $im->add($i->uri, self::createSampleProperty($i));
@@ -202,6 +203,8 @@ class ResourceTest extends TestBase {
         $r = self::$repo->createResource($im);
         $this->assertIsObject($r);
 
+        $im->deleteResource($idProp);
+        $im->addResource($idProp, 'https://random/' . microtime(true));
         $im->addLiteral($prop, '2020-08-01');
         try {
             self::$repo->createResource($im);
@@ -212,7 +215,7 @@ class ResourceTest extends TestBase {
             $this->assertRegExp('/^Max property count for .* but resource has 2$/', (string) $resp->getBody());
         }
     }
-    
+
     public function testDefaultProperties(): void {
         $accessRestProp   = self::$config->schema->accessRestriction;
         $creationDateProp = self::$config->schema->creationDate;
@@ -267,11 +270,11 @@ class ResourceTest extends TestBase {
         $this->assertContains(self::$config->doorkeeper->roleAcademic, self::toStr($om->all(self::$config->accessControl->schema->read)));
         $this->assertNotContains(self::$config->doorkeeper->roleAcademic, self::toStr($om->all(self::$config->accessControl->schema->write)));
 
-        $client = new Client(['http_errors' => false]);
+        $client = new Client(['http_errors' => false, 'allow_redirects' => false]);
         $resp   = $client->send(new Request('get', $r->getUri()));
         $this->assertEquals(403, $resp->getStatusCode());
         $resp   = $client->send(new Request('get', $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
-        $this->assertEquals(204, $resp->getStatusCode());
+        $this->assertEquals(302, $resp->getStatusCode());
     }
 
     public function testAccessRightsRestricted(): void {
@@ -289,13 +292,13 @@ class ResourceTest extends TestBase {
         $this->assertNotContains(self::$config->doorkeeper->roleAcademic, self::toStr($om->all(self::$config->accessControl->schema->write)));
         $this->assertContains('foo', self::toStr($om->all(self::$config->schema->accessRole)));
 
-        $client = new Client(['http_errors' => false]);
+        $client = new Client(['http_errors' => false, 'allow_redirects' => false]);
         $resp   = $client->send(new Request('get', $r->getUri()));
         $this->assertEquals(403, $resp->getStatusCode());
         $resp   = $client->send(new Request('get', $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(403, $resp->getStatusCode());
         $resp   = $client->send(new Request('get', $r->getUri(), ['eppn' => 'foo']));
-        $this->assertEquals(204, $resp->getStatusCode());
+        $this->assertEquals(302, $resp->getStatusCode());
     }
 
     /**
@@ -306,7 +309,7 @@ class ResourceTest extends TestBase {
      */
     public function testAccessRightsRise(): void {
         $accessRestProp = self::$config->schema->accessRestriction;
-        $client         = new Client(['http_errors' => false]);
+        $client         = new Client(['http_errors' => false, 'allow_redirects' => false]);
 
         $im = self::createMetadata([
                 $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
@@ -321,14 +324,14 @@ class ResourceTest extends TestBase {
         $resp = $client->send(new Request('get', $r->getUri()));
         $this->assertEquals(403, $resp->getStatusCode());
         $resp = $client->send(new Request('get', $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
-        $this->assertEquals(204, $resp->getStatusCode());
+        $this->assertEquals(302, $resp->getStatusCode());
 
         $meta = (new Graph())->resource('.');
         $meta->addResource($accessRestProp, 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public');
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
         $resp = $client->send(new Request('get', $r->getUri()));
-        $this->assertEquals(204, $resp->getStatusCode());
+        $this->assertEquals(302, $resp->getStatusCode());
     }
 
     /**
@@ -339,7 +342,7 @@ class ResourceTest extends TestBase {
      */
     public function testAccessRightsLower(): void {
         $accessRestrProp = self::$config->schema->accessRestriction;
-        $client          = new Client(['http_errors' => false]);
+        $client          = new Client(['http_errors' => false, 'allow_redirects' => false]);
 
         $im = self::createMetadata([
                 $accessRestrProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public',
@@ -354,7 +357,7 @@ class ResourceTest extends TestBase {
         $resp = $client->send(new Request('get', $r->getUri()));
         $this->assertEquals(403, $resp->getStatusCode());
         $resp = $client->send(new Request('get', $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
-        $this->assertEquals(204, $resp->getStatusCode());
+        $this->assertEquals(302, $resp->getStatusCode());
 
         $meta = (new Graph())->resource('.');
         $meta->addResource($accessRestrProp, 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted');
@@ -366,7 +369,7 @@ class ResourceTest extends TestBase {
         $resp = $client->send(new Request('get', $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(403, $resp->getStatusCode());
         $resp = $client->send(new Request('get', $r->getUri(), ['eppn' => 'bar']));
-        $this->assertEquals(204, $resp->getStatusCode());
+        $this->assertEquals(302, $resp->getStatusCode());
     }
 
     public function testTitleAuto(): void {
