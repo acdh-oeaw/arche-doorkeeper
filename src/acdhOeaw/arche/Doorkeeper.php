@@ -246,7 +246,7 @@ class Doorkeeper {
                 if (in_array($type, $range)) {
                     continue;
                 }
-                if ($range === RDF::XSD_STRING) {
+                if (in_array(RDF::XSD_STRING, $range)) {
                     $meta->delete($prop, $l);
                     $meta->addLiteral($prop, (string) $l);
                     RC::$log->info("\t\tcasting $prop value from $type to string");
