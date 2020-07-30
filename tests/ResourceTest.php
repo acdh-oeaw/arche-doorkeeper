@@ -178,7 +178,7 @@ class ResourceTest extends TestBase {
 
         $class = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         foreach ($class->getProperties() as $i) {
-            if ($i->min > 0) {
+            if ($i->min > 0 && $im->get($i->uri) === null) {
                 $im->add($i->uri, self::createSampleProperty($i));
             }
         }
@@ -189,15 +189,7 @@ class ResourceTest extends TestBase {
     public function testCardinalitiesMax(): void {
         $idProp = self::$config->schema->id;
         $prop   = 'https://vocabs.acdh.oeaw.ac.at/schema#hasTransferDate';
-        $im     = self::createMetadata([
-                RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent',
-        ]);
-        $class  = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
-        foreach ($class->getProperties() as $i) {
-            if ($i->min > 0) {
-                $im->add($i->uri, self::createSampleProperty($i));
-            }
-        }
+        $im     = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
         $im->addLiteral($prop, '2020-07-01');
         self::$repo->begin();
         $r = self::$repo->createResource($im);
@@ -227,7 +219,7 @@ class ResourceTest extends TestBase {
         ];
         $class            = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
         foreach ($class->getProperties() as $i) {
-            if ($i->min > 0 && !in_array($i->uri, $skip)) {
+            if ($i->min > 0 && $im->get($i->uri) === null && !in_array($i->uri, $skip)) {
                 $im->add($i->property[0], self::createSampleProperty($i));
             }
         }
