@@ -192,7 +192,7 @@ class ResourceTest extends TestBase {
         $im     = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
         $im->addLiteral($prop, '2020-07-01');
         self::$repo->begin();
-        $r = self::$repo->createResource($im);
+        $r      = self::$repo->createResource($im);
         $this->assertIsObject($r);
 
         $im->deleteResource($idProp);
@@ -475,6 +475,71 @@ class ResourceTest extends TestBase {
             $this->assertEquals(400, $resp->getStatusCode());
             $this->assertEquals("more than one $titleProp property", (string) $resp->getBody());
         }
+    }
+
+    public function testPidGeneration(): void {
+        $idProp  = self::$config->schema->id;
+        $pidProp = self::$config->schema->pid;
+        $pidNmsp = self::$config->doorkeeper->epicPid->resolver;
+        $idNmsp  = self::$config->schema->namespaces->id;
+        $idn     = rand();
+        $im      = self::createMetadata([$idProp => $idNmsp . $idn]);
+        self::$repo->begin();
+
+        // no pid generated automatically
+        $r  = self::$repo->createResource($im);
+        $m1 = $r->getGraph();
+        $this->assertEquals(0, count($m1->all($pidProp)));
+
+        // pid generated automatically and promoted to an id
+        $m1->addLiteral($pidProp, '');
+        $r->setGraph($m1);
+        $r->updateMetadata();
+        $m2   = $r->getGraph();
+        $this->assertEquals(0, count($m2->allResources($pidProp)));
+        $pids = $m2->allLiterals($pidProp);
+        $this->assertEquals(1, count($pids));
+        $this->assertEquals($pidNmsp . $idn, (string) $pids[0]);
+        $this->assertContains((string) $pids[0], $this->toStr($m2->allResources($idProp)));
+
+        self::$repo->rollback();
+    }
+
+    public function testPidPreserving(): void {
+        $idProp  = self::$config->schema->id;
+        $pidProp = self::$config->schema->pid;
+        $pidNmsp = self::$config->doorkeeper->epicPid->resolver;
+        $idNmsp  = self::$config->schema->namespaces->id;
+        $idn     = rand();
+        $pid     = $pidNmsp . 'handles/' . self::$config->doorkeeper->epicPid->prefix . '/123';
+        self::$repo->begin();
+
+        // existing pid not overwritten but promoted to an id
+        $idn  = rand();
+        $im   = self::createMetadata([
+                $idProp  => $idNmsp . $idn,
+                $pidProp => $pid,
+        ]);
+        $r    = self::$repo->createResource($im);
+        $m1   = $r->getGraph();
+        $pids = $m1->allLiterals($pidProp);
+        $this->assertEquals(1, count($pids));
+        $this->assertEquals($pid, (string) $pids[0]);
+        $this->assertContains($pid, $this->toStr($m1->allResources($idProp)));
+
+        // pid refreshed from one stored as an id
+        $m2   = $r->getGraph();
+        $m2->delete($pidProp);
+        $m2->addLiteral($pidProp, '');
+        $r->setGraph($m2);
+        $r->updateMetadata();
+        $m3   = $r->getGraph();
+        $pids = $m3->allLiterals($pidProp);
+        $this->assertEquals(1, count($pids));
+        $this->assertEquals($pid, (string) $pids[0]);
+        $this->assertContains($pid, $this->toStr($m3->allResources($idProp)));
+
+        self::$repo->rollback();
     }
 
 }

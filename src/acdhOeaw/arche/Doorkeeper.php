@@ -123,7 +123,9 @@ class Doorkeeper {
                 $id = $i;
             }
         }
-        if ($meta->getLiteral($pidProp) && $id !== null) {
+        $pidLit = $meta->getLiteral($pidProp);
+        $pidLit = $pidLit !== null ? (string) $pidLit : null;
+        if ($pidLit === '' && $id !== null) {
             $ps = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
             if ($curPid === null) {
                 if (empty($cfg->pswd)) {
@@ -134,17 +136,18 @@ class Doorkeeper {
                 $pid = $ps->create($id);
                 $pid = str_replace($cfg->url, $cfg->resolver, $pid);
                 RC::$log->info("\t\tregistered PID $pid pointing to " . $id);
-                $meta->addResource($pidProp, $pid);
+                $meta->addLiteral($pidProp, $pid);
             } else {
                 $meta->delete($pidProp);
-                $meta->addResource($pidProp, $curPid);
+                $meta->addLiteral($pidProp, $curPid);
                 $pid = str_replace($cfg->resolver, $cfg->url, $curPid);
+        RC::$log->debug($pid);
                 $ret = $ps->update($pid, $id);
                 RC::$log->info("\t\trecreated PID $pid pointing to " . $id . " with return code " . $ret);
             }
         }
         // promote PIDs to IDs
-        foreach ($meta->allResources($pidProp) as $i) {
+        foreach ($meta->all($pidProp) as $i) {
             $i = (string) $i;
             if (!in_array($i, $ids)) {
                 RC::$log->info("\t\tpromoting PID $i to an id");

@@ -120,16 +120,25 @@ class TestBase extends \PHPUnit\Framework\TestCase {
         }
 
         foreach ($props as $p => $i) {
+            $pDef = self::$ontology->getProperty(null, $p);
             if (!is_array($i)) {
                 $i = [$i];
             }
             foreach ($i as $v) {
                 if (is_object($v)) {
                     $r->add($p, $v);
-                } elseif (preg_match('|^https?://.|', $v)) {
-                    $r->addResource($p, $v);
+                } elseif ($pDef !== null) {
+                    if ($pDef->type === RDF::OWL_OBJECT_PROPERTY) {
+                        $r->addResource($p, $v);
+                    } else {
+                        $r->addLiteral($p, $v, $pDef->langTag ? 'en' : null);
+                    }
                 } else {
-                    $r->addLiteral($p, $v, 'en');
+                    if (preg_match('|^https?://.|', $v)) {
+                        $r->addResource($p, $v);
+                    } else {
+                        $r->addLiteral($p, $v, 'en');
+                    }
                 }
             }
         }

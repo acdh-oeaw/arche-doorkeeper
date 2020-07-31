@@ -48,9 +48,9 @@ doorkeeper:
     roleAcademic: academic
     epicPid:
         resolver: 'http://hdl.handle.net/'
-        url: 'https://pid.gwdg.de/handles/'
+        url: 'https://arche-handlemock.acdh-dev.oeaw.ac.at/'
         user: user21.11115-01
-        pswd: 
+        pswd: foobar
         prefix: 21.11115
     # used only by tests
     restConfigDstPath: config/yaml/config-repo.yaml
