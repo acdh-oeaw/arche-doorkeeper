@@ -136,10 +136,10 @@ class Doorkeeper {
                 $pid = $ps->create($id);
                 $pid = str_replace($cfg->url, $cfg->resolver, $pid);
                 RC::$log->info("\t\tregistered PID $pid pointing to " . $id);
-                $meta->addLiteral($pidProp, $pid);
+                $meta->addLiteral($pidProp, new Literal($pid, null, RDF::XSD_ANY_URI));
             } else {
                 $meta->delete($pidProp);
-                $meta->addLiteral($pidProp, $curPid);
+                $meta->addLiteral($pidProp, new Literal($curPid, null, RDF::XSD_ANY_URI));
                 $pid = str_replace($cfg->resolver, $cfg->url, $curPid);
                 $ret = $ps->update($pid, $id);
                 RC::$log->info("\t\trecreated PID $pid pointing to " . $id . " with return code " . $ret);
