@@ -139,10 +139,12 @@ class ResourceTest extends TestBase {
     }
 
     public function testMaintainRange(): void {
-        $im = self::createMetadata([
+        $pid = 'https://foo.bar/' . rand();
+        $im  = self::createMetadata([
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedDate' => '2017',
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'  => '300.54',
                 'https://other/property'                               => new Literal('test value', 'en'),
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'         => $pid,
         ]);
 
         self::$repo->begin();
@@ -160,6 +162,10 @@ class ResourceTest extends TestBase {
         $str = $om->getLiteral('https://other/property');
         $this->assertEquals(RDF::XSD_STRING, $str->getDatatypeUri() ?? RDF::XSD_STRING);
         $this->assertEquals('en', $str->getLang());
+
+        $uri = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasPid');
+        $this->assertEquals(RDF::XSD_ANY_URI, $uri->getDatatypeUri());
+        $this->assertEquals($pid, $uri->getValue());
     }
 
     public function testCardinalitiesMin(): void {

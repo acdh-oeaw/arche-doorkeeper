@@ -605,6 +605,8 @@ class Doorkeeper {
 
     static private function castLiteral(Literal $l, string $range): Literal {
         switch ($range) {
+            case RDF::XSD_ANY_URI:
+                $value = new Literal((string) $l, null, RDF::XSD_ANY_URI);
             case RDF::XSD_DATE:
                 $value = new lDate(is_numeric((string) $l) ? $l . '-01-01' : (string) $l, null, $range);
                 break;
