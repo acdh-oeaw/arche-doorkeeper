@@ -75,8 +75,8 @@ class Doorkeeper {
         // checkTitleProp before checkCardinalities!
         $functions = [
             'maintainPid', 'maintainAccessRestriction', 'maintainAccessRights', 'maintainPropertyRange',
-            'normalizeIds', 'checkTitleProp', 'checkCardinalities', 'checkIdCount',
-            'checkLanguage'
+            'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
+            'checkIdCount', 'checkLanguage'
         ];
         if (self::$ontology->isA($meta, RC::$config->schema->classes->repoObject)) {
             $functions = array_merge(['maintainHosting', 'maintainBinarySize'], $functions);
@@ -319,9 +319,30 @@ class Doorkeeper {
     }
 
     /**
-     * Checks property cardinalities according to the ontology.
+     * Checks property types (datatype/object).
      * 
-     * Here and now only min count is checked.
+     * As the property type doesn't depend on the class context, the check can
+     * and should be done for all metadata properties.
+     * 
+     * @param \EasyRdf\Resource $meta
+     * @throws DoorkeeperException
+     */
+    static private function checkPropertyTypes(Resource $meta): void {
+        foreach ($meta->propertyUris() as $p) {
+            $pDef = self::$ontology->getProperty([], $p);
+            if (is_object($pDef)) {
+                if ($pDef->type === RDF::OWL_DATATYPE_PROPERTY && $meta->getResource($p) !== null) {
+                    throw new DoorkeeperException('URI value for a datatype property ' . $p);
+                }
+                if ($pDef->type === RDF::OWL_OBJECT_PROPERTY && $meta->getLiteral($p) !== null) {
+                    throw new DoorkeeperException('Literal value for an object property ' . $p);
+                }
+            }
+        }
+    }
+
+    /**
+     * Checks property cardinalities according to the ontology.
      * 
      * @param \EasyRdf\Resource $meta
      * @throws DoorkeeperException
@@ -333,26 +354,20 @@ class Doorkeeper {
                 continue;
             }
             foreach ($classDef->properties as $p) {
-                $co  = $cd  = 0;
-                $cdl = ['' => 0];
-                foreach ($p->property as $i) {
-                    foreach ($meta->all($i) as $j) {
-                        if ($j instanceof Literal) {
-                            $cd++;
-                            $lang       = $j->getLang() ?? '';
-                            $cdl[$lang] = 1 + ($cdl[$lang] ?? 0);
-                        } else {
-                            $co++;
+                if ($p->min > 0 || $p->max !== null) {
+                    $co  = $cd  = 0;
+                    $cdl = ['' => 0];
+                    foreach ($p->property as $i) {
+                        foreach ($meta->all($i) as $j) {
+                            if ($j instanceof Literal) {
+                                $cd++;
+                                $lang       = $j->getLang() ?? '';
+                                $cdl[$lang] = 1 + ($cdl[$lang] ?? 0);
+                            } else {
+                                $co++;
+                            }
                         }
                     }
-                }
-                if ($p->type === RDF::OWL_DATATYPE_PROPERTY && $co > 0) {
-                    throw new DoorkeeperException('URI value for a datatype property ' . $p->uri);
-                }
-                if ($p->type === RDF::OWL_OBJECT_PROPERTY && $cd > 0) {
-                    throw new DoorkeeperException('Literal value for an object property ' . $p->uri);
-                }
-                if ($p->min > 0 || $p->max !== null) {
                     if ($p->min > 0 && $co + $cd < $p->min) {
                         throw new DoorkeeperException('Min property count for ' . $p->uri . ' is ' . $p->min . ' but resource has ' . ($co + $cd));
                     }

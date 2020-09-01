@@ -193,16 +193,16 @@ class ResourceTest extends TestBase {
     }
 
     public function testPropertyType(): void {
-        $prop = 'https://vocabs.acdh.oeaw.ac.at/schema#hasUrl';
         $im   = self::createMetadata();
-        $im->addResource($prop, 'http://foo.bar/' . rand());
+        $im->addResource('https://vocabs.acdh.oeaw.ac.at/schema#hasUrl', 'http://foo.bar/' . rand());
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
+            $this->assertTrue(false);
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
-            $this->assertRegExp('/^URI value for a datatype property /', (string) $resp->getBody());
+            $this->assertRegExp('/^URI value for a datatype property .*hasUrl/', (string) $resp->getBody());
         }
     }
 
