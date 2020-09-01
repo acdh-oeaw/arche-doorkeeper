@@ -192,6 +192,19 @@ class ResourceTest extends TestBase {
         $this->assertIsObject($r);
     }
 
+    public function testPropertyType(): void {
+        $im = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Person');
+        $im->addResource('https://vocabs.acdh.oeaw.ac.at/schema#hasUrl', 'http://foo.bar/' . rand());
+        self::$repo->begin();
+        try {
+            self::$repo->createResource($im);
+        } catch (ClientException $e) {
+            $resp = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $this->assertRegExp('/^URI value for a datatype property /', (string) $resp->getBody());
+        }
+    }
+
     public function testCardinalitiesMax(): void {
         $idProp = self::$config->schema->id;
         $prop   = 'https://vocabs.acdh.oeaw.ac.at/schema#hasTransferDate';
