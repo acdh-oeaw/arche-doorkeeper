@@ -193,8 +193,9 @@ class ResourceTest extends TestBase {
     }
 
     public function testPropertyType(): void {
-        $im = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Person');
-        $im->addResource('https://vocabs.acdh.oeaw.ac.at/schema#hasUrl', 'http://foo.bar/' . rand());
+        $prop = 'https://vocabs.acdh.oeaw.ac.at/schema#hasUrl';
+        $im   = self::createMetadata();
+        $im->addResource($prop, 'http://foo.bar/' . rand());
         self::$repo->begin();
         try {
             self::$repo->createResource($im);

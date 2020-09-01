@@ -333,26 +333,26 @@ class Doorkeeper {
                 continue;
             }
             foreach ($classDef->properties as $p) {
-                if ($p->min > 0 || $p->max !== null) {
-                    $co  = $cd  = 0;
-                    $cdl = ['' => 0];
-                    foreach ($p->property as $i) {
-                        foreach ($meta->all($i) as $j) {
-                            if ($j instanceof Literal) {
-                                $cd++;
-                                $lang       = $j->getLang() ?? '';
-                                $cdl[$lang] = 1 + ($cdl[$lang] ?? 0);
-                            } else {
-                                $co++;
-                            }
+                $co  = $cd  = 0;
+                $cdl = ['' => 0];
+                foreach ($p->property as $i) {
+                    foreach ($meta->all($i) as $j) {
+                        if ($j instanceof Literal) {
+                            $cd++;
+                            $lang       = $j->getLang() ?? '';
+                            $cdl[$lang] = 1 + ($cdl[$lang] ?? 0);
+                        } else {
+                            $co++;
                         }
                     }
-                    if ($p->type === RDF::OWL_DATATYPE_PROPERTY && $co > 0) {
-                        throw new DoorkeeperException('URI value for a datatype property ' . $p->uri);
-                    }
-                    if ($p->type === RDF::OWL_OBJECT_PROPERTY && $cd > 0) {
-                        throw new DoorkeeperException('Literal value for an object property ' . $p->uri);
-                    }
+                }
+                if ($p->type === RDF::OWL_DATATYPE_PROPERTY && $co > 0) {
+                    throw new DoorkeeperException('URI value for a datatype property ' . $p->uri);
+                }
+                if ($p->type === RDF::OWL_OBJECT_PROPERTY && $cd > 0) {
+                    throw new DoorkeeperException('Literal value for an object property ' . $p->uri);
+                }
+                if ($p->min > 0 || $p->max !== null) {
                     if ($p->min > 0 && $co + $cd < $p->min) {
                         throw new DoorkeeperException('Min property count for ' . $p->uri . ' is ' . $p->min . ' but resource has ' . ($co + $cd));
                     }
