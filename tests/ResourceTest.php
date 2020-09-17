@@ -389,7 +389,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
 
         // copied from other title-like property
-        $im = self::createMetadata(['http://purl.org/dc/elements/1.1/title' => 'foo']);
+        $im = self::createMetadata(['http://purl.org/dc/elements/1.1/title' => new Literal('foo', 'en')]);
         $im->delete($titleProp);
         $r  = self::$repo->createResource($im);
         $this->assertEquals('foo', (string) $r->getGraph()->getLiteral($titleProp));
