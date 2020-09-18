@@ -60,10 +60,13 @@ class TransactionTest extends TestBase {
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$rBin1, $rBin2]);
 
+        $rBin1->loadMetadata(true);
         $rCol1->loadMetadata(true);
         $rCol2->loadMetadata(true);
+        $rBin1Meta = $rBin1->getGraph();
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
+        $this->assertNull($rBin1Meta->getLiteral($countProp));
         $this->assertEquals($bin1Size + $bin2Size, $rCol1Meta->getLiteral($sizeProp)->getValue());
         $this->assertEquals(3, $rCol1Meta->getLiteral($countProp)->getValue());
         $this->assertEquals($bin2Size, $rCol2Meta->getLiteral($sizeProp)->getValue());

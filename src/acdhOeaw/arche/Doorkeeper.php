@@ -535,7 +535,8 @@ class Doorkeeper {
             SELECT 
                 p.id, 
                 coalesce(sum(CASE ra.state = ? WHEN true THEN chm.value_n ELSE 0 END), 0) AS size, 
-                greatest(sum((ra.state = ?)::int) - 1, 0) AS count
+                greatest(sum((ra.state = ?)::int) - 1, 0) AS count,
+                coalesce(bool_and(p.id = chm.id), false) AS binres
             FROM
                 (
                     SELECT DISTINCT gr.id
@@ -589,7 +590,7 @@ class Doorkeeper {
             INSERT INTO metadata (id, property, type, lang, value_n, value)
                 SELECT id, ?, ?, '', size, size FROM _collsizeupdate JOIN resources USING (id) WHERE state = ?
               UNION
-                SELECT id, ?, ?, '', count, count FROM _collsizeupdate JOIN resources USING (id) WHERE state = ?
+                SELECT id, ?, ?, '', count, count FROM _collsizeupdate JOIN resources USING (id) WHERE state = ? AND binres = false
         ");
         $query->execute([
             $acdhSizeProp, RDF::XSD_DECIMAL, Res::STATE_ACTIVE,
