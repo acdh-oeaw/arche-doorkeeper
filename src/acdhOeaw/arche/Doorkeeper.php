@@ -104,7 +104,7 @@ class Doorkeeper {
 
         $pdo->commit();
     }
-    
+
     static private function maintainPid(Resource $meta): void {
         $cfg     = RC::$config->doorkeeper->epicPid;
         $idProp  = RC::$config->schema->id;
@@ -463,6 +463,7 @@ class Doorkeeper {
         $sizeProp      = RC::$config->schema->binarySize;
         $acdhSizeProp  = RC::$config->schema->binarySizeCumulative;
         $acdhCountProp = RC::$config->schema->countCumulative;
+        $collClass     = RC::$config->schema->classes->collection;
 
         $prolongQuery = $pdo->prepare("UPDATE transactions SET last_request = clock_timestamp() WHERE transaction_id = ?");
 

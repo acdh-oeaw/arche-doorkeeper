@@ -252,7 +252,6 @@ class ResourceTest extends TestBase {
 
         $this->assertEquals(date('Y-m-d'), substr($rm->getLiteral($creationDateProp), 0, 10));
         $this->assertEquals('text/plain', (string) $rm->getLiteral(self::$config->schema->mime));
-        $this->assertEquals('7', (string) $rm->getLiteral(self::$config->schema->binarySizeCumulative));
 
         // accessRestriction is only on BinaryContent and not on RepoObject
         $this->assertNull($rm->get($accessRestProp));
@@ -264,7 +263,7 @@ class ResourceTest extends TestBase {
     }
 
     public function testAccessRightsAuto(): void {
-        $im = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+        $im = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
         self::$repo->begin();
         $r  = self::$repo->createResource($im);
         $om = $r->getGraph();
