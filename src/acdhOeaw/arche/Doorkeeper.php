@@ -74,12 +74,13 @@ class Doorkeeper {
         $errors    = [];
         // checkTitleProp before checkCardinalities!
         $functions = [
-            'maintainPid', 'maintainAccessRestriction', 'maintainAccessRights', 'maintainPropertyRange',
+            'maintainPid', 'maintainAccessRestriction', 'maintainAccessRights',
+            'maintainDefaultValues', 'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
             'checkIdCount', 'checkLanguage'
         ];
         if (self::$ontology->isA($meta, RC::$config->schema->classes->repoObject)) {
-            $functions = array_merge(['maintainHosting', 'maintainBinarySize'], $functions);
+            $functions = array_merge(['maintainBinarySize'], $functions);
         }
         foreach ($functions as $f) {
             try {
@@ -153,15 +154,6 @@ class Doorkeeper {
                 RC::$log->info("\t\tpromoting PID $i to an id");
                 $meta->addResource($idProp, $i);
             }
-        }
-    }
-
-    static private function maintainHosting(Resource $meta): void {
-        $prop  = RC::$config->schema->hosting;
-        $value = $meta->getResource($prop);
-        if ($value === null) {
-            $meta->addResource($prop, RC::$config->doorkeeper->default->hosting);
-            RC::$log->info("\t\t$prop added");
         }
     }
 
@@ -266,6 +258,26 @@ class Doorkeeper {
                     } catch (DoorkeeperException $ex) {
                         throw new DoorkeeperException('property ' . $prop . ': ' . $ex->getMessage(), $ex->getCode(), $ex);
                     }
+                }
+            }
+        }
+    }
+
+    static private function maintainDefaultValues(Resource $meta): void {
+        foreach ($meta->allResources(RDF::RDF_TYPE) as $class) {
+            $c = self::$ontology->getClass($class);
+            foreach ($c->properties as $p) {
+                if (!empty($p->defaultValue) && $meta->get($p->uri) === null) {
+                    switch ($p->type) {
+                        case RDF::OWL_OBJECT_PROPERTY:
+                            $val = new Resource($p->defaultValue);
+                            break;
+                        case RDF::OWL_DATATYPE_PROPERTY:
+                            $val = new Literal($p->defaultValue, $p->langTag ? 'en' : null, $p->range);
+                            break;
+                    }
+                    $meta->add($p->uri, $val);
+                    RC::$log->info("\t\t$p->uri added with a default value of $p->defaultValue");
                 }
             }
         }
