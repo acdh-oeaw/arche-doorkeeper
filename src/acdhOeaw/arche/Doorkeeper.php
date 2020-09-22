@@ -79,9 +79,6 @@ class Doorkeeper {
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
             'checkIdCount', 'checkLanguage'
         ];
-        if (self::$ontology->isA($meta, RC::$config->schema->classes->repoObject)) {
-            $functions = array_merge(['maintainBinarySize'], $functions);
-        }
         foreach ($functions as $f) {
             try {
                 self::$f($meta);
@@ -155,12 +152,6 @@ class Doorkeeper {
                 $meta->addResource($idProp, $i);
             }
         }
-    }
-
-    static private function maintainBinarySize(Resource $meta): void {
-        $prop = RC::$config->schema->binarySizeCumulative;
-        $meta->delete($prop);
-        $meta->add($prop, $meta->getLiteral(RC::$config->schema->binarySize));
     }
 
     /**
