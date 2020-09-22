@@ -250,12 +250,17 @@ class ResourceTest extends TestBase {
         $rh = new RepoResource((string) $rm->get(self::$config->schema->hosting), self::$repo);
         $this->assertContains(self::$config->doorkeeper->default->hosting, $rh->getIds());
 
-        $rar = new RepoResource((string) $rm->get($accessRestProp), self::$repo);
-        $this->assertContains(self::$config->doorkeeper->default->accessRestriction, $rar->getIds());
-
         $this->assertEquals(date('Y-m-d'), substr($rm->getLiteral($creationDateProp), 0, 10));
         $this->assertEquals('text/plain', (string) $rm->getLiteral(self::$config->schema->mime));
         $this->assertEquals('7', (string) $rm->getLiteral(self::$config->schema->binarySizeCumulative));
+
+        // accessRestriction is only on BinaryContent and not on RepoObject
+        $this->assertNull($rm->get($accessRestProp));
+
+        $im  = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
+        $r   = self::$repo->createResource($im, new BinaryPayload('foo bar', null, 'text/plain'));
+        $rar = new RepoResource((string) $r->getGraph()->get($accessRestProp), self::$repo);
+        $this->assertContains(self::$config->doorkeeper->default->accessRestriction, $rar->getIds());
     }
 
     public function testAccessRightsAuto(): void {

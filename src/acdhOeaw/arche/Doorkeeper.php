@@ -74,8 +74,8 @@ class Doorkeeper {
         $errors    = [];
         // checkTitleProp before checkCardinalities!
         $functions = [
-            'maintainPid', 'maintainAccessRestriction', 'maintainAccessRights',
-            'maintainDefaultValues', 'maintainPropertyRange',
+            'maintainPid', 'maintainDefaultValues', 'maintainAccessRights',
+            'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
             'checkIdCount', 'checkLanguage'
         ];
@@ -107,7 +107,7 @@ class Doorkeeper {
 
         $pdo->commit();
     }
-
+    
     static private function maintainPid(Resource $meta): void {
         $cfg     = RC::$config->doorkeeper->epicPid;
         $idProp  = RC::$config->schema->id;
@@ -161,26 +161,6 @@ class Doorkeeper {
         $prop = RC::$config->schema->binarySizeCumulative;
         $meta->delete($prop);
         $meta->add($prop, $meta->getLiteral(RC::$config->schema->binarySize));
-    }
-
-    static private function maintainAccessRestriction(Resource $meta): void {
-        $prop      = RC::$config->schema->accessRestriction;
-        $resources = $meta->allResources($prop);
-        $literals  = $meta->allLiterals($prop);
-        $allowed   = [
-            'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public',
-            'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
-            'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted'
-        ];
-        $condCount = count($resources) == 0 || count($literals) > 0 || count($resources) > 1;
-        $condValue = count($resources) > 0 && !in_array((string) $resources[0], $allowed);
-        if ($condCount || $condValue) {
-            $default = RC::$config->doorkeeper->default->accessRestriction;
-            $meta->delete($prop);
-            $meta->deleteResource($prop);
-            $meta->addResource($prop, $default);
-            RC::$log->info("\t\t$prop = $default added");
-        }
     }
 
     /**
@@ -266,6 +246,9 @@ class Doorkeeper {
     static private function maintainDefaultValues(Resource $meta): void {
         foreach ($meta->allResources(RDF::RDF_TYPE) as $class) {
             $c = self::$ontology->getClass($class);
+            if ($c === null) {
+                continue;
+            }
             foreach ($c->properties as $p) {
                 if (!empty($p->defaultValue) && $meta->get($p->uri) === null) {
                     switch ($p->type) {
