@@ -289,30 +289,14 @@ class Doorkeeper {
     }
 
     static private function checkLanguage(Resource $meta): void {
-        $toCheck = [
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasTitle',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasAlternativeTitle',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasDescription',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasTechnicalInfo',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasAppliedMethodDescription',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasExtent',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasArrangement',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasNamingScheme',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasCompleteness',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasEditorialPractice',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasSeriesInformation',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasTableOfContents',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasNote',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasTemporalCoverage',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasCity',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasCountry',
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasRegion',
-        ];
-        foreach ($toCheck as $prop) {
-            foreach ($meta->allLiterals($prop) as $value) {
-                /* @var $value \EasyRdf\Literal */
-                if (empty($value->getLang())) {
-                    throw new DoorkeeperException("Property $prop with value " . (string) $value . " is not tagged with a language");
+        foreach ($meta->propertyUris() as $prop) {
+            $p = self::$ontology->getProperty([], $prop);
+            if (is_object($p) && $p->langTag) {
+                foreach ($meta->allLiterals($prop) as $value) {
+                    /* @var $value \EasyRdf\Literal */
+                    if (empty($value->getLang())) {
+                        throw new DoorkeeperException("Property $prop with value " . (string) $value . " is not tagged with a language");
+                    }
                 }
             }
         }
