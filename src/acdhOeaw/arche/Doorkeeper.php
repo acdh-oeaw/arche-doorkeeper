@@ -503,28 +503,35 @@ class Doorkeeper {
         // finaly group by parent and compute their size 
         $query = "
             CREATE TEMPORARY TABLE _collsizeupdate AS
-            SELECT 
-                p.id, 
-                coalesce(sum(CASE ra.state = ? WHEN true THEN chm.value_n ELSE 0 END), 0) AS size, 
-                greatest(sum((ra.state = ?)::int) - 1, 0) AS count,
-                coalesce(bool_and(p.id = chm.id), false) AS binres
+            SELECT id, size, count, binres, value IS NOT NULL AS collection
             FROM
                 (
-                    SELECT DISTINCT gr.id
-                    FROM resources r, LATERAL get_relatives(r.id, ?, 0) gr
-                    WHERE r.transaction_id = ?
-                  " . (count($parentIds) > 0 ? "UNION SELECT * FROM (VALUES %ids%) pp" : "") . "
-                ) p,
-                LATERAL get_relatives(p.id, ?, 999999, 0) ch
-                LEFT JOIN resources ra ON ra.id = ch.id
-                LEFT JOIN metadata chm ON chm.id = ch.id AND chm.property = ?
-            GROUP BY 1
+                    SELECT 
+                        p.id, 
+                        coalesce(sum(CASE ra.state = ? WHEN true THEN chm.value_n ELSE 0 END), 0) AS size, 
+                        greatest(sum((ra.state = ?)::int) - 1, 0) AS count,
+                        coalesce(bool_and(p.id = chm.id), false) AS binres
+                    FROM
+                        (
+                            SELECT DISTINCT gr.id
+                            FROM resources r, LATERAL get_relatives(r.id, ?, 0) gr
+                            WHERE r.transaction_id = ?
+                          " . (count($parentIds) > 0 ? "UNION SELECT * FROM (VALUES %ids%) pp" : "") . "
+                        ) p,
+                        LATERAL get_relatives(p.id, ?, 999999, 0) ch
+                        LEFT JOIN resources ra ON ra.id = ch.id
+                        LEFT JOIN metadata chm ON chm.id = ch.id AND chm.property = ?
+                    GROUP BY 1
+                ) s
+                LEFT JOIN (
+                    SELECT * FROM metadata WHERE property = ? AND value = ?
+                ) m USING (id)
         ";
         $query = str_replace('%ids%', substr(str_repeat('(?::bigint), ', count($parentIds)), 0, -2), $query);
         $param = array_merge(
             [Res::STATE_ACTIVE, Res::STATE_ACTIVE, RC::$config->schema->parent, $txId], // case in main select, gr, r
             $parentIds,
-            [RC::$config->schema->parent, $sizeProp]// p, ch, chm
+            [RC::$config->schema->parent, $sizeProp, RDF::RDF_TYPE, $collClass]// p, ch, chm, m
         );
         $query = $pdo->prepare($query);
         $query->execute($param);
@@ -559,9 +566,13 @@ class Doorkeeper {
         // insert new values
         $query = $pdo->prepare("
             INSERT INTO metadata (id, property, type, lang, value_n, value)
-                SELECT id, ?, ?, '', size, size FROM _collsizeupdate JOIN resources USING (id) WHERE state = ?
+                SELECT id, ?, ?, '', size, size 
+                FROM _collsizeupdate JOIN resources USING (id) 
+                WHERE state = ? AND (collection OR count > 0 OR binres)
               UNION
-                SELECT id, ?, ?, '', count, count FROM _collsizeupdate JOIN resources USING (id) WHERE state = ? AND binres = false
+                SELECT id, ?, ?, '', count, count 
+                FROM _collsizeupdate JOIN resources USING (id) 
+                WHERE state = ? AND (collection OR count > 0)
         ");
         $query->execute([
             $acdhSizeProp, RDF::XSD_DECIMAL, Res::STATE_ACTIVE,

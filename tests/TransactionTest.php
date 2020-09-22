@@ -27,6 +27,7 @@
 namespace acdhOeaw\arche;
 
 use acdhOeaw\acdhRepoLib\BinaryPayload;
+use zozlak\RdfConstants as RDF;
 
 /**
  * Description of TransactionTest
@@ -41,9 +42,8 @@ class TransactionTest extends TestBase {
 
         self::$repo->begin();
         $rCol1          = self::$repo->createResource(self::createMetadata());
-        $rCol2          = self::$repo->createResource(self::createMetadata([
-                self::$config->schema->parent => $rCol1->getUri(),
-        ]));
+        $rCol2Meta      = self::createMetadata([self::$config->schema->parent => $rCol1->getUri()], self::$config->schema->classes->collection);
+        $rCol2          = self::$repo->createResource($rCol2Meta);
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$rCol1, $rCol2]);
 
@@ -115,6 +115,16 @@ class TransactionTest extends TestBase {
         $this->assertEquals(1, $rCol1Meta->getLiteral($countProp)->getValue());
         $this->assertEquals(0, $rCol2Meta->getLiteral($sizeProp)->getValue());
         $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)->getValue());
+
+        self::$repo->begin();
+        $rCol2->delete(true);
+        self::$repo->commit();
+
+        // col1 is an empty metadata-only resource not marked as schema.classes.collection now so it shouldn't have collection-specific properties
+        $rCol1->loadMetadata(true);
+        $rCol1Meta = $rCol1->getGraph();
+        $this->assertNull($rCol1Meta->getLiteral($sizeProp));
+        $this->assertNull($rCol1Meta->getLiteral($countProp));
     }
 
     public function testCollectionExtent2(): void {
@@ -122,10 +132,11 @@ class TransactionTest extends TestBase {
         $sizeProp   = self::$config->schema->binarySizeCumulative;
         $countProp  = self::$config->schema->countCumulative;
         $parentProp = self::$config->schema->parent;
+        $collClass  = self::$config->schema->classes->collection;
 
         self::$repo->begin();
-        $rCol1          = self::$repo->createResource(self::createMetadata());
-        $rCol2          = self::$repo->createResource(self::createMetadata());
+        $rCol1          = self::$repo->createResource(self::createMetadata([], $collClass));
+        $rCol2          = self::$repo->createResource(self::createMetadata([], $collClass));
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$rCol1, $rCol2]);
 
@@ -153,7 +164,7 @@ class TransactionTest extends TestBase {
         $rBin->setMetadata($meta);
         $rBin->updateMetadata();
         self::$repo->commit();
-        
+
         $rCol1->loadMetadata(true);
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
