@@ -27,6 +27,7 @@
 namespace acdhOeaw\arche;
 
 use PDO;
+use PDOStatement;
 use RuntimeException;
 use EasyRdf\Literal;
 use EasyRdf\Resource;
@@ -100,7 +101,7 @@ class Doorkeeper {
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->beginTransaction();
 
-        self::updateCollectionExtent($pdo, $txId, $resourceIds);
+        self::updateCollections($pdo, $txId, $resourceIds);
 
         $pdo->commit();
     }
@@ -458,16 +459,15 @@ class Doorkeeper {
         }
     }
 
-    static private function updateCollectionExtent(PDO $pdo, int $txId,
-                                                   array $resourceIds): void {
+    static private function updateCollections(PDO $pdo, int $txId,
+                                              array $resourceIds): void {
         $sizeProp      = RC::$config->schema->binarySize;
         $acdhSizeProp  = RC::$config->schema->binarySizeCumulative;
         $acdhCountProp = RC::$config->schema->countCumulative;
-        $collClass     = RC::$config->schema->classes->collection;
-
+        $collClass     = RC::$config->schema->classes->collection;        
         $prolongQuery = $pdo->prepare("UPDATE transactions SET last_request = clock_timestamp() WHERE transaction_id = ?");
 
-        RC::$log->info("\t\tUpdating size of collections affected by the transaction");
+        RC::$log->info("\t\tUpdating collections affected by the transaction");
 
         $query  = $pdo->prepare("
             SELECT id 
@@ -497,50 +497,32 @@ class Doorkeeper {
         } else {
             $parentIds = [];
         }
-
         $prolongQuery->execute([$txId]);
-        // find all affected parents (gr, pp), then find all the children (ch) and their size (chm)
-        // finaly group by parent and compute their size 
+
+        // find all affected parents (gr, pp) and their children
         $query = "
-            CREATE TEMPORARY TABLE _collsizeupdate AS
-            SELECT id, size, count, binres, value IS NOT NULL AS collection
-            FROM
-                (
-                    SELECT 
-                        p.id, 
-                        coalesce(sum(CASE ra.state = ? WHEN true THEN chm.value_n ELSE 0 END), 0) AS size, 
-                        greatest(sum((ra.state = ?)::int) - 1, 0) AS count,
-                        coalesce(bool_and(p.id = chm.id), false) AS binres
-                    FROM
-                        (
-                            SELECT DISTINCT gr.id
-                            FROM resources r, LATERAL get_relatives(r.id, ?, 0) gr
-                            WHERE r.transaction_id = ?
-                          " . (count($parentIds) > 0 ? "UNION SELECT * FROM (VALUES %ids%) pp" : "") . "
-                        ) p,
-                        LATERAL get_relatives(p.id, ?, 999999, 0) ch
-                        LEFT JOIN resources ra ON ra.id = ch.id
-                        LEFT JOIN metadata chm ON chm.id = ch.id AND chm.property = ?
-                    GROUP BY 1
-                ) s
-                LEFT JOIN (
-                    SELECT * FROM metadata WHERE property = ? AND value = ?
-                ) m USING (id)
+            CREATE TEMPORARY TABLE _resources AS
+            SELECT p.id AS cid, (get_relatives(p.id, ?, 999999, 0)).*
+            FROM (
+                SELECT DISTINCT gr.id
+                FROM resources r, LATERAL get_relatives(r.id, ?, 0) gr
+                WHERE r.transaction_id = ?
+              " . (count($parentIds) > 0 ? "UNION SELECT * FROM (VALUES %ids%) pp" : "") . "
+            ) p
         ";
         $query = str_replace('%ids%', substr(str_repeat('(?::bigint), ', count($parentIds)), 0, -2), $query);
         $param = array_merge(
-            [Res::STATE_ACTIVE, Res::STATE_ACTIVE, RC::$config->schema->parent, $txId], // case in main select, gr, r
+            [RC::$config->schema->parent, RC::$config->schema->parent, $txId],
             $parentIds,
-            [RC::$config->schema->parent, $sizeProp, RDF::RDF_TYPE, $collClass]// p, ch, chm, m
         );
         $query = $pdo->prepare($query);
         $query->execute($param);
         $prolongQuery->execute([$txId]);
-
+        
         // try to lock resources to be updated
         $query  = $pdo->prepare("
             UPDATE resources SET transaction_id = ? 
-            WHERE id IN (SELECT id FROM _collsizeupdate) AND transaction_id IS NULL
+            WHERE id IN (SELECT DISTINCT cid FROM _resources) AND transaction_id IS NULL
         ");
         $query->execute([$txId]);
         $query  = $pdo->prepare("
@@ -548,7 +530,7 @@ class Doorkeeper {
                 count(*) AS all, 
                 coalesce(sum((transaction_id = ?)::int), 0) AS locked
             FROM 
-                _collsizeupdate
+                (SELECT DISTINCT cid AS id FROM _resources) t
                 JOIN resources r USING (id)
         ");
         $query->execute([$txId]);
@@ -556,8 +538,57 @@ class Doorkeeper {
         if ($result !== false && $result->all !== $result->locked) {
             $msg = "Some resources locked by another transaction (" . ($result->all - $result->locked) . " out of " . $result->all . ")";
             throw new DoorkeeperException($msg, 409);
-        }
+        }        
+        $prolongQuery->execute([$txId]);
+        
+        // perform the actual metadata update
+        self::updateCollectionSize($pdo, $prolongQuery, $txId);
+        self::updateCollectionAggregates($pdo, $prolongQuery, $txId);
 
+        $query = $pdo->query("
+            SELECT json_agg(c.cid) FROM (SELECT DISTINCT cid FROM _resources) c
+        ");
+        RC::$log->debug("\t\t\tupdated resources: " . $query->fetchColumn());
+
+    }
+
+    static private function updateCollectionSize(PDO $pdo,
+                                                 PDOStatement $prolongQuery,
+                                                 int $txId): void {
+        $sizeProp      = RC::$config->schema->binarySize;
+        $acdhSizeProp  = RC::$config->schema->binarySizeCumulative;
+        $acdhCountProp = RC::$config->schema->countCumulative;
+        $collClass     = RC::$config->schema->classes->collection;        
+        
+        // compute children size and count
+        $query = "
+            CREATE TEMPORARY TABLE _collsizeupdate AS
+            SELECT id, size, count, binres, value IS NOT NULL AS collection
+            FROM
+                (
+                    SELECT 
+                        r.cid AS id, 
+                        coalesce(sum(CASE ra.state = ? WHEN true THEN chm.value_n ELSE 0 END), 0) AS size, 
+                        greatest(sum((ra.state = ?)::int) - 1, 0) AS count,
+                        coalesce(bool_and(r.cid = chm.id), false) AS binres
+                    FROM
+                        _resources r
+                        LEFT JOIN resources ra USING (id)
+                        LEFT JOIN metadata chm ON chm.id = r.id AND chm.property = ?
+                    GROUP BY 1
+                ) s
+                LEFT JOIN (
+                    SELECT * FROM metadata WHERE property = ? AND value = ?
+                ) m USING (id)
+        ";
+        $param = [
+            Res::STATE_ACTIVE, Res::STATE_ACTIVE, // case in main select
+            $sizeProp, RDF::RDF_TYPE, $collClass  // chm, m, m
+        ];
+        $query = $pdo->prepare($query);
+        $query->execute($param);
+
+        $prolongQuery->execute([$txId]);
         // remove old values
         $query = $pdo->prepare("
             DELETE FROM metadata WHERE id IN (SELECT id FROM _collsizeupdate) AND property IN (?, ?)
@@ -578,11 +609,12 @@ class Doorkeeper {
             $acdhSizeProp, RDF::XSD_DECIMAL, Res::STATE_ACTIVE,
             $acdhCountProp, RDF::XSD_DECIMAL, Res::STATE_ACTIVE
         ]);
+    }
 
-        $query = $pdo->query("
-            SELECT json_agg(row_to_json(c)) FROM (SELECT * FROM _collsizeupdate) c
-        ");
-        RC::$log->debug("\t\t\tupdated resources: " . $query->fetchColumn());
+    static private function updateCollectionAggregates(PDO $pdo,
+                                                 PDOStatement $prolongQuery,
+                                                 int $txId): void {
+        
     }
 
     static private function loadOntology(): void {
