@@ -175,4 +175,55 @@ class TransactionTest extends TestBase {
         $this->assertEquals(1, $rCol2Meta->getLiteral($countProp)->getValue());
     }
 
+    public function testCollectionAggregates(): void {
+        $accessProp     = self::$config->schema->accessRestriction;
+        $accessAggProp  = self::$config->schema->accessRestrictionAgg;
+        $licenseProp    = self::$config->schema->license;
+        $licenseAggProp = self::$config->schema->licenseAgg;
+        $parentProp     = self::$config->schema->parent;
+        $collClass      = self::$config->schema->classes->collection;
+
+        self::$repo->begin();
+        $rCol1          = self::$repo->createResource(self::createMetadata([], $collClass));
+        self::$repo->commit();
+        $this->toDelete = array_merge($this->toDelete, [$rCol1]);
+
+        $rCol1->loadMetadata(true);
+        $rCol1Meta = $rCol1->getGraph();
+        $this->assertEquals('', $rCol1Meta->getLiteral($licenseAggProp)->getValue());
+        $this->assertEquals('', $rCol1Meta->getLiteral($accessAggProp)->getValue());
+
+        // add resources
+        self::$repo->begin();
+        $meta           = self::createMetadata([
+                $parentProp  => $rCol1->getUri(),
+                $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
+                $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/mit',
+        ]);
+        $rBin1          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
+        $meta           = self::createMetadata([
+                $parentProp  => $rCol1->getUri(),
+                $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
+                $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-4-0',
+        ]);
+        $rBin2          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
+        $meta           = self::createMetadata([
+                $parentProp  => $rCol1->getUri(),
+                $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
+                $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/noc-nc',
+        ]);
+        $rBin3          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
+        self::$repo->commit();
+        $this->toDelete = array_merge($this->toDelete, [$rBin1, $rBin2, $rBin3]);
+
+        $rCol1->loadMetadata(true);
+        $rCol1Meta = $rCol1->getGraph();
+        $tmp       = $rCol1Meta->getLiteral($licenseAggProp);
+        $ref       = $tmp->getLang() === 'en' ? "Attribution 4.0 International (CC BY 4.0) 1\nMIT license 1\nNo Copyright - Non-Commercial Use Only 1" : "Kein Urheberrechtsschutz - nur nicht kommerzielle Nutzung erlaubt 1\nMIT Lizenz 1\nNamensnennung 4.0 International (CC BY 4.0) 1";
+        $this->assertEquals($ref, $tmp->getValue());
+        $tmp       = $rCol1Meta->getLiteral($accessAggProp);
+        $ref       = $tmp->getLang() === 'en' ? "academic 2\nrestricted 1" : "akademisch 2\neingeschränkt 1";
+        $this->assertEquals($ref, $tmp->getValue());
+    }
+
 }

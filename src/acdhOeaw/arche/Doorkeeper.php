@@ -461,10 +461,6 @@ class Doorkeeper {
 
     static private function updateCollections(PDO $pdo, int $txId,
                                               array $resourceIds): void {
-        $sizeProp      = RC::$config->schema->binarySize;
-        $acdhSizeProp  = RC::$config->schema->binarySizeCumulative;
-        $acdhCountProp = RC::$config->schema->countCumulative;
-        $collClass     = RC::$config->schema->classes->collection;        
         $prolongQuery = $pdo->prepare("UPDATE transactions SET last_request = clock_timestamp() WHERE transaction_id = ?");
 
         RC::$log->info("\t\tUpdating collections affected by the transaction");
@@ -518,7 +514,7 @@ class Doorkeeper {
         $query = $pdo->prepare($query);
         $query->execute($param);
         $prolongQuery->execute([$txId]);
-        
+
         // try to lock resources to be updated
         $query  = $pdo->prepare("
             UPDATE resources SET transaction_id = ? 
@@ -538,9 +534,9 @@ class Doorkeeper {
         if ($result !== false && $result->all !== $result->locked) {
             $msg = "Some resources locked by another transaction (" . ($result->all - $result->locked) . " out of " . $result->all . ")";
             throw new DoorkeeperException($msg, 409);
-        }        
+        }
         $prolongQuery->execute([$txId]);
-        
+
         // perform the actual metadata update
         self::updateCollectionSize($pdo, $prolongQuery, $txId);
         self::updateCollectionAggregates($pdo, $prolongQuery, $txId);
@@ -549,7 +545,6 @@ class Doorkeeper {
             SELECT json_agg(c.cid) FROM (SELECT DISTINCT cid FROM _resources) c
         ");
         RC::$log->debug("\t\t\tupdated resources: " . $query->fetchColumn());
-
     }
 
     static private function updateCollectionSize(PDO $pdo,
@@ -558,8 +553,8 @@ class Doorkeeper {
         $sizeProp      = RC::$config->schema->binarySize;
         $acdhSizeProp  = RC::$config->schema->binarySizeCumulative;
         $acdhCountProp = RC::$config->schema->countCumulative;
-        $collClass     = RC::$config->schema->classes->collection;        
-        
+        $collClass     = RC::$config->schema->classes->collection;
+
         // compute children size and count
         $query = "
             CREATE TEMPORARY TABLE _collsizeupdate AS
@@ -612,9 +607,101 @@ class Doorkeeper {
     }
 
     static private function updateCollectionAggregates(PDO $pdo,
-                                                 PDOStatement $prolongQuery,
-                                                 int $txId): void {
+                                                       PDOStatement $prolongQuery,
+                                                       int $txId): void {
+        $accessProp     = RC::$config->schema->accessRestriction;
+        $accessAggProp  = RC::$config->schema->accessRestrictionAgg;
+        $licenseProp    = RC::$config->schema->license;
+        $licenseAggProp = RC::$config->schema->licenseAgg;
+        $labelProp      = RC::$config->schema->label;
+        $collClass      = RC::$config->schema->classes->collection;
+
+        // compute aggregates
+        $query = "
+            CREATE TEMPORARY TABLE _aggupdate AS
+            WITH activecol AS (
+                SELECT r.cid
+                FROM
+                    _resources r
+                    JOIN resources r2 ON r.cid = r2.id AND r2.state = ?
+                    JOIN metadata m1 ON r.cid = m1.id AND m1.property = ? AND m1.value = ?
+                WHERE r.cid = r.id
+            )
+                SELECT 
+                    id, ?::text AS property, lang, 
+                    string_agg(value || ' ' || count, E'\\n' ORDER BY count DESC, value) AS value
+                FROM (
+                    SELECT cid AS id, rl.property, lang, value, count(*) AS count
+                    FROM
+                        _resources r
+                        JOIN activecol USING (cid)
+                        JOIN resources r1 ON r.id = r1.id AND r1.state = ?
+                        JOIN relations rl ON r.id = rl.id AND rl.property = ?
+                        JOIN metadata m ON rl.target_id = m.id AND m.property = ?
+                    GROUP BY 1, 2, 3, 4
+                ) a1
+                GROUP BY 1, 2, 3
+              UNION
+                SELECT 
+                    id, ?::text AS property, lang, 
+                    string_agg(value || ' ' || count, E'\\n' ORDER BY count DESC, value) AS value
+                FROM (
+                    SELECT cid AS id, rl.property, lang, value, count(*) AS count
+                    FROM
+                        _resources r
+                        JOIN activecol USING (cid)
+                        JOIN resources r1 ON r.id = r1.id AND r1.state = ?
+                        JOIN relations rl ON r.id = rl.id AND rl.property = ?
+                        JOIN metadata m ON rl.target_id = m.id AND m.property = ?
+                    GROUP BY 1, 2, 3, 4
+                ) a2
+                GROUP BY 1, 2, 3
+        ";
+        $param = [
+            Res::STATE_ACTIVE, RDF::RDF_TYPE, $collClass, // activecol
+            $licenseAggProp, Res::STATE_ACTIVE, $licenseProp, $labelProp, // a1
+            $accessAggProp, Res::STATE_ACTIVE, $accessProp, $labelProp, // a2
+        ];
+        $query = $pdo->prepare($query);
+        $query->execute($param);
+        $prolongQuery->execute([$txId]);
+        RC::$log->info('[-----');
+        RC::$log->info($pdo->query("SELECT * FROM _resources")->fetchAll(PDO::FETCH_OBJ));
+        RC::$log->info($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ));
+
+        // add empty property values for empty collections
+        $query = "
+            INSERT INTO _aggupdate
+            SELECT id, property, 'en', ''
+            FROM 
+                (VALUES (?), (?)) p (property),
+                (
+                    SELECT cid AS id
+                    FROM
+                        _resources r
+                        JOIN resources r2 ON r.cid = r2.id AND r2.state = ?
+                        JOIN metadata m1 ON r.cid = m1.id AND m1.property = ? AND m1.value = ?
+                    WHERE r.cid = r.id
+                ) ac
+            WHERE NOT EXISTS (SELECT id, property FROM _aggupdate)
+        ";
+        $param = [$licenseAggProp, $accessAggProp, Res::STATE_ACTIVE, RDF::RDF_TYPE, $collClass];
+        $query = $pdo->prepare($query);
+        $query->execute($param);
+        RC::$log->info($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ));
+        $prolongQuery->execute([$txId]);        
         
+        // remove old values
+        $query = $pdo->prepare("
+            DELETE FROM metadata WHERE id IN (SELECT id FROM _collsizeupdate) AND property IN (?, ?)
+        ");
+        $query->execute([$licenseAggProp, $accessAggProp]);
+        // insert new values
+        $query = $pdo->prepare("
+            INSERT INTO metadata (id, property, type, lang, value)
+            SELECT id, property, ?::text, lang, value FROM _aggupdate
+        ");
+        $query->execute([RDF::XSD_STRING]);
     }
 
     static private function loadOntology(): void {
