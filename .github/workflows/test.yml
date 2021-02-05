@@ -33,7 +33,7 @@ jobs:
         cat log/initScripts.log
     - name: test
       run: |
-        ./vendor/phpunit/phpunit/phpunit
+        XDEBUG_MODE=coverage ./vendor/bin/phpunit
     - name: coveralls
       run: |
         export COVERALLS_RUN_LOCALLY=1
