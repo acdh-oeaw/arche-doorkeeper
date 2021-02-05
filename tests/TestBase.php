@@ -183,4 +183,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
         }
     }
 
+    static public function getPropertyDefault(string $property): ?string {
+        return self::$ontology->getProperty([], $property)->defaultValue ?? null;
+    }
 }
