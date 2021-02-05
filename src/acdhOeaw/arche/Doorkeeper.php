@@ -78,7 +78,7 @@ class Doorkeeper {
             'maintainPid', 'maintainDefaultValues', 'maintainAccessRights',
             'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
-            'checkIdCount', 'checkLanguage', 'checkUnknownProperties'
+            'checkIdCount', 'checkLanguage'
         ];
         foreach ($functions as $f) {
             try {
