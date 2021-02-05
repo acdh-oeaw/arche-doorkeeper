@@ -141,17 +141,17 @@ class ResourceTest extends TestBase {
     public function testMaintainRange(): void {
         $pid = 'https://foo.bar/' . rand();
         $im  = self::createMetadata([
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedDate' => '2017',
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'  => '300.54',
-                'https://other/property'                               => new Literal('test value', 'en'),
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'         => $pid,
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => '2017',
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'       => '300.54',
+                'https://other/property'                                    => new Literal('test value', 'en'),
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'              => $pid,
         ]);
 
         self::$repo->begin();
         $r  = self::$repo->createResource($im);
         $om = $r->getGraph();
 
-        $date = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedDate');
+        $date = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate');
         $this->assertEquals(RDF::XSD_DATE, $date->getDatatypeUri());
         $this->assertEquals('2017-01-01', (string) $date);
 
@@ -248,7 +248,7 @@ class ResourceTest extends TestBase {
         $rm = $r->getGraph();
 
         $rh = new RepoResource((string) $rm->get(self::$config->schema->hosting), self::$repo);
-        $this->assertContains(self::$config->doorkeeper->default->hosting, $rh->getIds());
+        $this->assertContains(self::getPropertyDefault(self::$config->schema->hosting), $rh->getIds());
 
         $this->assertEquals(date('Y-m-d'), substr($rm->getLiteral($creationDateProp), 0, 10));
         $this->assertEquals('text/plain', (string) $rm->getLiteral(self::$config->schema->mime));
@@ -259,7 +259,7 @@ class ResourceTest extends TestBase {
         $im  = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
         $r   = self::$repo->createResource($im, new BinaryPayload('foo bar', null, 'text/plain'));
         $rar = new RepoResource((string) $r->getGraph()->get($accessRestProp), self::$repo);
-        $this->assertContains(self::$config->doorkeeper->default->accessRestriction, $rar->getIds());
+        $this->assertContains(self::getPropertyDefault($accessRestProp), $rar->getIds());
     }
 
     public function testAccessRightsAuto(): void {
@@ -268,7 +268,7 @@ class ResourceTest extends TestBase {
         $r  = self::$repo->createResource($im);
         $om = $r->getGraph();
         $ar = new RepoResource((string) $om->getResource(self::$config->schema->accessRestriction), self::$repo);
-        $this->assertContains(self::$config->doorkeeper->default->accessRestriction, $ar->getIds());
+        $this->assertContains(self::getPropertyDefault(self::$config->schema->accessRestriction), $ar->getIds());
         $this->assertContains(self::$config->doorkeeper->rolePublic, self::toStr($om->all(self::$config->accessControl->schema->read)));
         $this->assertNotContains(self::$config->doorkeeper->rolePublic, self::toStr($om->all(self::$config->accessControl->schema->write)));
     }
@@ -516,14 +516,14 @@ class ResourceTest extends TestBase {
         $this->assertEquals(0, count($m1->all($pidProp)));
 
         // pid generated automatically and promoted to an id
-        $m1->addLiteral($pidProp, '');
+        $m1->addLiteral($pidProp, self::$config->doorkeeper->epicPid->createValue);
         $r->setGraph($m1);
         $r->updateMetadata();
         $m2   = $r->getGraph();
         $this->assertEquals(0, count($m2->allResources($pidProp)));
         $pids = $m2->allLiterals($pidProp);
         $this->assertEquals(1, count($pids));
-        $this->assertEquals($pidNmsp . $idn, (string) $pids[0]);
+        $this->assertStringStartsWith($pidNmsp, (string) $pids[0]);
         $this->assertContains((string) $pids[0], $this->toStr($m2->allResources($idProp)));
 
         self::$repo->rollback();
@@ -535,7 +535,7 @@ class ResourceTest extends TestBase {
         $pidNmsp = self::$config->doorkeeper->epicPid->resolver;
         $idNmsp  = self::$config->schema->namespaces->id;
         $idn     = rand();
-        $pid     = $pidNmsp . 'handles/' . self::$config->doorkeeper->epicPid->prefix . '/123';
+        $pid     = $pidNmsp . self::$config->doorkeeper->epicPid->prefix . '/123';
         self::$repo->begin();
 
         // existing pid not overwritten but promoted to an id
@@ -554,7 +554,7 @@ class ResourceTest extends TestBase {
         // pid refreshed from one stored as an id
         $m2   = $r->getGraph();
         $m2->delete($pidProp);
-        $m2->addLiteral($pidProp, '');
+        $m2->addLiteral($pidProp, self::$config->doorkeeper->epicPid->createValue);
         $r->setGraph($m2);
         $r->updateMetadata();
         $m3   = $r->getGraph();
@@ -566,4 +566,16 @@ class ResourceTest extends TestBase {
         self::$repo->rollback();
     }
 
+    public function testUnknownProperty(): void {
+        $im = self::createMetadata(['https://vocabs.acdh.oeaw.ac.at/schema#foo' => 'bar'], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+        self::$repo->begin();
+        try {
+            $r = self::$repo->createResource($im);
+        } catch (ClientException $e) {
+            $resp = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $this->assertEquals("property https://vocabs.acdh.oeaw.ac.at/schema#foo is in the ontology namespace but is not included in the ontology", (string) $resp->getBody());
+        }
+        self::$repo->rollback();
+    }
 }

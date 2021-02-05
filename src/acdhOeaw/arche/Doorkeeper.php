@@ -78,7 +78,7 @@ class Doorkeeper {
             'maintainPid', 'maintainDefaultValues', 'maintainAccessRights',
             'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
-            'checkIdCount', 'checkLanguage'
+            'checkIdCount', 'checkLanguage', 'checkUnknownProperties'
         ];
         foreach ($functions as $f) {
             try {
@@ -125,13 +125,13 @@ class Doorkeeper {
         }
         $pidLit = $meta->getLiteral($pidProp);
         $pidLit = $pidLit !== null ? (string) $pidLit : null;
-        if ($pidLit === '' && $id !== null) {
+        if ($pidLit === $cfg->createValue && $id !== null) {
+            if (empty($cfg->pswd)) {
+                RC::$log->info("\t\tskipping PID (re)generation - no EPIC password provided");
+                return;
+            }
             $ps = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
             if ($curPid === null) {
-                if (empty($cfg->pswd)) {
-                    RC::$log->info("\t\tskipping PID generation - no EPIC password provided");
-                    return;
-                }
                 $meta->delete($pidProp);
                 $pid = $ps->create($id);
                 $pid = str_replace($cfg->url, $cfg->resolver, $pid);
@@ -148,6 +148,9 @@ class Doorkeeper {
         // promote PIDs to IDs
         foreach ($meta->all($pidProp) as $i) {
             $i = (string) $i;
+            if ($i === '') {
+                throw new DoorkeeperException("Empty PID");
+            }
             if (!in_array($i, $ids)) {
                 RC::$log->info("\t\tpromoting PID $i to an id");
                 $meta->addResource($idProp, $i);
@@ -459,6 +462,22 @@ class Doorkeeper {
         }
     }
 
+    /**
+     * If a property is in the ontology namespace it has to be part of the ontology.
+     * 
+     * @param Resource $meta
+     * @return void
+     */
+    static private function checkUnknownProperties(Resource $meta): void {
+        $nmsp = RC::$config->schema->namespaces->ontology;
+        $n    = strlen($nmsp);
+        foreach ($meta->propertyUris() as $p) {
+            if (substr($p, 0, $n) === $nmsp && self::$ontology->getProperty([], $p) === null) {
+                throw new DoorkeeperException("property $p is in the ontology namespace but is not included in the ontology");
+            }
+        }
+    }
+
     static private function updateCollections(PDO $pdo, int $txId,
                                               array $resourceIds): void {
         $prolongQuery = $pdo->prepare("UPDATE transactions SET last_request = clock_timestamp() WHERE transaction_id = ?");
@@ -685,12 +704,13 @@ class Doorkeeper {
                 ) ac
             WHERE NOT EXISTS (SELECT id, property FROM _aggupdate)
         ";
-        $param = [$licenseAggProp, $accessAggProp, Res::STATE_ACTIVE, RDF::RDF_TYPE, $collClass];
+        $param = [$licenseAggProp, $accessAggProp, Res::STATE_ACTIVE, RDF::RDF_TYPE,
+            $collClass];
         $query = $pdo->prepare($query);
         $query->execute($param);
         RC::$log->info($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ));
-        $prolongQuery->execute([$txId]);        
-        
+        $prolongQuery->execute([$txId]);
+
         // remove old values
         $query = $pdo->prepare("
             DELETE FROM metadata WHERE id IN (SELECT id FROM _collsizeupdate) AND property IN (?, ?)
@@ -766,5 +786,4 @@ class Doorkeeper {
         }
         return $value;
     }
-
 }

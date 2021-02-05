@@ -52,6 +52,7 @@ doorkeeper:
         user: user21.11115-01
         pswd: foobar
         prefix: 21.11115
+        createValue: create
     # used only by tests
     restConfigDstPath: config/yaml/config-repo.yaml
         
