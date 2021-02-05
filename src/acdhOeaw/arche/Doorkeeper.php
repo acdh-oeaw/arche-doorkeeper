@@ -78,7 +78,7 @@ class Doorkeeper {
             'maintainPid', 'maintainDefaultValues', 'maintainAccessRights',
             'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
-            'checkIdCount', 'checkLanguage'
+                'checkIdCount', 'checkLanguage', 'checkUnknownProperties'
         ];
         foreach ($functions as $f) {
             try {
@@ -469,8 +469,14 @@ class Doorkeeper {
      * @return void
      */
     static private function checkUnknownProperties(Resource $meta): void {
+        $idProp = RC::$config->schema->id;
         $nmsp = RC::$config->schema->namespaces->ontology;
         $n    = strlen($nmsp);
+        foreach ($meta->allResources($idProp) as $i) {
+            if (substr((string) $i, 0, $n) === $nmsp) {
+                return; // apply on non-ontology resources only
+            }
+        }
         foreach ($meta->propertyUris() as $p) {
             if (substr($p, 0, $n) === $nmsp && self::$ontology->getProperty([], $p) === null) {
                 throw new DoorkeeperException("property $p is in the ontology namespace but is not included in the ontology");

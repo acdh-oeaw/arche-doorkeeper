@@ -571,11 +571,18 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         try {
             $r = self::$repo->createResource($im);
+            $this->assertTrue(false);
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
             $this->assertEquals("property https://vocabs.acdh.oeaw.ac.at/schema#foo is in the ontology namespace but is not included in the ontology", (string) $resp->getBody());
         }
+        
+        $idProp = self::$config->schema->id;
+        $im->delete($idProp);
+        $im->addResource($idProp, self::$config->schema->namespaces->ontology . 'test');
+        $r = self::$repo->createResource($im);
+        $this->assertInstanceOf(RepoResource::class, $r);
         self::$repo->rollback();
     }
 }
