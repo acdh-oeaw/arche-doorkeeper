@@ -25,7 +25,7 @@
         }
     },
     "require-dev": {
-        "phpunit/phpunit": "*",
+        "phpunit/phpunit": "^8",
         "acdh-oeaw/arche-lib": "*"
     }
 }
