@@ -567,7 +567,23 @@ class ResourceTest extends TestBase {
     }
 
     public function testUnknownProperty(): void {
+        $cfgFile = __DIR__ . '/../config/yaml/config-repo.yaml';
+        $cfg = yaml_parse_file($cfgFile);
         $im = self::createMetadata(['https://vocabs.acdh.oeaw.ac.at/schema#foo' => 'bar'], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+        
+        // turn off the check
+        $cfg['doorkeeper']['checkUnknownProperties'] = false;
+        yaml_emit_file($cfgFile, $cfg);
+        
+        self::$repo->begin();
+        $r = self::$repo->createResource($im);
+        self::$repo->rollback();
+
+        
+        // turn on the check
+        $cfg['doorkeeper']['checkUnknownProperties'] = true;
+        yaml_emit_file($cfgFile, $cfg);
+        
         self::$repo->begin();
         try {
             $r = self::$repo->createResource($im);
