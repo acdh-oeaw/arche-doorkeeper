@@ -41,11 +41,14 @@ schema:
         langTag: https://vocabs.acdh.oeaw.ac.at/schema#langTag
         vocabs: https://vocabs.acdh.oeaw.ac.at/schema#vocabs
 doorkeeper:
+    # "default" section can be removed once stable doorkeeper release doesn't need it any more (once 1.8 is out there)
     default:
         hosting: 'https://id.acdh.oeaw.ac.at/arche'
         accessRestriction: 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public'
     rolePublic: public
     roleAcademic: academic
+    # Should Doorkeeper::checkUnknownProperties() be run? We need to be able to turn it off for the ontology import.
+    checkUnknownProperties: true
     epicPid:
         resolver: 'http://hdl.handle.net/'
         url: 'https://arche-handlemock.acdh-dev.oeaw.ac.at/'

@@ -469,6 +469,9 @@ class Doorkeeper {
      * @return void
      */
     static private function checkUnknownProperties(Resource $meta): void {
+        if (RC::$config->doorkeeper->checkUnknownProperties === false) {
+            return;
+        }
         $idProp = RC::$config->schema->id;
         $nmsp = RC::$config->schema->namespaces->ontology;
         $n    = strlen($nmsp);
