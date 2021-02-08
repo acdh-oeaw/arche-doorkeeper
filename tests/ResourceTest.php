@@ -568,22 +568,22 @@ class ResourceTest extends TestBase {
 
     public function testUnknownProperty(): void {
         $cfgFile = __DIR__ . '/../config/yaml/config-repo.yaml';
-        $cfg = yaml_parse_file($cfgFile);
-        $im = self::createMetadata(['https://vocabs.acdh.oeaw.ac.at/schema#foo' => 'bar'], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
-        
+        $cfg     = yaml_parse_file($cfgFile);
+        $im      = self::createMetadata(['https://vocabs.acdh.oeaw.ac.at/schema#foo' => 'bar'], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+
         // turn off the check
         $cfg['doorkeeper']['checkUnknownProperties'] = false;
         yaml_emit_file($cfgFile, $cfg);
-        
+
         self::$repo->begin();
         $r = self::$repo->createResource($im);
         self::$repo->rollback();
 
-        
+
         // turn on the check
         $cfg['doorkeeper']['checkUnknownProperties'] = true;
         yaml_emit_file($cfgFile, $cfg);
-        
+
         self::$repo->begin();
         try {
             $r = self::$repo->createResource($im);
@@ -593,12 +593,48 @@ class ResourceTest extends TestBase {
             $this->assertEquals(400, $resp->getStatusCode());
             $this->assertEquals("property https://vocabs.acdh.oeaw.ac.at/schema#foo is in the ontology namespace but is not included in the ontology", (string) $resp->getBody());
         }
-        
+
         $idProp = self::$config->schema->id;
         $im->delete($idProp);
         $im->addResource($idProp, self::$config->schema->namespaces->ontology . 'test');
-        $r = self::$repo->createResource($im);
+        $r      = self::$repo->createResource($im);
         $this->assertInstanceOf(RepoResource::class, $r);
         self::$repo->rollback();
+    }
+
+    public function testCmdiPid(): void {
+        $ycfgFile                                     = __DIR__ . '/../config/yaml/config-repo.yaml';
+        $ycfg                                         = yaml_parse_file($ycfgFile);
+        // turn off the check
+        $ycfg['doorkeeper']['checkUnknownProperties'] = false;
+        yaml_emit_file($ycfgFile, $ycfg);
+
+        $cfg        = self::$config->doorkeeper->epicPid;
+        $idNmsp     = self::$config->schema->namespaces->id;
+        $cmdiIdNmsp = self::$config->schema->namespaces->cmdi;
+        $pidProp    = self::$config->schema->cmdiPid;
+        $idProp     = self::$config->schema->id;
+        $rid        = $idNmsp . rand();
+
+        $im = self::createMetadata([
+                $idProp                 => $rid,
+                $cfg->clarinSetProperty => $cfg->clarinSet,
+        ]);
+        self::$repo->begin();
+
+        $r    = self::$repo->createResource($im);
+        $m    = $r->getGraph();
+        $pids = self::toStr($m->all($pidProp));
+        $this->assertEquals(1, count($pids));
+        $this->assertStringStartsWith($cfg->resolver, $pids[0]);
+        $ids  = self::toStr($m->all($idProp));
+        $this->assertEquals(3, count($ids)); // $rid, repo, cmdi
+        $this->assertContains(str_replace($idNmsp, $cmdiIdNmsp, $rid), $ids);
+
+        self::$repo->rollback();
+
+        // turn on the check
+        $ycfg['doorkeeper']['checkUnknownProperties'] = true;
+        yaml_emit_file($ycfgFile, $ycfg);
     }
 }

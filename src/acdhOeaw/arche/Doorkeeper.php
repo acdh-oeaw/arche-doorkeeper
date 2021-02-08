@@ -75,10 +75,10 @@ class Doorkeeper {
         $errors    = [];
         // checkTitleProp before checkCardinalities!
         $functions = [
-            'maintainPid', 'maintainDefaultValues', 'maintainAccessRights',
-            'maintainPropertyRange',
+            'maintainPid', 'maintainCmdiPid', 'maintainDefaultValues',
+            'maintainAccessRights', 'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
-                'checkIdCount', 'checkLanguage', 'checkUnknownProperties'
+            'checkIdCount', 'checkLanguage', 'checkUnknownProperties'
         ];
         foreach ($functions as $f) {
             try {
@@ -119,7 +119,8 @@ class Doorkeeper {
             if (strpos($i, $cfg->resolver) === 0) {
                 $curPid = $i;
             }
-            if (strpos($i, $idNmsp) === 0) {
+            // only exact namespace match!
+            if (preg_match("|^${idNmsp}[0-9]+$|", $i)) {
                 $id = $i;
             }
         }
@@ -154,6 +155,65 @@ class Doorkeeper {
             if (!in_array($i, $ids)) {
                 RC::$log->info("\t\tpromoting PID $i to an id");
                 $meta->addResource($idProp, $i);
+            }
+        }
+    }
+
+    /**
+     * CMDI records must have their very own PIDs but this requires special handling
+     * as in ARCHE CMDI is just a metadata serialization format and not a separate
+     * repository resource.
+     * 
+     * Because of that we need to store CMDI PIDs in a separate property and we want
+     * it to be automatically filled in for resources in a given 
+     * (`cfg.schema.doorkeeper.epicPid.clarinSetProperty` with value 
+     * `cfg.doorkeeper.epicPid.clarinSet`) OAI-PMH set.
+     * 
+     * This method takes care of it.
+     * @param Resource $meta
+     * @return void
+     * @throws DoorkeeperException
+     */
+    static private function maintainCmdiPid(Resource $meta): void {
+        $cfg     = RC::$config->doorkeeper->epicPid;
+        $pidProp = RC::$config->schema->cmdiPid;
+        $pidNmsp = RC::$config->schema->namespaces->cmdi;
+        $setProp = $cfg->clarinSetProperty;
+        $idProp  = RC::$config->schema->id;
+        $idNmsp  = RC::$config->schema->namespaces->id;
+        if ($meta->getLiteral($pidProp) !== null || $meta->getResource($setProp) === null) {
+            // CMDI PID exists or OAI-PMH set property doesn't exist - nothing to do
+            return;
+        }
+
+        $pdo        = new PDO(RC::$config->dbConnStr->admin);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $query      = $pdo->prepare("SELECT i1.ids FROM identifiers i1 JOIN identifiers i2 USING (id) WHERE i2.ids = ?");
+        $query->execute([$cfg->clarinSet]);
+        $clarinSets = $query->fetchAll(PDO::FETCH_COLUMN);
+
+        $clarin = false;
+        foreach ($meta->allResources($setProp) as $set) {
+            if (in_array((string) $set, $clarinSets)) {
+                $clarin = true;
+                break;
+            }
+        }
+        if ($clarin) {
+            $id = null;
+            foreach ($meta->allResources($idProp) as $i) {
+                if (preg_match("|^${idNmsp}[0-9]+$|", (string) $i)) {
+                    $id = $pidNmsp . substr((string) $i, strlen($idNmsp));
+                    break;
+                }
+            }
+            if (!empty($id)) {
+                $ps  = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
+                $pid = $ps->create($id);
+                $pid = str_replace($cfg->url, $cfg->resolver, $pid);
+                RC::$log->info("\t\tregistered CMDI PID $pid pointing to " . $id);
+                $meta->addLiteral($pidProp, new Literal($pid, null, RDF::XSD_ANY_URI));
+                $meta->addResource(RC::$config->schema->id, $id);
             }
         }
     }
@@ -473,8 +533,8 @@ class Doorkeeper {
             return;
         }
         $idProp = RC::$config->schema->id;
-        $nmsp = RC::$config->schema->namespaces->ontology;
-        $n    = strlen($nmsp);
+        $nmsp   = RC::$config->schema->namespaces->ontology;
+        $n      = strlen($nmsp);
         foreach ($meta->allResources($idProp) as $i) {
             if (substr((string) $i, 0, $n) === $nmsp) {
                 return; // apply on non-ontology resources only
