@@ -629,7 +629,14 @@ class ResourceTest extends TestBase {
         $this->assertStringStartsWith($cfg->resolver, $pids[0]);
         $ids  = self::toStr($m->all($idProp));
         $this->assertEquals(3, count($ids)); // $rid, repo, cmdi
-        $this->assertContains(str_replace($idNmsp, $cmdiIdNmsp, $rid), $ids);
+        $cmdiId = null;
+        foreach ($ids as $i) {
+            if (strpos($i, 'http://127.0.0.1/api/') === 0) {
+                $cmdiId = str_replace('http://127.0.0.1/api/', $cmdiIdNmsp, $i);
+                break;
+            }
+        }
+        $this->assertContains($cmdiId, $ids);
 
         self::$repo->rollback();
 

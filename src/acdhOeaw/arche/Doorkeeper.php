@@ -180,7 +180,7 @@ class Doorkeeper {
         $pidNmsp = RC::$config->schema->namespaces->cmdi;
         $setProp = $cfg->clarinSetProperty;
         $idProp  = RC::$config->schema->id;
-        $idNmsp  = RC::$config->schema->namespaces->id;
+        $idNmsp  = RC::getBaseUrl();
         if ($meta->getLiteral($pidProp) !== null || $meta->getResource($setProp) === null) {
             // CMDI PID exists or OAI-PMH set property doesn't exist - nothing to do
             return;
@@ -202,7 +202,7 @@ class Doorkeeper {
         if ($clarin) {
             $id = null;
             foreach ($meta->allResources($idProp) as $i) {
-                if (preg_match("|^${idNmsp}[0-9]+$|", (string) $i)) {
+                if (strpos($i, $idNmsp) === 0) {
                     $id = $pidNmsp . substr((string) $i, strlen($idNmsp));
                     break;
                 }
