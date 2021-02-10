@@ -388,7 +388,7 @@ class Doorkeeper {
                 continue;
             }
             foreach ($classDef->properties as $p) {
-                if ($p->min > 0 || $p->max !== null) {
+                if (($p->min > 0 || $p->max !== null) && $p->automatedFill === false) {
                     $co  = $cd  = 0;
                     $cdl = ['' => 0];
                     foreach ($p->property as $i) {

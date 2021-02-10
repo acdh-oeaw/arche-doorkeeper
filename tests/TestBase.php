@@ -147,7 +147,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
             $r->addResource(RDF::RDF_TYPE, $class);
             $class = self::$ontology->getClass($class);
             foreach ($class->getProperties() as $i) {
-                if ($i->min > 0 && $r->get($i->uri) === null) {
+                if ($i->min > 0 && $r->get($i->uri) === null && $i->automatedFill === false) {
                     $r->add($i->uri, self::createSampleProperty($i));
                 }
             }
