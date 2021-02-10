@@ -72,6 +72,9 @@ class Doorkeeper {
 
     static public function onResEdit(int $id, Resource $meta, ?string $path): Resource {
         self::loadOntology();
+        $pdo       = new PDO(RC::$config->dbConnStr->admin);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->beginTransaction();
         $errors    = [];
         // checkTitleProp before checkCardinalities!
         $functions = [
@@ -82,7 +85,7 @@ class Doorkeeper {
         ];
         foreach ($functions as $f) {
             try {
-                self::$f($meta);
+                self::$f($meta, $pdo);
             } catch (DoorkeeperException $ex) {
                 $errors[] = $ex->getMessage();
             }
@@ -90,6 +93,7 @@ class Doorkeeper {
         if (count($errors) > 0) {
             throw new DoorkeeperException(implode("\n", $errors));
         }
+        $pdo->commit();
 
         return $meta;
     }
@@ -171,10 +175,11 @@ class Doorkeeper {
      * 
      * This method takes care of it.
      * @param Resource $meta
+     * @param \PDO $pdo
      * @return void
      * @throws DoorkeeperException
      */
-    static private function maintainCmdiPid(Resource $meta): void {
+    static private function maintainCmdiPid(Resource $meta, PDO $pdo): void {
         $cfg     = RC::$config->doorkeeper->epicPid;
         $pidProp = RC::$config->schema->cmdiPid;
         $pidNmsp = RC::$config->schema->namespaces->cmdi;
@@ -186,8 +191,6 @@ class Doorkeeper {
             return;
         }
 
-        $pdo        = new PDO(RC::$config->dbConnStr->admin);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $query      = $pdo->prepare("SELECT i1.ids FROM identifiers i1 JOIN identifiers i2 USING (id) WHERE i2.ids = ?");
         $query->execute([$cfg->clarinSet]);
         $clarinSets = $query->fetchAll(PDO::FETCH_COLUMN);
@@ -235,25 +238,31 @@ class Doorkeeper {
      *   in `cfg.schema.accessRole`
      * 
      * @param \EasyRdf\Resource $meta repository resource's metadata
+     * @param \PDO $pdo
      */
-    static public function maintainAccessRights(Resource $meta): void {
+    static public function maintainAccessRights(Resource $meta, PDO $pdo): void {
         $accessRestr = (string) $meta->getResource(RC::$config->schema->accessRestriction);
         if (empty($accessRestr)) {
             return;
         }
 
-        RC::$log->info("\t\tmaintaining access rights");
+        RC::$log->info("\t\tmaintaining access rights $accessRestr");
         $propRead     = RC::$config->accessControl->schema->read;
         $propRoles    = RC::$config->schema->accessRole;
         $rolePublic   = RC::$config->doorkeeper->rolePublic;
         $roleAcademic = RC::$config->doorkeeper->roleAcademic;
 
-        if ($accessRestr === 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public') {
+        $query          = $pdo->prepare("SELECT i1.ids FROM identifiers i1 JOIN identifiers i2 USING (id) WHERE i2.ids = ?");
+        $query->execute([$accessRestr]);
+        $accessRestrIds = $query->fetchAll(PDO::FETCH_COLUMN);
+RC::$log->info(json_encode($accessRestrIds));
+
+        if (in_array('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public', $accessRestrIds)) {
             $meta->addLiteral($propRead, $rolePublic);
             RC::$log->info("\t\t\tpublic");
         } else {
             $meta->delete($propRead, $rolePublic);
-            if ($accessRestr === 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic') {
+            if (in_array('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic', $accessRestrIds)) {
                 $meta->addLiteral($propRead, $roleAcademic);
                 RC::$log->info("\t\t\tacademic");
             } else {
