@@ -246,7 +246,6 @@ class Doorkeeper {
             return;
         }
 
-        RC::$log->info("\t\tmaintaining access rights $accessRestr");
         $propRead     = RC::$config->accessControl->schema->read;
         $propRoles    = RC::$config->schema->accessRole;
         $rolePublic   = RC::$config->doorkeeper->rolePublic;
@@ -255,7 +254,8 @@ class Doorkeeper {
         $query          = $pdo->prepare("SELECT i1.ids FROM identifiers i1 JOIN identifiers i2 USING (id) WHERE i2.ids = ?");
         $query->execute([$accessRestr]);
         $accessRestrIds = $query->fetchAll(PDO::FETCH_COLUMN);
-RC::$log->info(json_encode($accessRestrIds));
+
+        RC::$log->info("\t\tmaintaining access rights for " . implode(', ', $accessRestrIds));
 
         if (in_array('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public', $accessRestrIds)) {
             $meta->addLiteral($propRead, $rolePublic);
