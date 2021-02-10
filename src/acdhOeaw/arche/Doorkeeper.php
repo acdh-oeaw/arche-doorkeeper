@@ -200,6 +200,10 @@ class Doorkeeper {
             }
         }
         if ($clarin) {
+            if (empty($cfg->pswd)) {
+                RC::$log->info("\t\tskipping CMDI PID generation - no EPIC password provided");
+                return;
+            }
             $id = null;
             foreach ($meta->allResources($idProp) as $i) {
                 if (strpos($i, $idNmsp) === 0) {
