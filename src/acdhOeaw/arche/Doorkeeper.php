@@ -655,6 +655,7 @@ class Doorkeeper {
         $acdhSizeProp  = RC::$config->schema->binarySizeCumulative;
         $acdhCountProp = RC::$config->schema->countCumulative;
         $collClass     = RC::$config->schema->classes->collection;
+        $topCollClass  = RC::$config->schema->classes->topCollection;
 
         // compute children size and count
         $query = "
@@ -674,12 +675,12 @@ class Doorkeeper {
                     GROUP BY 1
                 ) s
                 LEFT JOIN (
-                    SELECT * FROM metadata WHERE property = ? AND value = ?
+                    SELECT * FROM metadata WHERE property = ? AND substring(value, 1, 1000) IN (?, ?)
                 ) m USING (id)
         ";
         $param = [
             Res::STATE_ACTIVE, Res::STATE_ACTIVE, // case in main select
-            $sizeProp, RDF::RDF_TYPE, $collClass  // chm, m, m
+            $sizeProp, RDF::RDF_TYPE, $collClass, $topCollClass  // chm, m, m, m
         ];
         $query = $pdo->prepare($query);
         $query->execute($param);
@@ -716,6 +717,7 @@ class Doorkeeper {
         $licenseAggProp = RC::$config->schema->licenseAgg;
         $labelProp      = RC::$config->schema->label;
         $collClass      = RC::$config->schema->classes->collection;
+        $topCollClass   = RC::$config->schema->classes->topCollection;
 
         // compute aggregates
         $query = "
@@ -725,7 +727,7 @@ class Doorkeeper {
                 FROM
                     _resources r
                     JOIN resources r2 ON r.cid = r2.id AND r2.state = ?
-                    JOIN metadata m1 ON r.cid = m1.id AND m1.property = ? AND m1.value = ?
+                    JOIN metadata m1 ON r.cid = m1.id AND m1.property = ? AND substring(m1.value, 1, 1000) IN (?, ?)
                 WHERE r.cid = r.id
             )
                 SELECT 
@@ -759,7 +761,7 @@ class Doorkeeper {
                 GROUP BY 1, 2, 3
         ";
         $param = [
-            Res::STATE_ACTIVE, RDF::RDF_TYPE, $collClass, // activecol
+            Res::STATE_ACTIVE, RDF::RDF_TYPE, $collClass, $topCollClass, // activecol
             $licenseAggProp, Res::STATE_ACTIVE, $licenseProp, $labelProp, // a1
             $accessAggProp, Res::STATE_ACTIVE, $accessProp, $labelProp, // a2
         ];
@@ -781,13 +783,13 @@ class Doorkeeper {
                     FROM
                         _resources r
                         JOIN resources r2 ON r.cid = r2.id AND r2.state = ?
-                        JOIN metadata m1 ON r.cid = m1.id AND m1.property = ? AND m1.value = ?
+                        JOIN metadata m1 ON r.cid = m1.id AND m1.property = ? AND substring(m1.value, 1, 1000) IN (?, ?)
                     WHERE r.cid = r.id
                 ) ac
             WHERE NOT EXISTS (SELECT id, property FROM _aggupdate)
         ";
         $param = [$licenseAggProp, $accessAggProp, Res::STATE_ACTIVE, RDF::RDF_TYPE,
-            $collClass];
+            $collClass, $topCollClass];
         $query = $pdo->prepare($query);
         $query->execute($param);
         RC::$log->info($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ));

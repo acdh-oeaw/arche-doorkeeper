@@ -226,4 +226,8 @@ class TransactionTest extends TestBase {
         $this->assertEquals($ref, $tmp->getValue());
     }
 
+    public function testTopCollectionAggregates(): void {
+        self::$config->schema->classes->collection = 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection';
+        $this->testCollectionAggregates();
+    }
 }
