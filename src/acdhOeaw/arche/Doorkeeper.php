@@ -156,7 +156,7 @@ class Doorkeeper {
             if ($i === '') {
                 throw new DoorkeeperException("Empty PID");
             }
-            if (!in_array($i, $ids)) {
+            if ($i !== $cfg->createValue && !in_array($i, $ids)) {
                 RC::$log->info("\t\tpromoting PID $i to an id");
                 $meta->addResource($idProp, $i);
             }
