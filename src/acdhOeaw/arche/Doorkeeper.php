@@ -117,15 +117,28 @@ class Doorkeeper {
         $pidProp = RC::$config->schema->pid;
         $ids     = self::toString($meta->allResources($idProp));
 
+        $nIdNmsp    = strlen($idNmsp);
+        $idSubNmsps = [];
+        foreach (RC::$config->schema->namespaces as $i) {
+            if (substr($i, 0, $nIdNmsp) === $idNmsp && $i !== $idNmsp) {
+                $idSubNmsps[] = $i;
+            }
+        }
+
         $curPid = null;
         $id     = null;
         foreach ($ids as $i) {
             if (strpos($i, $cfg->resolver) === 0) {
                 $curPid = $i;
             }
-            // only exact namespace match!
-            if (preg_match("|^${idNmsp}[0-9]+$|", $i)) {
-                $id = $i;
+            if (substr($i, 0, $nIdNmsp) === $idNmsp) {
+                $flag = true;
+                foreach ($idSubNmsps as $j) {
+                    $flag &= substr($i, 0, strlen($j)) !== $j;
+                }
+                if ($flag) {
+                    $id = $i;
+                }
             }
         }
         $pidLit = $meta->getLiteral($pidProp);
