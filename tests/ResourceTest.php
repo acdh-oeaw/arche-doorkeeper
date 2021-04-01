@@ -332,8 +332,9 @@ class ResourceTest extends TestBase {
         $im = self::createMetadata([
                 $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
                 ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+        $bp = new BinaryPayload('dummy content');
         self::$repo->begin();
-        $r  = self::$repo->createResource($im);
+        $r  = self::$repo->createResource($im, $bp);
 
         $meta = (new Graph())->resource('.');
         $meta->addResource($accessRestProp, 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic');
@@ -365,8 +366,9 @@ class ResourceTest extends TestBase {
         $im = self::createMetadata([
                 $accessRestrProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public',
                 ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+        $bp = new BinaryPayload('dummy content');
         self::$repo->begin();
-        $r  = self::$repo->createResource($im);
+        $r  = self::$repo->createResource($im, $bp);
 
         $meta = (new Graph())->resource('.');
         $meta->addResource($accessRestrProp, 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic');
