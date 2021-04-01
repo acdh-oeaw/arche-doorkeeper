@@ -278,8 +278,9 @@ class ResourceTest extends TestBase {
         $im             = self::createMetadata([
                 $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
                 ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+        $bp             = new BinaryPayload('dummy content');
         self::$repo->begin();
-        $r              = self::$repo->createResource($im);
+        $r              = self::$repo->createResource($im, $bp);
         $om             = $r->getGraph();
         $ar             = new RepoResource((string) $om->getResource($accessRestProp), self::$repo);
         $this->assertContains('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic', $ar->getIds());
@@ -299,8 +300,9 @@ class ResourceTest extends TestBase {
                 $accessRestProp                   => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
                 self::$config->schema->accessRole => 'foo',
                 ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+        $bp             = new BinaryPayload('dummy content');
         self::$repo->begin();
-        $r              = self::$repo->createResource($im);
+        $r              = self::$repo->createResource($im, $bp);
         $om             = $r->getGraph();
         $ar             = new RepoResource((string) $om->getResource($accessRestProp), self::$repo);
         $this->assertContains('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted', $ar->getIds());
@@ -622,12 +624,12 @@ class ResourceTest extends TestBase {
         ]);
         self::$repo->begin();
 
-        $r    = self::$repo->createResource($im);
-        $m    = $r->getGraph();
-        $pids = self::toStr($m->all($pidProp));
+        $r      = self::$repo->createResource($im);
+        $m      = $r->getGraph();
+        $pids   = self::toStr($m->all($pidProp));
         $this->assertEquals(1, count($pids));
         $this->assertStringStartsWith($cfg->resolver, $pids[0]);
-        $ids  = self::toStr($m->all($idProp));
+        $ids    = self::toStr($m->all($idProp));
         $this->assertEquals(3, count($ids)); // $rid, repo, cmdi
         $cmdiId = null;
         foreach ($ids as $i) {
