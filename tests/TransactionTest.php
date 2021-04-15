@@ -234,9 +234,10 @@ class TransactionTest extends TestBase {
 
     public function testAutoGenResource(): void {
         $collClass        = self::$config->schema->classes->collection;
+        $parentProp       = self::$config->schema->parent;
         $randRes          = 'https://bar/' . rand();
         self::$repo->begin();
-        $r                = self::$repo->createResource(self::createMetadata(['https://foo' => $randRes], $collClass));
+        $r                = self::$repo->createResource(self::createMetadata([$parentProp => $randRes], $collClass));
         $this->toDelete[] = $r;
         try {
             self::$repo->commit();

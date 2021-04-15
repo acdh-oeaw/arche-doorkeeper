@@ -209,7 +209,7 @@ class ResourceTest extends TestBase {
     public function testCardinalitiesMax(): void {
         $idProp = self::$config->schema->id;
         $prop   = 'https://vocabs.acdh.oeaw.ac.at/schema#hasTransferDate';
-        $im     = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
+        $im     = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         $im->addLiteral($prop, '2020-07-01');
         self::$repo->begin();
         $r      = self::$repo->createResource($im);
@@ -229,41 +229,42 @@ class ResourceTest extends TestBase {
     }
 
     public function testDefaultProperties(): void {
+        $mimeProp         = self::$config->schema->mime;
         $accessRestProp   = self::$config->schema->accessRestriction;
         $creationDateProp = self::$config->schema->creationDate;
         $im               = self::createMetadata([
-                RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject',
+                RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#Collection',
         ]);
         $skip             = [
             self::$config->schema->hosting, $accessRestProp, $creationDateProp
         ];
-        $class            = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+        $class            = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         foreach ($class->getProperties() as $i) {
             if ($i->min > 0 && $im->get($i->uri) === null && !in_array($i->uri, $skip)) {
                 $im->add($i->property[0], self::createSampleProperty($i));
             }
         }
         self::$repo->begin();
-        $r  = self::$repo->createResource($im, new BinaryPayload('foo bar', null, 'text/plain'));
+        $r  = self::$repo->createResource($im);
         $rm = $r->getGraph();
+        $this->assertEquals(date('Y-m-d'), substr($rm->getLiteral($creationDateProp), 0, 10));
+        // accessRestriction is only on BinaryContent (Resource/Metadata) and not on RepoObject
+        $this->assertNull($rm->get($accessRestProp));
+        $this->assertNull($rm->get($mimeProp));
 
         $rh = new RepoResource((string) $rm->get(self::$config->schema->hosting), self::$repo);
         $this->assertContains(self::getPropertyDefault(self::$config->schema->hosting), $rh->getIds());
 
-        $this->assertEquals(date('Y-m-d'), substr($rm->getLiteral($creationDateProp), 0, 10));
-        $this->assertEquals('text/plain', (string) $rm->getLiteral(self::$config->schema->mime));
-
-        // accessRestriction is only on BinaryContent and not on RepoObject
-        $this->assertNull($rm->get($accessRestProp));
-
-        $im  = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
+        $im  = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         $r   = self::$repo->createResource($im, new BinaryPayload('foo bar', null, 'text/plain'));
+        $rm  = $r->getGraph();
+        $this->assertEquals('text/plain', (string) $rm->getLiteral($mimeProp));
         $rar = new RepoResource((string) $r->getGraph()->get($accessRestProp), self::$repo);
         $this->assertContains(self::getPropertyDefault($accessRestProp), $rar->getIds());
     }
 
     public function testAccessRightsAuto(): void {
-        $im = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#BinaryContent');
+        $im = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         self::$repo->begin();
         $r  = self::$repo->createResource($im);
         $om = $r->getGraph();
@@ -277,7 +278,7 @@ class ResourceTest extends TestBase {
         $accessRestProp = self::$config->schema->accessRestriction;
         $im             = self::createMetadata([
                 $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
-                ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+                ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         $bp             = new BinaryPayload('dummy content');
         self::$repo->begin();
         $r              = self::$repo->createResource($im, $bp);
@@ -299,7 +300,7 @@ class ResourceTest extends TestBase {
         $im             = self::createMetadata([
                 $accessRestProp                   => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
                 self::$config->schema->accessRole => 'foo',
-                ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+                ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         $bp             = new BinaryPayload('dummy content');
         self::$repo->begin();
         $r              = self::$repo->createResource($im, $bp);
@@ -331,7 +332,7 @@ class ResourceTest extends TestBase {
 
         $im = self::createMetadata([
                 $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
-                ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+                ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         $bp = new BinaryPayload('dummy content');
         self::$repo->begin();
         $r  = self::$repo->createResource($im, $bp);
@@ -365,7 +366,7 @@ class ResourceTest extends TestBase {
 
         $im = self::createMetadata([
                 $accessRestrProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public',
-                ], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+                ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         $bp = new BinaryPayload('dummy content');
         self::$repo->begin();
         $r  = self::$repo->createResource($im, $bp);
@@ -572,7 +573,7 @@ class ResourceTest extends TestBase {
     public function testUnknownProperty(): void {
         $cfgFile = __DIR__ . '/../config/yaml/config-repo.yaml';
         $cfg     = yaml_parse_file($cfgFile);
-        $im      = self::createMetadata(['https://vocabs.acdh.oeaw.ac.at/schema#foo' => 'bar'], 'https://vocabs.acdh.oeaw.ac.at/schema#RepoObject');
+        $im      = self::createMetadata(['https://vocabs.acdh.oeaw.ac.at/schema#foo' => 'bar']);
 
         // turn off the check
         $cfg['doorkeeper']['checkUnknownProperties'] = false;

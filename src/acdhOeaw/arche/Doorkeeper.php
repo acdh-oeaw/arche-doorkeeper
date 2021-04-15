@@ -425,12 +425,14 @@ class Doorkeeper {
      * @throws DoorkeeperException
      */
     static private function checkCardinalities(Resource $meta): void {
+        $inDomain = [RDF::RDF_TYPE];
         foreach ($meta->allResources(RDF::RDF_TYPE) as $class) {
             $classDef = self::$ontology->getClass((string) $class);
             if ($classDef === null) {
                 continue;
             }
             foreach ($classDef->properties as $p) {
+                $inDomain = array_merge($inDomain, $p->property);
                 if (($p->min > 0 || $p->max !== null) && $p->automatedFill === false) {
                     $co  = $cd  = 0;
                     $cdl = ['' => 0];
@@ -452,6 +454,15 @@ class Doorkeeper {
                         throw new DoorkeeperException('Max property count for ' . $p->uri . ' is ' . $p->max . ' but resource has ' . ($co + max($cdl)));
                     }
                 }
+            }
+        }
+        // check only resources of a class(es) defined in the ontology
+        if (count($inDomain) > 1) {
+            $outDomain = array_diff($meta->propertyUris(), $inDomain); // properties allowed on resource classes
+            $owlThing  = self::$ontology->getClass(RDF::OWL_THING);
+            $outDomain = array_diff($outDomain, array_keys($owlThing->properties)); // properties allowed on all resources
+            if (count($outDomain) > 0) {
+                throw new DoorkeeperException("Properties with a wrong domain: " . implode(', ', $outDomain));
             }
         }
     }
