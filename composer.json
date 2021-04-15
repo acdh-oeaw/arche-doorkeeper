@@ -16,7 +16,8 @@
         "acdh-oeaw/epic-handle": "*",
         "acdh-oeaw/uri-normalizer": "*",
         "acdh-oeaw/arche-lib-schema": "^4.0.3",
-        "zozlak/rdf-constants": "*"
+        "zozlak/rdf-constants": "*",
+        "renanbr/bibtex-parser": "^2.1"
     },
     "autoload": {
         "psr-4": {

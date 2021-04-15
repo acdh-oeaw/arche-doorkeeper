@@ -411,7 +411,6 @@ class ResourceTest extends TestBase {
         $r  = self::$repo->createResource($im);
         $this->assertEquals('foo bar', (string) $r->getGraph()->getLiteral($titleProp));
 
-
         // combined from acdh:hasFirstName
         $im = self::createMetadata([
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName' => 'foo'
@@ -583,7 +582,6 @@ class ResourceTest extends TestBase {
         $r = self::$repo->createResource($im);
         self::$repo->rollback();
 
-
         // turn on the check
         $cfg['doorkeeper']['checkUnknownProperties'] = true;
         yaml_emit_file($cfgFile, $cfg);
@@ -647,5 +645,40 @@ class ResourceTest extends TestBase {
         // turn on the check
         $ycfg['doorkeeper']['checkUnknownProperties'] = true;
         yaml_emit_file($ycfgFile, $ycfg);
+    }
+
+    public function testBiblatex(): void {
+        $idNmsp       = self::$config->schema->namespaces->id;
+        $idProp       = self::$config->schema->id;
+        $biblatexProp = self::$config->schema->biblatex;
+        $rid          = $idNmsp . rand();
+
+        $meta = self::createMetadata([
+                $idProp       => $rid,
+                $biblatexProp => "@dataset{foo,\nauthor = {Baz, Bar}\n}",
+        ]);
+        self::$repo->begin();
+
+        $r = self::$repo->createResource($meta);
+
+        $meta = $r->getMetadata();
+        $meta->delete($biblatexProp);
+        $meta->addLiteral($biblatexProp, "author = {Baz, Bar}");
+        $r->setMetadata($meta);
+        $r->updateMetadata();
+
+        $meta->delete($biblatexProp);
+        $meta->addLiteral($biblatexProp, "not a valid biblatex");
+        $r->setMetadata($meta);
+        try {
+            $r->updateMetadata();
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $resp = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $this->assertStringStartsWith("Invalid BibLaTeX entry", (string) $resp->getBody());
+        }
+
+        self::$repo->rollback();
     }
 }

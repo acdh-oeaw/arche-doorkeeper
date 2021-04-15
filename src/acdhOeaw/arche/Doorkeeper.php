@@ -36,6 +36,10 @@ use EasyRdf\Literal\Date as lDate;
 use EasyRdf\Literal\DateTime as lDateTime;
 use EasyRdf\Literal\Decimal as lDecimal;
 use EasyRdf\Literal\Integer as lInteger;
+use RenanBr\BibTexParser\Listener as BiblatexL;
+use RenanBr\BibTexParser\Parser as BiblatexP;
+use RenanBr\BibTexParser\Exception\ParserException as BiblatexE1;
+use RenanBr\BibTexParser\Exception\ProcessorException as BiblatexE2;
 use acdhOeaw\UriNormalizer;
 use acdhOeaw\epicHandle\HandleService;
 use acdhOeaw\acdhRepo\Transaction;
@@ -82,7 +86,7 @@ class Doorkeeper {
             'maintainPid', 'maintainCmdiPid', 'maintainDefaultValues',
             'maintainAccessRights', 'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
-            'checkIdCount', 'checkLanguage', 'checkUnknownProperties'
+            'checkIdCount', 'checkLanguage', 'checkUnknownProperties', 'checkBiblatex'
         ];
         foreach ($functions as $f) {
             try {
@@ -452,6 +456,31 @@ class Doorkeeper {
         }
     }
 
+    static private function checkBiblatex(Resource $meta): void {
+        $biblatexProp = RC::$config->schema->biblatex ?? 'foo';
+        $biblatex     = $meta->getLiteral($biblatexProp);
+        if (!empty($biblatex)) {
+            if (substr($biblatex, 0, 1) !== '@') {
+                $biblatex = "@dataset{foo,\n$biblatex\n}";
+            }
+            $listener = new BiblatexL();
+            $parser   = new BiblatexP();
+            $parser->addListener($listener);
+            try {
+                $parser->parseString($biblatex);
+                RC::$log->debug($biblatex);
+            } catch (BiblatexE1 $e) {
+                throw new DoorkeeperException("Invalid BibLaTeX entry: $biblatex");
+            } catch (BiblatexE2 $e) {
+                throw new DoorkeeperException("Invalid BibLaTeX entry: $biblatex");
+            }
+            if (count($listener->export()) === 0) {
+                throw new DoorkeeperException("Invalid BibLaTeX entry: $biblatex");
+            }
+            RC::$log->debug(json_encode($listener->export()));
+        }
+    }
+
     /**
      * Every resource must have at least one repository ID and one 
      * non-repository ID.
@@ -588,7 +617,7 @@ class Doorkeeper {
 
     static private function checkAutoCreatedResources(PDO $pdo, int $txId,
                                                       array $resourceIds): void {
-        $query = "
+        $query      = "
             SELECT string_agg(ids, ', ' ORDER BY ids) AS invalid
             FROM
                 resources r
@@ -598,8 +627,8 @@ class Doorkeeper {
                 AND transaction_id = ?
                 AND NOT EXISTS (SELECT 1 FROM metadata WHERE id = r.id AND property = ?)
         ";
-        $param = [Transaction::STATE_ACTIVE, $txId, RC::$config->schema->label];
-        $query = $pdo->prepare($query);
+        $param      = [Transaction::STATE_ACTIVE, $txId, RC::$config->schema->label];
+        $query      = $pdo->prepare($query);
         $query->execute($param);
         $invalidRes = $query->fetchColumn();
         if (!empty($invalidRes)) {
