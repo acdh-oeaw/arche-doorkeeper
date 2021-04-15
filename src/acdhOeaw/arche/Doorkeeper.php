@@ -38,6 +38,7 @@ use EasyRdf\Literal\Decimal as lDecimal;
 use EasyRdf\Literal\Integer as lInteger;
 use acdhOeaw\UriNormalizer;
 use acdhOeaw\epicHandle\HandleService;
+use acdhOeaw\acdhRepo\Transaction;
 use acdhOeaw\acdhRepo\Resource as Res;
 use acdhOeaw\acdhRepo\RestController as RC;
 use zozlak\RdfConstants as RDF;
@@ -105,6 +106,18 @@ class Doorkeeper {
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->beginTransaction();
 
+        $errors    = [];
+        $functions = ['checkAutoCreatedResources'];
+        foreach ($functions as $f) {
+            try {
+                self::$f($pdo, $txId, $resourceIds);
+            } catch (DoorkeeperException $ex) {
+                $errors[] = $ex->getMessage();
+            }
+        }
+        if (count($errors) > 0) {
+            throw new DoorkeeperException(implode("\n", $errors));
+        }
         self::updateCollections($pdo, $txId, $resourceIds);
 
         $pdo->commit();
@@ -573,6 +586,27 @@ class Doorkeeper {
         }
     }
 
+    static private function checkAutoCreatedResources(PDO $pdo, int $txId,
+                                                      array $resourceIds): void {
+        $query = "
+            SELECT string_agg(ids, ', ' ORDER BY ids) AS invalid
+            FROM
+                resources r
+                JOIN identifiers USING (id)
+            WHERE
+                state = ?
+                AND transaction_id = ?
+                AND NOT EXISTS (SELECT 1 FROM metadata WHERE id = r.id AND property = ?)
+        ";
+        $param = [Transaction::STATE_ACTIVE, $txId, RC::$config->schema->label];
+        $query = $pdo->prepare($query);
+        $query->execute($param);
+        $invalidRes = $query->fetchColumn();
+        if (!empty($invalidRes)) {
+            throw new DoorkeeperException("Transaction created resources without any metadata: $invalidRes");
+        }
+    }
+
     static private function updateCollections(PDO $pdo, int $txId,
                                               array $resourceIds): void {
         $prolongQuery = $pdo->prepare("UPDATE transactions SET last_request = clock_timestamp() WHERE transaction_id = ?");
@@ -833,7 +867,7 @@ class Doorkeeper {
     }
 
     static private function toString(array $a): array {
-        return array_map(function($x) {
+        return array_map(function ($x) {
             return (string) $x;
         }, $a);
     }

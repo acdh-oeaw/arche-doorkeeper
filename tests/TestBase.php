@@ -48,6 +48,11 @@ class TestBase extends \PHPUnit\Framework\TestCase {
      */
     static protected $repo;
     static protected $config;
+    /**
+     * A sample resource URI which is guaranteed to exist in the repository
+     * @var string
+     */
+    static protected $sampleResUri;
 
     /**
      *
@@ -66,6 +71,8 @@ class TestBase extends \PHPUnit\Framework\TestCase {
                 'label'             => self::$config->schema->label,
         ];
         self::$ontology = new Ontology(new PDO(self::$config->dbConnStr->admin), $cfgObj);
+        
+        self::$sampleResUri = self::$config->schema->classes->collection;
     }
 
     /**
@@ -179,7 +186,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
             }
             return new Literal('sample', 'en');
         } else {
-            return new Resource('https://sample');
+            return new Resource(self::$sampleResUri);
         }
     }
 

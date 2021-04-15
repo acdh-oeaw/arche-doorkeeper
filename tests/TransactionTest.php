@@ -26,6 +26,7 @@
 
 namespace acdhOeaw\arche;
 
+use GuzzleHttp\Exception\ClientException;
 use acdhOeaw\acdhRepoLib\BinaryPayload;
 use zozlak\RdfConstants as RDF;
 
@@ -229,5 +230,22 @@ class TransactionTest extends TestBase {
     public function testTopCollectionAggregates(): void {
         self::$config->schema->classes->collection = 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection';
         $this->testCollectionAggregates();
+    }
+
+    public function testAutoGenResource(): void {
+        $collClass        = self::$config->schema->classes->collection;
+        $randRes          = 'https://bar/' . rand();
+        self::$repo->begin();
+        $r                = self::$repo->createResource(self::createMetadata(['https://foo' => $randRes], $collClass));
+        $this->toDelete[] = $r;
+        try {
+            self::$repo->commit();
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $resp   = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $errors = explode("\n", (string) $resp->getBody());
+            $this->assertRegExp("|Transaction created resources without any metadata:.*$randRes|", $errors[0]);
+        }
     }
 }
