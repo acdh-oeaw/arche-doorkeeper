@@ -425,14 +425,20 @@ class Doorkeeper {
      * @throws DoorkeeperException
      */
     static private function checkCardinalities(Resource $meta): void {
-        $inDomain = [RDF::RDF_TYPE];
+        $ontologyNmsp = RC::$config->schema->namespaces->ontology;
+        $inDomain     = [RDF::RDF_TYPE];
         foreach ($meta->allResources(RDF::RDF_TYPE) as $class) {
             $classDef = self::$ontology->getClass((string) $class);
             if ($classDef === null) {
                 continue;
             }
+            $inNmsp = strpos($class, $ontologyNmsp) === 0;
             foreach ($classDef->properties as $p) {
-                $inDomain = array_merge($inDomain, $p->property);
+                if ($inNmsp) {
+                    // check property domains only for resources of ACDH classes
+                    RC::$log->debug("CLASS: $class");
+                    $inDomain = array_merge($inDomain, $p->property);
+                }
                 if (($p->min > 0 || $p->max !== null) && $p->automatedFill === false) {
                     $co  = $cd  = 0;
                     $cdl = ['' => 0];
@@ -628,6 +634,9 @@ class Doorkeeper {
 
     static private function checkAutoCreatedResources(PDO $pdo, int $txId,
                                                       array $resourceIds): void {
+        if (RC::$config->doorkeeper->checkAutoCreatedResources === false) {
+            return;
+        }
         $query      = "
             SELECT string_agg(ids, ', ' ORDER BY ids) AS invalid
             FROM
