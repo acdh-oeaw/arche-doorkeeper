@@ -485,16 +485,16 @@ class Doorkeeper {
             $parser->addListener($listener);
             try {
                 $parser->parseString($biblatex);
-                RC::$log->debug($biblatex);
             } catch (BiblatexE1 $e) {
-                throw new DoorkeeperException("Invalid BibLaTeX entry: $biblatex");
+                $msg = $e->getMessage();
+                throw new DoorkeeperException("Invalid BibLaTeX entry ($msg): $biblatex");
             } catch (BiblatexE2 $e) {
-                throw new DoorkeeperException("Invalid BibLaTeX entry: $biblatex");
+                $msg = $e->getMessage();
+                throw new DoorkeeperException("Invalid BibLaTeX entry ($msg): $biblatex");
             }
             if (count($listener->export()) === 0) {
                 throw new DoorkeeperException("Invalid BibLaTeX entry: $biblatex");
             }
-            RC::$log->debug(json_encode($listener->export()));
         }
     }
 
