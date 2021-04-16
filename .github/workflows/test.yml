@@ -33,7 +33,7 @@ jobs:
         cat log/initScripts.log
     - name: test
       run: |
-        XDEBUG_MODE=coverage ./vendor/bin/phpunit --filter testBiblatex
+        XDEBUG_MODE=coverage ./vendor/bin/phpunit
     - name: coveralls
       run: |
         export COVERALLS_RUN_LOCALLY=1
@@ -42,6 +42,6 @@ jobs:
         php vendor/bin/php-coveralls -v
         head -n 10 build/logs/clover.xml
     - name: debug
-      if: ${{ always() }}
+      if: ${{ failure() }}
       run: |
         cat log/rest.log
