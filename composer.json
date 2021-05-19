@@ -12,10 +12,11 @@
     ],
     "require": {
         "acdh-oeaw/easyrdf": "*",
-        "acdh-oeaw/arche-core": "*",
+        "acdh-oeaw/arche-core": "^2.0.0-alpha",
+        "acdh-oeaw/arche-lib": "^2.0.0-alpha",
         "acdh-oeaw/epic-handle": "*",
         "acdh-oeaw/uri-normalizer": "*",
-        "acdh-oeaw/arche-lib-schema": "^4.0.3",
+        "acdh-oeaw/arche-lib-schema": "^5",
         "zozlak/rdf-constants": "*",
         "renanbr/bibtex-parser": "^2.1"
     },
@@ -26,7 +27,7 @@
         }
     },
     "require-dev": {
-        "phpunit/phpunit": "^8",
-        "acdh-oeaw/arche-lib": "*"
+        "phpunit/phpunit": "^9",
+        "phpstan/phpstan": "*"
     }
 }

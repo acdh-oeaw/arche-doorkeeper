@@ -24,7 +24,7 @@
  * THE SOFTWARE.
  */
 
-namespace acdhOeaw\arche;
+namespace acdhOeaw\arche\doorkeeper;
 
 use PDO;
 use PDOStatement;
@@ -42,9 +42,10 @@ use RenanBr\BibTexParser\Exception\ParserException as BiblatexE1;
 use RenanBr\BibTexParser\Exception\ProcessorException as BiblatexE2;
 use acdhOeaw\UriNormalizer;
 use acdhOeaw\epicHandle\HandleService;
-use acdhOeaw\acdhRepo\Transaction;
-use acdhOeaw\acdhRepo\Resource as Res;
-use acdhOeaw\acdhRepo\RestController as RC;
+use acdhOeaw\arche\core\Transaction;
+use acdhOeaw\arche\core\Resource as Res;
+use acdhOeaw\arche\core\RestController as RC;
+use acdhOeaw\arche\lib\schema\Ontology;
 use zozlak\RdfConstants as RDF;
 
 /**
@@ -65,7 +66,7 @@ class Doorkeeper {
 
     /**
      *
-     * @var \acdhOeaw\arche\Ontology
+     * @var \acdhOeaw\arche\lib\schema\Ontology
      */
     static private $ontology;
 
