@@ -27,7 +27,7 @@
 namespace acdhOeaw\arche;
 
 use GuzzleHttp\Exception\ClientException;
-use acdhOeaw\acdhRepoLib\BinaryPayload;
+use acdhOeaw\arche\lib\BinaryPayload;
 use zozlak\RdfConstants as RDF;
 
 /**

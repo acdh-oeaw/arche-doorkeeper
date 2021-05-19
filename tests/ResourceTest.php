@@ -32,8 +32,8 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Exception\ClientException;
 use zozlak\RdfConstants as RDF;
-use acdhOeaw\acdhRepoLib\RepoResource;
-use acdhOeaw\acdhRepoLib\BinaryPayload;
+use acdhOeaw\arche\lib\RepoResource;
+use acdhOeaw\arche\lib\BinaryPayload;
 
 /**
  * Description of DoorkeeperTest

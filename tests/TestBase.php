@@ -32,8 +32,8 @@ use EasyRdf\Literal;
 use EasyRdf\Literal\Date;
 use EasyRdf\Resource;
 use zozlak\RdfConstants as RDF;
-use acdhOeaw\acdhRepoLib\Repo;
-use acdhOeaw\acdhRepoLib\exception\NotFound;
+use acdhOeaw\arche\lib\Repo;
+use acdhOeaw\arche\lib\exception\NotFound;
 
 /**
  * Description of TestBase
@@ -44,7 +44,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
 
     /**
      *
-     * @var \acdhOeaw\acdhRepoLib\Repo
+     * @var \acdhOeaw\arche\lib\Repo
      */
     static protected $repo;
     static protected $config;
@@ -77,7 +77,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
 
     /**
      *
-     * @var \acdhOeaw\acdhRepoLib\RepoResource[]
+     * @var \acdhOeaw\arche\lib\RepoResource[]
      */
     protected $toDelete;
 
