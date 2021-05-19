@@ -24,7 +24,7 @@
  * THE SOFTWARE.
  */
 
-namespace acdhOeaw\arche;
+namespace acdhOeaw\arche\doorkeeper\tests;
 
 use GuzzleHttp\Exception\ClientException;
 use acdhOeaw\arche\lib\BinaryPayload;
@@ -68,10 +68,10 @@ class TransactionTest extends TestBase {
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
         $this->assertNull($rBin1Meta->getLiteral($countProp));
-        $this->assertEquals($bin1Size + $bin2Size, $rCol1Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(3, $rCol1Meta->getLiteral($countProp)->getValue());
-        $this->assertEquals($bin2Size, $rCol2Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(1, $rCol2Meta->getLiteral($countProp)->getValue());
+        $this->assertEquals($bin1Size + $bin2Size, $rCol1Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(3, $rCol1Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals($bin2Size, $rCol2Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(1, $rCol2Meta->getLiteral($countProp)?->getValue());
 
         // update resources
         $bin1Size = filesize(__DIR__ . '/../config-sample.yaml');
@@ -85,10 +85,10 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals($bin1Size + $bin2Size, $rCol1Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(3, $rCol1Meta->getLiteral($countProp)->getValue());
-        $this->assertEquals($bin2Size, $rCol2Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(1, $rCol2Meta->getLiteral($countProp)->getValue());
+        $this->assertEquals($bin1Size + $bin2Size, $rCol1Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(3, $rCol1Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals($bin2Size, $rCol2Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(1, $rCol2Meta->getLiteral($countProp)?->getValue());
 
         // delete resources
         self::$repo->begin();
@@ -99,10 +99,10 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals($bin1Size, $rCol1Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(2, $rCol1Meta->getLiteral($countProp)->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)->getValue());
+        $this->assertEquals($bin1Size, $rCol1Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(2, $rCol1Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals(0, $rCol2Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)?->getValue());
 
         self::$repo->begin();
         $rBin1->delete(true);
@@ -112,10 +112,10 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals(0, $rCol1Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(1, $rCol1Meta->getLiteral($countProp)->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)->getValue());
+        $this->assertEquals(0, $rCol1Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(1, $rCol1Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals(0, $rCol2Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)?->getValue());
 
         self::$repo->begin();
         $rCol2->delete(true);
@@ -154,10 +154,10 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals($binSize, $rCol1Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(1, $rCol1Meta->getLiteral($countProp)->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)->getValue());
+        $this->assertEquals($binSize, $rCol1Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(1, $rCol1Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals(0, $rCol2Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)?->getValue());
 
         self::$repo->begin();
         $meta->deleteResource($parentProp);
@@ -170,10 +170,10 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals(0, $rCol1Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(0, $rCol1Meta->getLiteral($countProp)->getValue());
-        $this->assertEquals($binSize, $rCol2Meta->getLiteral($sizeProp)->getValue());
-        $this->assertEquals(1, $rCol2Meta->getLiteral($countProp)->getValue());
+        $this->assertEquals(0, $rCol1Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(0, $rCol1Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals($binSize, $rCol2Meta->getLiteral($sizeProp)?->getValue());
+        $this->assertEquals(1, $rCol2Meta->getLiteral($countProp)?->getValue());
     }
 
     public function testCollectionAggregates(): void {
@@ -191,8 +191,8 @@ class TransactionTest extends TestBase {
 
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
-        $this->assertEquals('', $rCol1Meta->getLiteral($licenseAggProp)->getValue());
-        $this->assertEquals('', $rCol1Meta->getLiteral($accessAggProp)->getValue());
+        $this->assertEquals('', $rCol1Meta->getLiteral($licenseAggProp)?->getValue());
+        $this->assertEquals('', $rCol1Meta->getLiteral($accessAggProp)?->getValue());
 
         // add resources
         self::$repo->begin();
@@ -220,11 +220,11 @@ class TransactionTest extends TestBase {
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $tmp       = $rCol1Meta->getLiteral($licenseAggProp);
-        $ref       = $tmp->getLang() === 'en' ? "Attribution 4.0 International (CC BY 4.0) 1\nMIT license 1\nNo Copyright - Non-Commercial Use Only 1" : "Kein Urheberrechtsschutz - nur nicht kommerzielle Nutzung erlaubt 1\nMIT Lizenz 1\nNamensnennung 4.0 International (CC BY 4.0) 1";
-        $this->assertEquals($ref, $tmp->getValue());
+        $ref       = $tmp?->getLang() === 'en' ? "Attribution 4.0 International (CC BY 4.0) 1\nMIT license 1\nNo Copyright - Non-Commercial Use Only 1" : "Kein Urheberrechtsschutz - nur nicht kommerzielle Nutzung erlaubt 1\nMIT Lizenz 1\nNamensnennung 4.0 International (CC BY 4.0) 1";
+        $this->assertEquals($ref, $tmp?->getValue());
         $tmp       = $rCol1Meta->getLiteral($accessAggProp);
-        $ref       = $tmp->getLang() === 'en' ? "academic 2\nrestricted 1" : "akademisch 2\neingeschränkt 1";
-        $this->assertEquals($ref, $tmp->getValue());
+        $ref       = $tmp?->getLang() === 'en' ? "academic 2\nrestricted 1" : "akademisch 2\neingeschränkt 1";
+        $this->assertEquals($ref, $tmp?->getValue());
     }
 
     public function testTopCollectionAggregates(): void {
@@ -246,7 +246,7 @@ class TransactionTest extends TestBase {
             $resp   = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
             $errors = explode("\n", (string) $resp->getBody());
-            $this->assertRegExp("|Transaction created resources without any metadata:.*$randRes|", $errors[0]);
+            $this->assertMatchesRegularExpression("|Transaction created resources without any metadata:.*$randRes|", $errors[0]);
         }
     }
 }

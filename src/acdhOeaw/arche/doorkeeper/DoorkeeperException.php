@@ -26,16 +26,15 @@
 
 namespace acdhOeaw\arche\doorkeeper;
 
-use Exception;
 use Throwable;
-use acdhOeaw\acdhRepo\RepoException;
+use acdhOeaw\arche\lib\exception\RepoLibException;
 
 /**
  * Description of DoorkeeperException
  *
  * @author zozlak
  */
-class DoorkeeperException extends RepoException {
+class DoorkeeperException extends RepoLibException {
 
     public function __construct(string $message = '', int $code = 400,
                                 Throwable $previous = NULL) {

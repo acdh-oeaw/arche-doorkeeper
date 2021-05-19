@@ -3,7 +3,7 @@
 		<directory>tests</directory>
 	</testsuite>
     <extensions>
-        <extension class="\acdhOeaw\arche\Bootstrap"/>
+        <extension class="\acdhOeaw\arche\doorkeeper\tests\Bootstrap"/>
     </extensions>
 	<filter>
 		<whitelist processUncoveredFilesFromWhitelist="true">

@@ -24,16 +24,20 @@
  * THE SOFTWARE.
  */
 
-namespace acdhOeaw\arche;
+namespace acdhOeaw\arche\doorkeeper\tests;
 
 use PDO;
+use Stringable;
 use EasyRdf\Graph;
 use EasyRdf\Literal;
+use EasyRdf\Literal\Decimal;
 use EasyRdf\Literal\Date;
 use EasyRdf\Resource;
 use zozlak\RdfConstants as RDF;
 use acdhOeaw\arche\lib\Repo;
 use acdhOeaw\arche\lib\exception\NotFound;
+use acdhOeaw\arche\lib\schema\Ontology;
+use acdhOeaw\arche\lib\schema\PropertyDesc;
 
 /**
  * Description of TestBase
@@ -42,23 +46,14 @@ use acdhOeaw\arche\lib\exception\NotFound;
  */
 class TestBase extends \PHPUnit\Framework\TestCase {
 
-    /**
-     *
-     * @var \acdhOeaw\arche\lib\Repo
-     */
-    static protected $repo;
-    static protected $config;
-    /**
-     * A sample resource URI which is guaranteed to exist in the repository
-     * @var string
-     */
-    static protected $sampleResUri;
+    static protected Repo $repo;
+    static protected object $config;
 
     /**
-     *
-     * @var \acdhOeaw\arche\Ontology
+     * A sample resource URI which is guaranteed to exist in the repository
      */
-    static protected $ontology;
+    static protected string $sampleResUri;
+    static protected Ontology $ontology;
 
     static public function setUpBeforeClass(): void {
         parent::setUpBeforeClass();
@@ -70,8 +65,8 @@ class TestBase extends \PHPUnit\Framework\TestCase {
                 'parent'            => self::$config->schema->parent,
                 'label'             => self::$config->schema->label,
         ];
-        self::$ontology = new Ontology(new PDO(self::$config->dbConnStr->admin), $cfgObj);
-        
+        self::$ontology = new Ontology(new PDO(self::$config->dbConn->admin), $cfgObj);
+
         self::$sampleResUri = self::$config->schema->classes->collection;
     }
 
@@ -106,12 +101,23 @@ class TestBase extends \PHPUnit\Framework\TestCase {
         }
     }
 
+    /**
+     * 
+     * @param array<string | Stringable> $v
+     * @return array<string>
+     */
     static protected function toStr(array $v): array {
-        return array_map(function($x) {
+        return array_map(function ($x) {
             return (string) $x;
         }, $v);
     }
 
+    /**
+     * 
+     * @param array<mixed> $props
+     * @param string $class
+     * @return Resource
+     */
     static protected function createMetadata(array $props = [],
                                              string $class = null): Resource {
         $idProp    = self::$config->schema->id;
@@ -163,7 +169,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
         return $r;
     }
 
-    static protected function createSampleProperty(PropertyDesc $i) {
+    static protected function createSampleProperty(PropertyDesc $i): Resource | Literal {
         if ($i->type === RDF::OWL_DATATYPE_PROPERTY) {
             foreach ($i->range as $j) {
                 switch ($j) {
@@ -175,10 +181,10 @@ class TestBase extends \PHPUnit\Framework\TestCase {
                     case RDF::XSD_INTEGER;
                     case RDF::XSD_NON_NEGATIVE_INTEGER;
                     case RDF::XSD_POSITIVE_INTEGER;
-                        return new Literal(123);
+                        return new Decimal(123);
                     case RDF::XSD_NON_POSITIVE_INTEGER;
                     case RDF::XSD_NEGATIVE_INTEGER;
-                        return new Literal(-321);
+                        return new Decimal(-321);
                     case RDF::XSD_DATE:
                     case RDF::XSD_DATE_TIME:
                         return new Date('2019-01-01');

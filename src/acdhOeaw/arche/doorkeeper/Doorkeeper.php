@@ -64,17 +64,8 @@ class Doorkeeper {
         RDF::XSD_LONG, RDF::XSD_INT, RDF::XSD_SHORT, RDF::XSD_BYTE, RDF::XSD_UNSIGNED_LONG,
         RDF::XSD_UNSIGNED_INT, RDF::XSD_UNSIGNED_SHORT, RDF::XSD_UNSIGNED_BYTE, RDF::XSD_BOOLEAN];
 
-    /**
-     *
-     * @var \acdhOeaw\arche\lib\schema\Ontology
-     */
-    static private $ontology;
-
-    /**
-     *
-     * @var \acdhOeaw\UriNormalizer
-     */
-    static private $uriNorm;
+    static private Ontology $ontology;
+    static private UriNormalizer $uriNorm;
 
     static public function onResEdit(int $id, Resource $meta, ?string $path): Resource {
         self::loadOntology();
@@ -104,6 +95,14 @@ class Doorkeeper {
         return $meta;
     }
 
+    /**
+     * 
+     * @param string $method
+     * @param int $txId
+     * @param array<int> $resourceIds
+     * @return void
+     * @throws DoorkeeperException
+     */
     static public function onTxCommit(string $method, int $txId,
                                       array $resourceIds): void {
         // current state database handler
@@ -358,7 +357,7 @@ class Doorkeeper {
                             $val = new Literal($p->defaultValue, $p->langTag ? 'en' : null, $p->range);
                             break;
                     }
-                    $meta->add($p->uri, $val);
+                    $meta->add($p->uri, $val ?? null);
                     RC::$log->info("\t\t$p->uri added with a default value of $p->defaultValue");
                 }
             }
@@ -366,7 +365,7 @@ class Doorkeeper {
     }
 
     static private function normalizeIds(Resource $meta): void {
-        if (self::$uriNorm === null) {
+        if (!isset(self::$uriNorm)) {
             self::$uriNorm = UriNormalizer::factory();
         }
 
@@ -633,6 +632,14 @@ class Doorkeeper {
         }
     }
 
+    /**
+     * 
+     * @param PDO $pdo
+     * @param int $txId
+     * @param array<int> $resourceIds
+     * @return void
+     * @throws DoorkeeperException
+     */
     static private function checkAutoCreatedResources(PDO $pdo, int $txId,
                                                       array $resourceIds): void {
         if (RC::$config->doorkeeper->checkAutoCreatedResources === false) {
@@ -657,6 +664,14 @@ class Doorkeeper {
         }
     }
 
+    /**
+     * 
+     * @param PDO $pdo
+     * @param int $txId
+     * @param array<int> $resourceIds
+     * @return void
+     * @throws DoorkeeperException
+     */
     static private function updateCollections(PDO $pdo, int $txId,
                                               array $resourceIds): void {
         $prolongQuery = $pdo->prepare("UPDATE transactions SET last_request = clock_timestamp() WHERE transaction_id = ?");
@@ -906,7 +921,7 @@ class Doorkeeper {
     }
 
     static private function loadOntology(): void {
-        if (self::$ontology === null) {
+        if (!isset(self::$ontology)) {
             $cfg            = (object) [
                     'ontologyNamespace' => RC::$config->schema->namespaces->ontology,
                     'parent'            => RC::$config->schema->parent,
@@ -916,6 +931,11 @@ class Doorkeeper {
         }
     }
 
+    /**
+     * 
+     * @param array<mixed> $a
+     * @return array<string>
+     */
     static private function toString(array $a): array {
         return array_map(function ($x) {
             return (string) $x;

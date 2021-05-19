@@ -24,7 +24,7 @@
  * THE SOFTWARE.
  */
 
-namespace acdhOeaw\arche;
+namespace acdhOeaw\arche\doorkeeper\tests;
 
 use EasyRdf\Graph;
 use EasyRdf\Literal;
@@ -34,7 +34,6 @@ use GuzzleHttp\Exception\ClientException;
 use zozlak\RdfConstants as RDF;
 use acdhOeaw\arche\lib\RepoResource;
 use acdhOeaw\arche\lib\BinaryPayload;
-
 /**
  * Description of DoorkeeperTest
  *
@@ -179,7 +178,7 @@ class ResourceTest extends TestBase {
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
-            $this->assertRegExp('/^Min property count for .* but resource has 0$/', (string) $resp->getBody());
+            $this->assertMatchesRegularExpression('/^Min property count for .* but resource has 0$/', (string) $resp->getBody());
         }
 
         $class = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
@@ -202,7 +201,7 @@ class ResourceTest extends TestBase {
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
-            $this->assertRegExp('/^URI value for a datatype property .*hasUrl/', (string) $resp->getBody());
+            $this->assertMatchesRegularExpression('/^URI value for a datatype property .*hasUrl/', (string) $resp->getBody());
         }
     }
 
@@ -224,7 +223,7 @@ class ResourceTest extends TestBase {
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
-            $this->assertRegExp('/^Max property count for .* but resource has 2$/', (string) $resp->getBody());
+            $this->assertMatchesRegularExpression('/^Max property count for .* but resource has 2$/', (string) $resp->getBody());
         }
     }
 

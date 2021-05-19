@@ -24,14 +24,18 @@
  * THE SOFTWARE.
  */
 
-namespace acdhOeaw\arche;
+namespace acdhOeaw\arche\doorkeeper\tests;
 
 use DirectoryIterator;
 use PHPUnit\Runner\AfterLastTestHook;
 use PHPUnit\Runner\BeforeFirstTestHook;
 use SebastianBergmann\CodeCoverage\CodeCoverage;
+use SebastianBergmann\CodeCoverage\Filter;
+use SebastianBergmann\CodeCoverage\RawCodeCoverageData;
 use SebastianBergmann\CodeCoverage\Report\Clover;
 use SebastianBergmann\CodeCoverage\Report\Html\Facade;
+use SebastianBergmann\CodeCoverage\Driver\Xdebug2Driver;
+use SebastianBergmann\CodeCoverage\Driver\Xdebug3Driver;
 
 /**
  * Description of CoverageGen
@@ -40,7 +44,7 @@ use SebastianBergmann\CodeCoverage\Report\Html\Facade;
  */
 class Bootstrap implements AfterLastTestHook, BeforeFirstTestHook {
 
-    private $config;
+    private object $config;
 
     public function __construct() {
         $this->config = json_decode(json_encode(yaml_parse_file(__DIR__ . '/../config.yaml')));
@@ -62,20 +66,25 @@ class Bootstrap implements AfterLastTestHook, BeforeFirstTestHook {
     }
 
     public function executeAfterLastTest(): void {
-        $localDir   = realpath(__DIR__ . '/../src');
         $testEnvDir = '/home/www-data/arche-doorkeeper/src';
-        $cc         = new CodeCoverage();
-        $cc->filter()->addDirectoryToWhitelist($localDir);
+        $localDir   = realpath(__DIR__ . '/../src');
+        $filter = new Filter();
+        $filter->includeDirectory($localDir);
+        $driver = phpversion('xdebug') < '3' ? new Xdebug2Driver($filter) : new Xdebug3Driver($filter);
+        $cc     = new CodeCoverage($driver, $filter);
         foreach (new DirectoryIterator(__DIR__ . '/../build/logs') as $i) {
             if ($i->getExtension() === 'json') {
-                $rawData = json_decode(file_get_contents($i->getPathname()), true);
+                $rawData = (array) json_decode((string) file_get_contents($i->getPathname()), true);
                 $data    = [];
                 foreach ($rawData as $k => $v) {
                     $data[str_replace($testEnvDir, $localDir, $k)] = $v;
                 }
+                $data = RawCodeCoverageData::fromXdebugWithoutPathCoverage($data);
                 $cc->append($data, '');
             }
         }
+
+
         $outDir = __DIR__ . '/../build/logs/';
         $writer = new Clover();
         $writer->process($cc, $outDir . 'clover.xml');
