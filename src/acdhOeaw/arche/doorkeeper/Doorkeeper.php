@@ -78,7 +78,7 @@ class Doorkeeper {
 
     static public function onResEdit(int $id, Resource $meta, ?string $path): Resource {
         self::loadOntology();
-        $pdo       = new PDO(RC::$config->dbConnStr->admin);
+        $pdo       = new PDO(RC::$config->dbConn->admin);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->beginTransaction();
         $errors    = [];
@@ -107,7 +107,7 @@ class Doorkeeper {
     static public function onTxCommit(string $method, int $txId,
                                       array $resourceIds): void {
         // current state database handler
-        $pdo = new PDO(RC::$config->dbConnStr->admin);
+        $pdo = new PDO(RC::$config->dbConn->admin);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->beginTransaction();
 
