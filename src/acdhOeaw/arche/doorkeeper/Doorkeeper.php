@@ -436,7 +436,6 @@ class Doorkeeper {
             foreach ($classDef->properties as $p) {
                 if ($inNmsp) {
                     // check property domains only for resources of ACDH classes
-                    RC::$log->debug("CLASS: $class");
                     $inDomain = array_merge($inDomain, $p->property);
                 }
                 if (($p->min > 0 || $p->max !== null) && $p->automatedFill === false) {
