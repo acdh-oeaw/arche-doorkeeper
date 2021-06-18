@@ -26,6 +26,8 @@
 
 namespace acdhOeaw\arche\doorkeeper;
 
+use DateTime;
+use Exception;
 use PDO;
 use PDOStatement;
 use RuntimeException;
@@ -946,15 +948,23 @@ class Doorkeeper {
             case RDF::XSD_ANY_URI:
                 $value = new Literal((string) $l, null, RDF::XSD_ANY_URI);
             case RDF::XSD_DATE:
-                $value = new lDate(is_numeric((string) $l) ? $l . '-01-01' : (string) $l, null, $range);
-                break;
             case RDF::XSD_DATE_TIME:
-                $value = new lDateTime(is_numeric((string) $l) ? $l . '-01-01' : (string) $l, null, $range);
+                $l     = is_numeric((string) $l) ? $l . '-01-01' : (string) $l;
+                try {
+                    new DateTime($l);
+                } catch (Exception $e) {
+                    throw new DoorkeeperException("value does not match data type: $l ($range)");
+                }
+                $value = $range === RDF::XSD_DATE ? new lDate($l, null, $range) : new lDateTime($l, null, $range);
                 break;
             case RDF::XSD_DECIMAL:
             case RDF::XSD_FLOAT:
             case RDF::XSD_DOUBLE:
-                $value = new lDecimal((string) $l, null, $range);
+                $l     = (string) $l;
+                if (!is_numeric($l)) {
+                    throw new DoorkeeperException("value does not match data type: $l ($range)");
+                }
+                $value = new lDecimal($l, null, $range);
                 break;
             case RDF::XSD_INTEGER:
             case RDF::XSD_NEGATIVE_INTEGER:
@@ -969,10 +979,14 @@ class Doorkeeper {
             case RDF::XSD_UNSIGNED_INT:
             case RDF::XSD_UNSIGNED_SHORT:
             case RDF::XSD_UNSIGNED_BYTE:
-                $value = new lInteger((int) ((string) $l), null, $range);
+                $l     = (string) $l;
+                if (!is_numeric($l)) {
+                    throw new DoorkeeperException("value does not match data type: $l ($range)");
+                }
+                $value = new lInteger((int) $l, null, $range);
                 break;
             case RDF::XSD_BOOLEAN:
-                $value = new lBoolean((string) $l, null, $range);
+                $value = new lBoolean((string) ((bool) $l), null, $range);
                 break;
             default:
                 throw new RuntimeException('unknown range data type: ' . $range);

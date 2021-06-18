@@ -31,9 +31,11 @@ use EasyRdf\Literal;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\RequestException;
 use zozlak\RdfConstants as RDF;
 use acdhOeaw\arche\lib\RepoResource;
 use acdhOeaw\arche\lib\BinaryPayload;
+
 /**
  * Description of DoorkeeperTest
  *
@@ -165,6 +167,33 @@ class ResourceTest extends TestBase {
         $uri = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasPid');
         $this->assertEquals(RDF::XSD_ANY_URI, $uri->getDatatypeUri());
         $this->assertEquals($pid, $uri->getValue());
+    }
+
+    public function testWrongRange(): void {
+        $pid = 'https://foo.bar/' . rand();
+        self::$repo->begin();
+
+        $im = self::createMetadata([
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => 'foo',
+        ]);
+        try {
+            self::$repo->createResource($im);
+            $this->assertTrue(false);
+        } catch (RequestException $e) {
+            $this->assertMatchesRegularExpression('value does not match data type', $e->getMessage());
+        }
+
+        $im = self::createMetadata([
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'       => 'bar',
+        ]);
+        try {
+            self::$repo->createResource($im);
+            $this->assertTrue(false);
+        } catch (RequestException $e) {
+            $this->assertMatchesRegularExpression('value does not match data type', $e->getMessage());
+        }
+
+        self::$repo->rollback();
     }
 
     public function testCardinalitiesMin(): void {
