@@ -947,6 +947,7 @@ class Doorkeeper {
         switch ($range) {
             case RDF::XSD_ANY_URI:
                 $value = new Literal((string) $l, null, RDF::XSD_ANY_URI);
+                break;
             case RDF::XSD_DATE:
             case RDF::XSD_DATE_TIME:
                 $l     = is_numeric((string) $l) ? $l . '-01-01' : (string) $l;
