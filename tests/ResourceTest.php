@@ -180,7 +180,7 @@ class ResourceTest extends TestBase {
             self::$repo->createResource($im);
             $this->assertTrue(false);
         } catch (RequestException $e) {
-            $this->assertMatchesRegularExpression('value does not match data type', $e->getMessage());
+            $this->assertMatchesRegularExpression('/value does not match data type/', $e->getMessage());
         }
 
         $im = self::createMetadata([
@@ -190,7 +190,7 @@ class ResourceTest extends TestBase {
             self::$repo->createResource($im);
             $this->assertTrue(false);
         } catch (RequestException $e) {
-            $this->assertMatchesRegularExpression('value does not match data type', $e->getMessage());
+            $this->assertMatchesRegularExpression('/value does not match data type/', $e->getMessage());
         }
 
         self::$repo->rollback();
