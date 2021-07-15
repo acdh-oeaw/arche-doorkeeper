@@ -184,7 +184,7 @@ class ResourceTest extends TestBase {
         }
 
         $im = self::createMetadata([
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'       => 'bar',
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize' => 'bar',
         ]);
         try {
             self::$repo->createResource($im);
@@ -706,6 +706,66 @@ class ResourceTest extends TestBase {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
             $this->assertStringStartsWith("Invalid BibLaTeX entry", (string) $resp->getBody());
+        }
+
+        self::$repo->rollback();
+    }
+
+    public function testVocabularyValues(): void {
+        $class     = 'https://vocabs.acdh.oeaw.ac.at/schema#Collection';
+        $meta1     = self::createMetadata([], $class);
+        $classDesc = self::$ontology->getClass($class);
+        foreach ($classDesc->getProperties() as $i) {
+            if (!empty($i->vocabs)) {
+                $propDesc = $i;
+                break;
+            }
+        }
+        $values = $propDesc->vocabularyValues;
+
+        self::$repo->begin();
+
+        // full URI
+        $meta1->delete($propDesc->uri);
+        $meta1->addResource($propDesc->uri, current($values)->concept[0]);
+        $r     = self::$repo->createResource($meta1);
+        $meta2 = $r->getMetadata();
+        $value = (string) $meta2->getResource($propDesc->uri);
+
+        // label
+        $meta2->delete($propDesc->uri);
+        $meta2->addLiteral($propDesc->uri, current($values)->getLabel('de'));
+        $r->setMetadata($meta2);
+        $r->updateMetadata();
+        $meta3 = $r->getMetadata();
+        $this->assertEquals($value, (string) $meta3->getResource($propDesc->uri));
+
+        // wrong value
+        $value = 'foo';
+        $meta2->delete($propDesc->uri);
+        $meta2->addLiteral($propDesc->uri, $value);
+        $r->setMetadata($meta2);
+        try {
+            $r->updateMetadata();
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $resp = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $this->assertStringContainsString("property $propDesc->uri value $value is not in the $propDesc->vocabs vocabulary", (string) $resp->getBody());
+        }
+        
+        // label as a resource
+        $value = current($values)->getLabel('de');
+        $meta2->delete($propDesc->uri);
+        $meta2->addResource($propDesc->uri, $value);
+        $r->setMetadata($meta2);
+        try {
+            $r->updateMetadata();
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $resp = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $this->assertStringContainsString("property $propDesc->uri value $value is not in the $propDesc->vocabs vocabulary", (string) $resp->getBody());
         }
 
         self::$repo->rollback();

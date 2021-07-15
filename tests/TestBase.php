@@ -191,6 +191,8 @@ class TestBase extends \PHPUnit\Framework\TestCase {
                 }
             }
             return new Literal('sample', 'en');
+        } elseif (!empty($i->vocabs)) {
+            return new Resource(current($i->vocabularyValues)->concept[0]);
         } else {
             return new Resource(self::$sampleResUri);
         }

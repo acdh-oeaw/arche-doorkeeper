@@ -325,6 +325,27 @@ class Doorkeeper {
     static private function maintainPropertyRangeVocabs(Resource $meta,
                                                         PropertyDesc $propDesc,
                                                         string $prop): void {
+        foreach ($meta->all($prop) as $v) {
+            $vs  = (string) $v;
+            $vid = $propDesc->checkVocabularyValue($vs, Ontology::VOCABSVALUE_ID);
+            if (!empty($vid) && !($v instanceof Resource)) {
+                // the value is right, just it's literal and it should be a resource
+            } elseif (empty($vid)) {
+                if ($v instanceof Resource) {
+                    // value is not a proper id and it's a resource
+                    throw new DoorkeeperException("property $prop value $vs is not in the $propDesc->vocabs vocabulary");
+                }
+                $vid = $propDesc->checkVocabularyValue($vs, Ontology::VOCABSVALUE_ALL);
+                if (empty($vid)) {
+                    throw new DoorkeeperException("property $prop value $vs is not in the $propDesc->vocabs vocabulary");
+                }
+                // map to the right value
+                $meta->delete($prop, $v);
+                $meta->addResource($prop, $vid);
+                RC::$log->info("\t\tproperty $prop mapping literal value '$vs' to resource $vid");
+            }
+
+        }
     }
 
     static private function maintainPropertyRangeLiteral(Resource $meta,
@@ -350,9 +371,9 @@ class Doorkeeper {
                     $meta->addLiteral($prop, $value);
                     RC::$log->info("\t\tcasting $prop value from $type to $rangeTmp");
                 } catch (RuntimeException $ex) {
-                    RC::$log->info('    ' . $ex->getMessage());
+                    RC::$log->info("\t\t" . $ex->getMessage());
                 } catch (DoorkeeperException $ex) {
-                    throw new DoorkeeperException('property ' . $prop . ': ' . $ex->getMessage(), $ex->getCode(), $ex);
+                    throw new DoorkeeperException("property $prop: " . $ex->getMessage(), $ex->getCode(), $ex);
                 }
             }
         }
