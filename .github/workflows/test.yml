@@ -39,7 +39,7 @@ jobs:
       run: |
         export COVERALLS_RUN_LOCALLY=1
         export COVERALLS_REPO_TOKEN=${{ secrets.coverallsToken }}
-        composer require php-coveralls/php-coveralls
+        composer require -W php-coveralls/php-coveralls
         php vendor/bin/php-coveralls -v
         head -n 10 build/logs/clover.xml
     - name: debug
