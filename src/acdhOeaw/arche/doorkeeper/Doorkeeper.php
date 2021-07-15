@@ -882,8 +882,8 @@ class Doorkeeper {
         $query->execute($param);
         $prolongQuery->execute([$txId]);
         RC::$log->info('[-----');
-        RC::$log->info($pdo->query("SELECT * FROM _resources")->fetchAll(PDO::FETCH_OBJ));
-        RC::$log->info($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ));
+        RC::$log->info(json_encode($pdo->query("SELECT * FROM _resources")->fetchAll(PDO::FETCH_OBJ)));
+        RC::$log->info(json_encode($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ)));
 
         // add empty property values for empty collections
         $query = "
@@ -905,7 +905,7 @@ class Doorkeeper {
             $collClass, $topCollClass];
         $query = $pdo->prepare($query);
         $query->execute($param);
-        RC::$log->info($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ));
+        RC::$log->info(json_encode($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ)));
         $prolongQuery->execute([$txId]);
 
         // remove old values
