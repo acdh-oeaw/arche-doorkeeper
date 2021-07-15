@@ -562,26 +562,27 @@ class ResourceTest extends TestBase {
     }
 
     public function testPidPreserving(): void {
-        $idProp  = self::$config->schema->id;
-        $pidProp = self::$config->schema->pid;
-        $pidNmsp = self::$config->doorkeeper->epicPid->resolver;
-        $idNmsp  = self::$config->schema->namespaces->id;
-        $idn     = rand();
-        $pid     = $pidNmsp . self::$config->doorkeeper->epicPid->prefix . '/123';
+        $idProp   = self::$config->schema->id;
+        $pidProp  = self::$config->schema->pid;
+        $pidNmsp  = self::$config->doorkeeper->epicPid->resolver;
+        $idNmsp   = self::$config->schema->namespaces->id;
+        $idn      = rand();
+        $httpsPid = $pidNmsp . self::$config->doorkeeper->epicPid->prefix . '/123';
+        $httpPid  = str_replace('https://', 'http://', $httpsPid);
         self::$repo->begin();
 
         // existing pid not overwritten but promoted to an id
         $idn  = rand();
         $im   = self::createMetadata([
                 $idProp  => $idNmsp . $idn,
-                $pidProp => $pid,
+                $pidProp => $httpPid,
         ]);
         $r    = self::$repo->createResource($im);
         $m1   = $r->getGraph();
         $pids = $m1->allLiterals($pidProp);
         $this->assertEquals(1, count($pids));
-        $this->assertEquals($pid, (string) $pids[0]);
-        $this->assertContains($pid, $this->toStr($m1->allResources($idProp)));
+        $this->assertEquals($httpsPid, (string) $pids[0]);
+        $this->assertContains($httpsPid, $this->toStr($m1->allResources($idProp)));
 
         // pid refreshed from one stored as an id
         $m2   = $r->getGraph();
@@ -592,8 +593,8 @@ class ResourceTest extends TestBase {
         $m3   = $r->getGraph();
         $pids = $m3->allLiterals($pidProp);
         $this->assertEquals(1, count($pids));
-        $this->assertEquals($pid, (string) $pids[0]);
-        $this->assertContains($pid, $this->toStr($m3->allResources($idProp)));
+        $this->assertEquals($httpsPid, (string) $pids[0]);
+        $this->assertContains($httpsPid, $this->toStr($m3->allResources($idProp)));
 
         self::$repo->rollback();
     }
@@ -753,7 +754,7 @@ class ResourceTest extends TestBase {
             $this->assertEquals(400, $resp->getStatusCode());
             $this->assertStringContainsString("property $propDesc->uri value $value is not in the $propDesc->vocabs vocabulary", (string) $resp->getBody());
         }
-        
+
         // label as a resource
         $value = current($values)->getLabel('de');
         $meta2->delete($propDesc->uri);

@@ -180,7 +180,19 @@ class Doorkeeper {
                 $meta->addLiteral($pidProp, new Literal($curPid, null, RDF::XSD_ANY_URI));
                 $pid = str_replace($cfg->resolver, $cfg->url, $curPid);
                 $ret = $ps->update($pid, $id);
-                RC::$log->info("\t\trecreated PID $pid pointing to " . $id . " with return code " . $ret);
+                RC::$log->info("\t\trecreated PID $curPid pointing to " . $id . " with return code " . $ret);
+            }
+        }
+        // standardize PID if needed
+        if ($pidLit !== null) {
+            if (!isset(self::$uriNorm)) {
+                self::$uriNorm = UriNormalizer::factory();
+            }
+            $stdPid = self::$uriNorm->normalize($pidLit);
+            if ($stdPid !== $pidLit) {
+                $meta->delete($pidProp, $pidLit);
+                $meta->addLiteral($pidProp, $stdPid);
+                RC::$log->info("\t\tPID $pidLit standardized to $stdPid");
             }
         }
         // promote PIDs to IDs
@@ -344,7 +356,6 @@ class Doorkeeper {
                 $meta->addResource($prop, $vid);
                 RC::$log->info("\t\tproperty $prop mapping literal value '$vs' to resource $vid");
             }
-
         }
     }
 
