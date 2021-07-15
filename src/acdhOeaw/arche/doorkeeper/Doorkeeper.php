@@ -337,6 +337,9 @@ class Doorkeeper {
     static private function maintainPropertyRangeVocabs(Resource $meta,
                                                         PropertyDesc $propDesc,
                                                         string $prop): void {
+        if (RC::$config->doorkeeper->checkVocabularyValues === false) {
+            return;
+        }
         foreach ($meta->all($prop) as $v) {
             $vs  = (string) $v;
             $vid = $propDesc->checkVocabularyValue($vs, Ontology::VOCABSVALUE_ID);

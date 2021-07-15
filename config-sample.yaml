@@ -47,6 +47,8 @@ doorkeeper:
     checkUnknownProperties: true
     # Should Doorkeeper::checkAutoCreatedResources() be run? We need to be able to turn it off for the ontology import.
     checkAutoCreatedResources: true
+    # Should Doorkeeper::maintainPropertyRangeVocabs() be run? We need to be able to turn it off for the ontology import.
+    checkVocabularyValues: true
     epicPid:
         resolver: https://hdl.handle.net/
         url: http://test/handles/
