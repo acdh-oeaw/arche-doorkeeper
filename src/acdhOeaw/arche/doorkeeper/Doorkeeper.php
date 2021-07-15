@@ -48,6 +48,7 @@ use acdhOeaw\arche\core\Transaction;
 use acdhOeaw\arche\core\Resource as Res;
 use acdhOeaw\arche\core\RestController as RC;
 use acdhOeaw\arche\lib\schema\Ontology;
+use acdhOeaw\arche\lib\schema\PropertyDesc;
 use zozlak\RdfConstants as RDF;
 
 /**
@@ -312,32 +313,46 @@ class Doorkeeper {
             $propDesc = self::$ontology->getProperty($meta, $prop);
             if ($propDesc === null || !is_array($propDesc->range) || count($propDesc->range) === 0) {
                 continue;
-            } else {
-                $range = $propDesc->range;
             }
-            foreach ($meta->allLiterals($prop) as $l) {
-                /* @var $l \EasyRdf\Literal */
-                $type = $l->getDatatypeUri() ?? RDF::XSD_STRING;
-                if (in_array($type, $range)) {
-                    continue;
-                }
-                if (in_array(RDF::XSD_STRING, $range)) {
+            if (!empty($propDesc->vocabs)) {
+                self::maintainPropertyRangeVocabs($meta, $propDesc, $prop);
+            } else {
+                self::maintainPropertyRangeLiteral($meta, $propDesc, $prop);
+            }
+        }
+    }
+
+    static private function maintainPropertyRangeVocabs(Resource $meta,
+                                                        PropertyDesc $propDesc,
+                                                        string $prop): void {
+    }
+
+    static private function maintainPropertyRangeLiteral(Resource $meta,
+                                                         PropertyDesc $propDesc,
+                                                         string $prop): void {
+        $range = $propDesc->range;
+        foreach ($meta->allLiterals($prop) as $l) {
+            /* @var $l \EasyRdf\Literal */
+            $type = $l->getDatatypeUri() ?? RDF::XSD_STRING;
+            if (in_array($type, $range)) {
+                continue;
+            }
+            if (in_array(RDF::XSD_STRING, $range)) {
+                $meta->delete($prop, $l);
+                $meta->addLiteral($prop, (string) $l);
+                RC::$log->info("\t\tcasting $prop value from $type to string");
+            } else {
+                try {
+                    $rangeTmp = array_intersect($range, self::LITERAL_TYPES);
+                    $rangeTmp = reset($rangeTmp) ?? reset($range);
+                    $value    = self::castLiteral($l, $rangeTmp);
                     $meta->delete($prop, $l);
-                    $meta->addLiteral($prop, (string) $l);
-                    RC::$log->info("\t\tcasting $prop value from $type to string");
-                } else {
-                    try {
-                        $rangeTmp = array_intersect($range, self::LITERAL_TYPES);
-                        $rangeTmp = reset($rangeTmp) ?? reset($range);
-                        $value    = self::castLiteral($l, $rangeTmp);
-                        $meta->delete($prop, $l);
-                        $meta->addLiteral($prop, $value);
-                        RC::$log->info("\t\tcasting $prop value from $type to $rangeTmp");
-                    } catch (RuntimeException $ex) {
-                        RC::$log->info('    ' . $ex->getMessage());
-                    } catch (DoorkeeperException $ex) {
-                        throw new DoorkeeperException('property ' . $prop . ': ' . $ex->getMessage(), $ex->getCode(), $ex);
-                    }
+                    $meta->addLiteral($prop, $value);
+                    RC::$log->info("\t\tcasting $prop value from $type to $rangeTmp");
+                } catch (RuntimeException $ex) {
+                    RC::$log->info('    ' . $ex->getMessage());
+                } catch (DoorkeeperException $ex) {
+                    throw new DoorkeeperException('property ' . $prop . ': ' . $ex->getMessage(), $ex->getCode(), $ex);
                 }
             }
         }
