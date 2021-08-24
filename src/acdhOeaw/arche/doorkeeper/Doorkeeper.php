@@ -859,11 +859,11 @@ class Doorkeeper {
             INSERT INTO metadata (id, property, type, lang, value_n, value)
                 SELECT id, ?, ?, '', size, size 
                 FROM _collsizeupdate JOIN resources USING (id) 
-                WHERE state = ? AND (collection OR count > 0 OR binres)
+                WHERE state = ? AND (collection OR binres)
               UNION
                 SELECT id, ?, ?, '', count, count 
                 FROM _collsizeupdate JOIN resources USING (id) 
-                WHERE state = ? AND (collection OR count > 0)
+                WHERE state = ? AND (collection)
         ");
         $query->execute([
             $acdhSizeProp, RDF::XSD_DECIMAL, Res::STATE_ACTIVE,
