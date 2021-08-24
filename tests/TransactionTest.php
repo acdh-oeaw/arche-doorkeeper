@@ -118,14 +118,13 @@ class TransactionTest extends TestBase {
         $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)?->getValue());
 
         self::$repo->begin();
-        $rCol2->delete(true);
         $rCol1Meta->deleteResource(RDF::RDF_TYPE);
         $rCol1Meta->addResource(RDF::RDF_TYPE, 'https://foo');
         $rCol1->setMetadata($rCol1Meta);
         $rCol1->updateMetadata();
         self::$repo->commit();
 
-        // col1 is an empty metadata-only resource not marked as schema.classes.collection now so it shouldn't have collection-specific properties
+        // col1 is not a schema.classes.collection now so it shouldn't have collection-specific properties
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $this->assertNull($rCol1Meta->getLiteral($sizeProp));
