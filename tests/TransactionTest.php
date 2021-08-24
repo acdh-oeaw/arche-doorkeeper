@@ -119,6 +119,10 @@ class TransactionTest extends TestBase {
 
         self::$repo->begin();
         $rCol2->delete(true);
+        $rCol1Meta->deleteResource(RDF::RDF_TYPE);
+        $rCol1Meta->addResource(RDF::RDF_TYPE, 'https://foo');
+        $rCol1->setMetadata($rCol1Meta);
+        $rCol1->updateMetadata();
         self::$repo->commit();
 
         // col1 is an empty metadata-only resource not marked as schema.classes.collection now so it shouldn't have collection-specific properties
