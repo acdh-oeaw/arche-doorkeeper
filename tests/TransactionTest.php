@@ -42,7 +42,7 @@ class TransactionTest extends TestBase {
         $countProp = self::$config->schema->countCumulative;
 
         self::$repo->begin();
-        $rCol1          = self::$repo->createResource(self::createMetadata());
+        $rCol1          = self::$repo->createResource(self::createMetadata([], self::$config->schema->classes->collection));
         $rCol2Meta      = self::createMetadata([self::$config->schema->parent => $rCol1->getUri()], self::$config->schema->classes->collection);
         $rCol2          = self::$repo->createResource($rCol2Meta);
         self::$repo->commit();
