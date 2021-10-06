@@ -78,10 +78,10 @@ class Doorkeeper {
         $errors    = [];
         // checkTitleProp before checkCardinalities!
         $functions = [
-            'maintainPid', 'maintainCmdiPid', 'maintainDefaultValues',
-            'maintainAccessRights', 'maintainPropertyRange',
+            'maintainDefaultValues', 'maintainAccessRights', 'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
-            'checkIdCount', 'checkLanguage', 'checkUnknownProperties', 'checkBiblatex'
+            'checkIdCount', 'checkLanguage', 'checkUnknownProperties', 'checkBiblatex',
+            'maintainPid', 'maintainCmdiPid', // so no PIDs are minted if checks fail
         ];
         foreach ($functions as $f) {
             try {
