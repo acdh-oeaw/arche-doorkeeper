@@ -81,7 +81,7 @@ class Doorkeeper {
             'maintainDefaultValues', 'maintainAccessRights', 'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
             'checkIdCount', 'checkLanguage', 'checkUnknownProperties', 'checkBiblatex',
-            'maintainPid', 'maintainCmdiPid', // so no PIDs are minted if checks fail
+            'maintainCmdiPid', 'maintainPid', // so no PIDs are minted if checks fail
         ];
         foreach ($functions as $f) {
             try {
@@ -131,11 +131,12 @@ class Doorkeeper {
     }
 
     static private function maintainPid(Resource $meta): void {
-        $cfg     = RC::$config->doorkeeper->epicPid;
-        $idProp  = RC::$config->schema->id;
-        $idNmsp  = RC::$config->schema->namespaces->id;
-        $pidProp = RC::$config->schema->pid;
-        $ids     = self::toString($meta->allResources($idProp));
+        $cfg         = RC::$config->doorkeeper->epicPid;
+        $idProp      = RC::$config->schema->id;
+        $idNmsp      = RC::$config->schema->namespaces->id;
+        $pidProp     = RC::$config->schema->pid;
+        $cmdiPidProp = RC::$config->schema->cmdiPid;
+        $ids         = self::toString($meta->allResources($idProp));
 
         $nIdNmsp    = strlen($idNmsp);
         $idSubNmsps = [];
@@ -148,7 +149,7 @@ class Doorkeeper {
         $curPid = null;
         $id     = null;
         foreach ($ids as $i) {
-            if (strpos($i, $cfg->resolver) === 0) {
+            if (str_starts_with($i, $cfg->resolver)) {
                 $curPid = $i;
             }
             if (substr($i, 0, $nIdNmsp) === $idNmsp) {
@@ -190,7 +191,7 @@ class Doorkeeper {
             }
             $stdPid = self::$uriNorm->normalize($pidLit);
             if ($stdPid !== $pidLit) {
-                $meta->delete($pidProp, $pidLit);
+                $meta->delete($pidProp);
                 $meta->addLiteral($pidProp, $stdPid);
                 RC::$log->info("\t\tPID $pidLit standardized to $stdPid");
             }
@@ -225,12 +226,13 @@ class Doorkeeper {
      * @throws DoorkeeperException
      */
     static private function maintainCmdiPid(Resource $meta, PDO $pdo): void {
-        $cfg     = RC::$config->doorkeeper->epicPid;
-        $pidProp = RC::$config->schema->cmdiPid;
-        $pidNmsp = RC::$config->schema->namespaces->cmdi;
-        $setProp = $cfg->clarinSetProperty;
-        $idProp  = RC::$config->schema->id;
-        $idNmsp  = RC::getBaseUrl();
+        $cfg        = RC::$config->doorkeeper->epicPid;
+        $pidProp    = RC::$config->schema->cmdiPid;
+        $stdPidProp = RC::$config->schema->pid;
+        $pidNmsp    = RC::$config->schema->namespaces->cmdi;
+        $setProp    = $cfg->clarinSetProperty;
+        $idProp     = RC::$config->schema->id;
+        $idNmsp     = RC::getBaseUrl();
         if ($meta->getLiteral($pidProp) !== null || $meta->getResource($setProp) === null) {
             // CMDI PID exists or OAI-PMH set property doesn't exist - nothing to do
             return;
@@ -254,7 +256,7 @@ class Doorkeeper {
             }
             $id = null;
             foreach ($meta->allResources($idProp) as $i) {
-                if (strpos($i, $idNmsp) === 0) {
+                if (str_starts_with($i, $idNmsp)) {
                     $id = $pidNmsp . substr((string) $i, strlen($idNmsp));
                     break;
                 }
@@ -266,6 +268,10 @@ class Doorkeeper {
                 RC::$log->info("\t\tregistered CMDI PID $pid pointing to " . $id);
                 $meta->addLiteral($pidProp, new Literal($pid, null, RDF::XSD_ANY_URI));
                 $meta->addResource(RC::$config->schema->id, $id);
+            }
+            // if normal PID is missing, trigger its generation
+            if ($meta->getLiteral($stdPidProp) === null) {
+                $meta->addLiteral($stdPidProp, "create");
             }
         }
     }
@@ -484,7 +490,7 @@ class Doorkeeper {
             if ($classDef === null) {
                 continue;
             }
-            $inNmsp = strpos($class, $ontologyNmsp) === 0;
+            $inNmsp = str_starts_with($class, $ontologyNmsp);
             foreach ($classDef->properties as $p) {
                 if ($inNmsp) {
                     // check property domains only for resources of ACDH classes
@@ -573,8 +579,8 @@ class Doorkeeper {
         $ids             = $meta->allResources($idProp);
         foreach ($ids as $id) {
             $id           = (string) $id;
-            $ontologyFlag = strpos($id, $ontologyNmsp) === 0;
-            $repoFlag     = strpos($id, $repoNmsp) === 0;
+            $ontologyFlag = str_starts_with($id, $ontologyNmsp);
+            $repoFlag     = str_starts_with($id, $repoNmsp);
 
             $ontologyIdCount += $ontologyFlag;
             $repoIdCount     += $repoFlag;

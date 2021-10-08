@@ -562,13 +562,13 @@ class ResourceTest extends TestBase {
     }
 
     public function testPidPreserving(): void {
-        $idProp   = self::$config->schema->id;
-        $pidProp  = self::$config->schema->pid;
-        $pidNmsp  = self::$config->doorkeeper->epicPid->resolver;
-        $idNmsp   = self::$config->schema->namespaces->id;
-        $idn      = rand();
-        $httpsPid = $pidNmsp . self::$config->doorkeeper->epicPid->prefix . '/123';
-        $httpPid  = str_replace('https://', 'http://', $httpsPid);
+        $idProp      = self::$config->schema->id;
+        $pidProp     = self::$config->schema->pid;
+        $cmdiPidProp = self::$config->schema->cmdiPid;
+        $pidNmsp     = self::$config->doorkeeper->epicPid->resolver;
+        $idNmsp      = self::$config->schema->namespaces->id;
+        $httpsPid    = $pidNmsp . self::$config->doorkeeper->epicPid->prefix . '/123';
+        $httpPid     = str_replace('https://', 'http://', $httpsPid);
         self::$repo->begin();
 
         // existing pid not overwritten but promoted to an id
@@ -645,6 +645,7 @@ class ResourceTest extends TestBase {
         $idNmsp     = self::$config->schema->namespaces->id;
         $cmdiIdNmsp = self::$config->schema->namespaces->cmdi;
         $pidProp    = self::$config->schema->cmdiPid;
+        $pidProp2   = self::$config->schema->pid;
         $idProp     = self::$config->schema->id;
         $rid        = $idNmsp . rand();
 
@@ -657,10 +658,13 @@ class ResourceTest extends TestBase {
         $r      = self::$repo->createResource($im);
         $m      = $r->getGraph();
         $pids   = self::toStr($m->all($pidProp));
+        $pids2  = self::toStr($m->all($pidProp2));
         $this->assertEquals(1, count($pids));
+        $this->assertEquals(1, count($pids2));
         $this->assertStringStartsWith($cfg->resolver, $pids[0]);
+        $this->assertStringStartsWith($cfg->resolver, $pids2[0]);
         $ids    = self::toStr($m->all($idProp));
-        $this->assertEquals(3, count($ids)); // $rid, repo, cmdi
+        $this->assertEquals(4, count($ids)); // $rid, repo, cmdi, pid
         $cmdiId = null;
         foreach ($ids as $i) {
             if (strpos($i, 'http://127.0.0.1/api/') === 0) {

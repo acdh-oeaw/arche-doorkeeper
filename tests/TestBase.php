@@ -92,7 +92,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
             self::$repo->begin();
             foreach ($this->toDelete as $i) {
                 try {
-                    $i->delete(true, false);
+                    $i->delete(true, true, self::$config->schema->parent);
                 } catch (NotFound $e) {
                     
                 }
