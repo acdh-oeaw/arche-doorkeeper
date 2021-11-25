@@ -13,11 +13,11 @@
     "require": {
         "php": ">=8",
         "acdh-oeaw/easyrdf": "*",
-        "acdh-oeaw/arche-core": "*",
-        "acdh-oeaw/epic-handle": "*",
-        "acdh-oeaw/uri-normalizer": "*",
+        "acdh-oeaw/arche-core": ">=3 <5",
+        "acdh-oeaw/epic-handle": "^1",
+        "acdh-oeaw/uri-normalizer": "^1",
         "acdh-oeaw/arche-lib-schema": "^6",
-        "zozlak/rdf-constants": "*",
+        "zozlak/rdf-constants": "^1",
         "renanbr/bibtex-parser": "^2.1"
     },
     "autoload": {
