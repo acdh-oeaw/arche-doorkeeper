@@ -469,6 +469,38 @@ class ResourceTest extends TestBase {
         $this->assertContains('bar', $titles);
     }
 
+    public function testTitlePreserveOtherLang(): void {
+        $titleProp = self::$config->schema->label;
+        self::$repo->begin();
+
+        $meta = self::createMetadata([$titleProp => new Literal('foo', 'en')]);
+        $res  = self::$repo->createResource($meta);
+        $meta->delete($titleProp);
+        $meta->addLiteral($titleProp, 'bar', 'de');
+
+        $res->setMetadata($meta);
+        $res->updateMetadata(RepoResource::UPDATE_MERGE);
+        $tmp    = $res->getGraph()->allLiterals($titleProp);
+        $titles = [];
+        foreach ($tmp as $i) {
+            $titles[$i->getLang()] = (string) $i;
+        }
+        $this->assertEquals(2, count($titles));
+        $this->assertArrayHasKey('en', $titles);
+        $this->assertArrayHasKey('de', $titles);
+        $this->assertEquals('foo', $titles['en']);
+        $this->assertEquals('bar', $titles['de']);
+
+        $res->setMetadata($meta);
+        $res->updateMetadata(RepoResource::UPDATE_OVERWRITE);
+        $titles = $res->getGraph()->allLiterals($titleProp);
+        $this->assertEquals(1, count($titles));
+        $this->assertEquals('bar', (string) $titles[0]);
+        $this->assertEquals('de', $titles[0]->getLang());
+
+        self::$repo->rollback();
+    }
+
     /**
      * 
      * @depends testTitleAuto

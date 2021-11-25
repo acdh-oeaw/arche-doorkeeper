@@ -45,6 +45,7 @@ use RenanBr\BibTexParser\Exception\ProcessorException as BiblatexE2;
 use acdhOeaw\UriNormalizer;
 use acdhOeaw\epicHandle\HandleService;
 use acdhOeaw\arche\core\Transaction;
+use acdhOeaw\arche\core\Metadata;
 use acdhOeaw\arche\core\Resource as Res;
 use acdhOeaw\arche\core\RestController as RC;
 use acdhOeaw\arche\lib\schema\Ontology;
@@ -620,6 +621,26 @@ class Doorkeeper {
             }
             $langs[$lang] = (string) $i;
         }
+        
+        // preserve old titles when needed
+        $mode = RC::getRequestParameter('metadataWriteMode');
+        if ($mode === Metadata::SAVE_MERGE) {
+            $query = RC::$pdo->prepare("
+                SELECT value, lang 
+                FROM metadata 
+                WHERE property = ? AND id = ?
+            ");
+            $id    = preg_replace('|^.*/|', '', $meta->getUri());
+            $query->execute([$titleProp, $id]);
+            while ($i     = $query->fetchObject()) {
+                if (!isset($langs[$i->lang])) {
+                    $titles[] = '';
+                    $meta->addLiteral($titleProp, $i->value, $i->lang);
+                }
+            }
+        }
+
+        // if everything's fine, just return
         if (count($titles) > 0) {
             return;
         }
