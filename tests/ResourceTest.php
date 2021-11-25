@@ -689,7 +689,7 @@ class ResourceTest extends TestBase {
 
         $meta = self::createMetadata([
                 $idProp       => $rid,
-                $biblatexProp => "@dataset{foo,\nauthor = {Baz, Bar}\n}",
+                $biblatexProp => " @dataset{foo,\nauthor = {Baz, Bar}\n}",
         ]);
         self::$repo->begin();
 
