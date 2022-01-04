@@ -59,6 +59,7 @@ use zozlak\RdfConstants as RDF;
  */
 class Doorkeeper {
 
+    const DB_LOCK_TIMEOUT      = 1000;
     const NON_NEGATIVE_NUMBERS = [RDF::XSD_NON_NEGATIVE_INTEGER, RDF::XSD_UNSIGNED_LONG,
         RDF::XSD_UNSIGNED_INT, RDF::XSD_UNSIGNED_SHORT, RDF::XSD_UNSIGNED_BYTE];
     const LITERAL_TYPES        = [RDF::XSD_ANY_URI,
@@ -75,6 +76,8 @@ class Doorkeeper {
         self::loadOntology();
         $pdo       = new PDO(RC::$config->dbConn->admin);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->query("SET application_name TO doorkeeper");
+        $pdo->query("SET lock_timeout TO " . self::DB_LOCK_TIMEOUT);
         $pdo->beginTransaction();
         $errors    = [];
         // checkTitleProp before checkCardinalities!
@@ -112,6 +115,8 @@ class Doorkeeper {
         // current state database handler
         $pdo = new PDO(RC::$config->dbConn->admin);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->query("SET application_name TO doorkeeper");
+        $pdo->query("SET lock_timeout TO " . self::DB_LOCK_TIMEOUT);
         $pdo->beginTransaction();
 
         $errors    = [];
@@ -803,25 +808,26 @@ class Doorkeeper {
         $query->execute($param);
 
         // try to lock resources to be updated
-        $query  = $pdo->prepare("
-            UPDATE resources SET transaction_id = ? 
-            WHERE id IN (SELECT DISTINCT cid FROM _resources) AND transaction_id IS NULL
-        ");
-        $query->execute([$txId]);
-        $query  = $pdo->prepare("
-            SELECT 
-                count(*) AS all, 
-                coalesce(sum((transaction_id = ?)::int), 0) AS locked
-            FROM 
-                (SELECT DISTINCT cid AS id FROM _resources) t
-                JOIN resources r USING (id)
-        ");
-        $query->execute([$txId]);
-        $result = $query->fetch(PDO::FETCH_OBJ);
-        if ($result !== false && $result->all !== $result->locked) {
-            $msg = "Some resources locked by another transaction (" . ($result->all - $result->locked) . " out of " . $result->all . ")";
-            throw new DoorkeeperException($msg, 409);
-        }
+        // TODO - how to lock them in a way which doesn't cause a deadlock
+//        $query  = $pdo->prepare("
+//            UPDATE resources SET transaction_id = ? 
+//            WHERE id IN (SELECT DISTINCT cid FROM _resources) AND transaction_id IS NULL
+//        ");
+//        $query->execute([$txId]);
+//        $query  = $pdo->prepare("
+//            SELECT 
+//                count(*) AS all, 
+//                coalesce(sum((transaction_id = ?)::int), 0) AS locked
+//            FROM 
+//                (SELECT DISTINCT cid AS id FROM _resources) t
+//                JOIN resources r USING (id)
+//        ");
+//        $query->execute([$txId]);
+//        $result = $query->fetch(PDO::FETCH_OBJ);
+//        if ($result !== false && $result->all !== $result->locked) {
+//            $msg = "Some resources locked by another transaction (" . ($result->all - $result->locked) . " out of " . $result->all . ")";
+//            throw new DoorkeeperException($msg, 409);
+//        }
 
         // perform the actual metadata update
         self::updateCollectionSize($pdo);

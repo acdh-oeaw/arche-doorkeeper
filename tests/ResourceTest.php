@@ -136,7 +136,7 @@ class ResourceTest extends TestBase {
         $r   = self::$repo->createResource($im);
         $ids = array_values(array_diff($r->getIds(), [$r->getUri()]));
         $this->assertCount(1, $ids);
-        $this->assertEquals('https://www.geonames.org/123', $ids[0]);
+        $this->assertEquals('https://sws.geonames.org/123/', $ids[0]);
     }
 
     public function testMaintainRange(): void {
