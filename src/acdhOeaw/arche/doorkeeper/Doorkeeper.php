@@ -621,7 +621,7 @@ class Doorkeeper {
             }
             $langs[$lang] = (string) $i;
         }
-        
+
         // preserve old titles when needed
         $mode = RC::getRequestParameter('metadataWriteMode');
         if ($mode === Metadata::SAVE_MERGE) {
@@ -752,8 +752,6 @@ class Doorkeeper {
      */
     static private function updateCollections(PDO $pdo, int $txId,
                                               array $resourceIds): void {
-        $prolongQuery = $pdo->prepare("UPDATE transactions SET last_request = clock_timestamp() WHERE transaction_id = ?");
-
         RC::$log->info("\t\tUpdating collections affected by the transaction");
 
         $query  = $pdo->prepare("
@@ -784,7 +782,6 @@ class Doorkeeper {
         } else {
             $parentIds = [];
         }
-        $prolongQuery->execute([$txId]);
 
         // find all affected parents (gr, pp) and their children
         $query = "
@@ -804,7 +801,6 @@ class Doorkeeper {
         );
         $query = $pdo->prepare($query);
         $query->execute($param);
-        $prolongQuery->execute([$txId]);
 
         // try to lock resources to be updated
         $query  = $pdo->prepare("
@@ -826,11 +822,10 @@ class Doorkeeper {
             $msg = "Some resources locked by another transaction (" . ($result->all - $result->locked) . " out of " . $result->all . ")";
             throw new DoorkeeperException($msg, 409);
         }
-        $prolongQuery->execute([$txId]);
 
         // perform the actual metadata update
-        self::updateCollectionSize($pdo, $prolongQuery, $txId);
-        self::updateCollectionAggregates($pdo, $prolongQuery, $txId);
+        self::updateCollectionSize($pdo);
+        self::updateCollectionAggregates($pdo);
 
         $query = $pdo->query("
             SELECT json_agg(c.cid) FROM (SELECT DISTINCT cid FROM _resources) c
@@ -838,9 +833,7 @@ class Doorkeeper {
         RC::$log->debug("\t\t\tupdated resources: " . $query->fetchColumn());
     }
 
-    static private function updateCollectionSize(PDO $pdo,
-                                                 PDOStatement $prolongQuery,
-                                                 int $txId): void {
+    static private function updateCollectionSize(PDO $pdo): void {
         $sizeProp      = RC::$config->schema->binarySize;
         $acdhSizeProp  = RC::$config->schema->binarySizeCumulative;
         $acdhCountProp = RC::$config->schema->countCumulative;
@@ -875,7 +868,6 @@ class Doorkeeper {
         $query = $pdo->prepare($query);
         $query->execute($param);
 
-        $prolongQuery->execute([$txId]);
         // remove old values
         $query = $pdo->prepare("
             DELETE FROM metadata WHERE id IN (SELECT id FROM _collsizeupdate) AND property IN (?, ?)
@@ -898,9 +890,7 @@ class Doorkeeper {
         ]);
     }
 
-    static private function updateCollectionAggregates(PDO $pdo,
-                                                       PDOStatement $prolongQuery,
-                                                       int $txId): void {
+    static private function updateCollectionAggregates(PDO $pdo): void {
         $accessProp     = RC::$config->schema->accessRestriction;
         $accessAggProp  = RC::$config->schema->accessRestrictionAgg;
         $licenseProp    = RC::$config->schema->license;
@@ -957,7 +947,6 @@ class Doorkeeper {
         ];
         $query = $pdo->prepare($query);
         $query->execute($param);
-        $prolongQuery->execute([$txId]);
         RC::$log->info('[-----');
         RC::$log->info(json_encode($pdo->query("SELECT * FROM _resources")->fetchAll(PDO::FETCH_OBJ)));
         RC::$log->info(json_encode($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ)));
@@ -983,7 +972,6 @@ class Doorkeeper {
         $query = $pdo->prepare($query);
         $query->execute($param);
         RC::$log->info(json_encode($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ)));
-        $prolongQuery->execute([$txId]);
 
         // remove old values
         $query = $pdo->prepare("
