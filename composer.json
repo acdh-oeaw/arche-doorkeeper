@@ -13,7 +13,7 @@
     "require": {
         "php": ">=8",
         "acdh-oeaw/easyrdf": ">=0.13.5",
-        "acdh-oeaw/arche-core": ">=3 <5",
+        "acdh-oeaw/arche-core": "^3 <3.2",
         "acdh-oeaw/epic-handle": "^1",
         "acdh-oeaw/uri-normalizer": "^1",
         "acdh-oeaw/arche-lib-schema": "^6",
