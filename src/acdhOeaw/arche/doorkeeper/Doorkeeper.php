@@ -380,7 +380,7 @@ class Doorkeeper {
         $range = $propDesc->range;
         foreach ($meta->allLiterals($prop) as $l) {
             /* @var $l \EasyRdf\Literal */
-            $type = $l->getDatatypeUri() ?? RDF::XSD_STRING;
+            $type = $l->getDatatypeUri() ?: RDF::XSD_STRING;
             if (in_array($type, $range)) {
                 continue;
             }
@@ -391,7 +391,7 @@ class Doorkeeper {
             } else {
                 try {
                     $rangeTmp = array_intersect($range, self::LITERAL_TYPES);
-                    $rangeTmp = reset($rangeTmp) ?? reset($range);
+                    $rangeTmp = (reset($rangeTmp) ?: reset($range)) ?: RDF::XSD_STRING;
                     $value    = self::castLiteral($l, $rangeTmp);
                     $meta->delete($prop, $l);
                     $meta->addLiteral($prop, $value);
@@ -418,7 +418,7 @@ class Doorkeeper {
                             $val = new Resource($p->defaultValue);
                             break;
                         case RDF::OWL_DATATYPE_PROPERTY:
-                            $val = new Literal($p->defaultValue, $p->langTag ? 'en' : null, $p->range);
+                            $val = new Literal($p->defaultValue, $p->langTag ? 'en' : null, reset($p->range) ?: RDF::XSD_STRING);
                             break;
                     }
                     $meta->add($p->uri, $val ?? null);
@@ -509,7 +509,7 @@ class Doorkeeper {
                         foreach ($meta->all($i) as $j) {
                             if ($j instanceof Literal) {
                                 $cd++;
-                                $lang       = $j->getLang() ?? '';
+                                $lang       = $j->getLang() ?: '';
                                 $cdl[$lang] = 1 + ($cdl[$lang] ?? 0);
                             } else {
                                 $co++;
@@ -538,7 +538,7 @@ class Doorkeeper {
 
     static private function checkBiblatex(Resource $meta): void {
         $biblatexProp = RC::$config->schema->biblatex ?? 'foo';
-        $biblatex     = trim($meta->getLiteral($biblatexProp));
+        $biblatex     = trim($meta->getLiteral((string) $biblatexProp));
         if (!empty($biblatex)) {
             if (substr($biblatex, 0, 1) !== '@') {
                 $biblatex = "@dataset{foo,\n$biblatex\n}";
@@ -681,7 +681,7 @@ class Doorkeeper {
             $title = trim($title);
             if (!empty($title)) {
                 RC::$log->info("\t\tsetting title to $title");
-                $meta->addLiteral($titleProp, $title, $lang);
+                $meta->addLiteral($titleProp, $title, (string) $lang);
                 $count++;
             }
         }
@@ -954,8 +954,8 @@ class Doorkeeper {
         $query = $pdo->prepare($query);
         $query->execute($param);
         RC::$log->info('[-----');
-        RC::$log->info(json_encode($pdo->query("SELECT * FROM _resources")->fetchAll(PDO::FETCH_OBJ)));
-        RC::$log->info(json_encode($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ)));
+        RC::$log->info((string) json_encode($pdo->query("SELECT * FROM _resources")->fetchAll(PDO::FETCH_OBJ)));
+        RC::$log->info((string) json_encode($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ)));
 
         // add empty property values for empty collections
         $query = "
@@ -977,7 +977,7 @@ class Doorkeeper {
             $collClass, $topCollClass];
         $query = $pdo->prepare($query);
         $query->execute($param);
-        RC::$log->info(json_encode($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ)));
+        RC::$log->info((string) json_encode($pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ)));
 
         // remove old values
         $query = $pdo->prepare("
