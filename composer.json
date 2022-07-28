@@ -16,7 +16,7 @@
         "acdh-oeaw/arche-core": "^3",
         "acdh-oeaw/epic-handle": "^1",
         "acdh-oeaw/uri-normalizer": "^1",
-        "acdh-oeaw/arche-lib-schema": "^6",
+        "acdh-oeaw/arche-lib-schema": "^6.0.3",
         "zozlak/rdf-constants": "^1",
         "renanbr/bibtex-parser": "^2.1"
     },
