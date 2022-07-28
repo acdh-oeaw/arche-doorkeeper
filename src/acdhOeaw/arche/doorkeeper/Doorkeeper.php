@@ -538,7 +538,7 @@ class Doorkeeper {
 
     static private function checkBiblatex(Resource $meta): void {
         $biblatexProp = RC::$config->schema->biblatex ?? 'foo';
-        $biblatex     = trim($meta->getLiteral((string) $biblatexProp));
+        $biblatex     = trim((string) $meta->getLiteral((string) $biblatexProp));
         if (!empty($biblatex)) {
             if (substr($biblatex, 0, 1) !== '@') {
                 $biblatex = "@dataset{foo,\n$biblatex\n}";
