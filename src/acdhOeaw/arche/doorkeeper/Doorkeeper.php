@@ -31,7 +31,6 @@ use Exception;
 use PDO;
 use RuntimeException;
 use GuzzleHttp\Client;
-use GuzzleHttp\Psr7\Request;
 use EasyRdf\Literal;
 use EasyRdf\Resource;
 use EasyRdf\Literal\Boolean as lBoolean;
@@ -44,6 +43,8 @@ use RenanBr\BibTexParser\Parser as BiblatexP;
 use RenanBr\BibTexParser\Exception\ParserException as BiblatexE1;
 use RenanBr\BibTexParser\Exception\ProcessorException as BiblatexE2;
 use acdhOeaw\UriNormalizer;
+use acdhOeaw\UriNormalizerException;
+use acdhOeaw\UriNormRules;
 use acdhOeaw\epicHandle\HandleService;
 use acdhOeaw\arche\core\Transaction;
 use acdhOeaw\arche\core\Metadata;
@@ -334,21 +335,23 @@ class Doorkeeper {
     }
 
     static private function maintainPropertyRange(Resource $meta): void {
-        $refRanges    = (array) RC::$config->doorkeeper->referenceRanges;
-        $refRangeUris = array_keys($refRanges);
+        static $checkRangeUris = null;
+        if ($checkRangeUris === null) {
+            $checkRangeUris = array_keys((array) RC::$config->doorkeeper->checkRanges);
+        }
 
         foreach ($meta->propertyUris() as $prop) {
             $propDesc = self::$ontology->getProperty($meta, $prop);
             if ($propDesc === null || !is_array($propDesc->range) || count($propDesc->range) === 0) {
                 continue;
             }
-            $checkRefs = array_intersect($propDesc->range, $refRangeUris);
+            $toCheck = array_intersect($propDesc->range, $checkRangeUris);
 
             if (!empty($propDesc->vocabs)) {
                 self::maintainPropertyRangeVocabs($meta, $propDesc, $prop);
-            } elseif (count($checkRefs) > 0) {
-                foreach ($checkRefs as $i) {
-                    self::checkPropertyRangeUri($meta, $refRanges[$i], $prop);
+            } elseif (count($toCheck) > 0) {
+                foreach ($toCheck as $i) {
+                    self::checkPropertyRangeUri($meta, $i, $prop);
                 }
             } else {
                 self::maintainPropertyRangeLiteral($meta, $propDesc, $prop);
@@ -416,39 +419,31 @@ class Doorkeeper {
     }
 
     static private function checkPropertyRangeUri(Resource $meta,
-                                                  array $sources, string $prop): void {
+                                                  string $rangeUri, string $prop): void {
+        static $rangeDefs = null;
+        if ($rangeDefs === null) {
+            $rangeDefs = RC::$config->doorkeeper->checkRanges;
+        }
         static $client = null;
         if ($client === null) {
-            $client = new Client(['http_errors' => false]);
+            $client = new \GuzzleHttp\Client();
         }
-        static $defs = null;
-        if ($defs === null) {
-            $defs = RC::$config->doorkeeper->referenceSources;
+        static $normalizers = [];
+        if (!isset($normalizers[$rangeUri])) {
+            $rules                  = UriNormRules::getRules($rangeDefs->$rangeUri);
+            $normalizers[$rangeUri] = new UriNormalizer($rules, '', $client);
         }
 
-        foreach ($meta->all($prop) as $p) {
-            if (!($p instanceof Resource)) {
+        /** @var UriNormalizer $norm */
+        $norm = $normalizers[$rangeUri];
+        foreach ($meta->all($prop) as $obj) {
+            if (!($obj instanceof Resource)) {
                 throw new DoorkeeperException("property $prop has a literal value");
             }
-            $uri   = (string) $p;
-            $match = false;
-$match = true;
-//            foreach ($sources as $src) {
-//                if (str_starts_with($uri, $src->match)) {
-//                    if (!empty($src->resolve)) {
-//                        $uri = str_replace('%id%', $uri, $src->resolve);
-//                        $resp   = $client->send(new Request('HEAD', $uri));
-//                        $status = $resp->getStatusCode();
-//                        if ($status !== 200) {
-//                            throw new DoorkeeperException("property $prop: can't resolve $uri (status $status)");
-//                        }
-//                    }
-//                    $match = true;
-//                    break;
-//                }
-//            }
-            if (!$match) {
-                throw new DoorkeeperException("property $prop: $uri doesn't match any allowed namespace");
+            try {
+                $norm->normalize((string) $obj);
+            } catch (UriNormalizerException $ex) {
+                throw new DoorkeeperException($ex->getMessage(), $ex->getCode(), $ex);
             }
         }
     }
