@@ -196,7 +196,7 @@ class Doorkeeper {
             if (!isset(self::$uriNorm)) {
                 self::$uriNorm = new UriNormalizer();
             }
-            $stdPid = self::$uriNorm->normalize($pidLit);
+            $stdPid = self::$uriNorm->normalize($pidLit, false);
             if ($stdPid !== $pidLit) {
                 $meta->delete($pidProp);
                 $meta->addLiteral($pidProp, $stdPid);
@@ -484,8 +484,7 @@ $match = true;
         $idProp = RC::$config->schema->id;
         foreach ($meta->allResources($idProp) as $id) {
             $ids = (string) $id;
-            $std = self::$uriNorm->normalize($ids);
-            RC::$log->info("normalizing $ids to $std");
+            $std = self::$uriNorm->normalize($ids, false);
             if ($std !== (string) $id) {
                 $meta->deleteResource($idProp, $ids);
                 $meta->addResource($idProp, $std);
