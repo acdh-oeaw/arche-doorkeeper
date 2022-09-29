@@ -15,7 +15,7 @@
         "acdh-oeaw/easyrdf": ">=0.13.5",
         "acdh-oeaw/arche-core": "^3",
         "acdh-oeaw/epic-handle": "^1",
-        "acdh-oeaw/uri-normalizer": "^1",
+        "acdh-oeaw/uri-normalizer": "^2",
         "acdh-oeaw/arche-lib-schema": "^6.0.3",
         "zozlak/rdf-constants": "^1",
         "renanbr/bibtex-parser": "^2.1"
