@@ -250,6 +250,7 @@ class TransactionTest extends TestBase {
             $this->assertEquals(400, $resp->getStatusCode());
             $errors = explode("\n", (string) $resp->getBody());
             $this->assertMatchesRegularExpression("|Transaction created resources without any metadata:.*$randRes|", $errors[0]);
+            sleep(1);
         }
     }
 }

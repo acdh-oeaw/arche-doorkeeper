@@ -29,8 +29,9 @@ namespace acdhOeaw\arche\doorkeeper;
 use DateTime;
 use Exception;
 use PDO;
-use PDOStatement;
 use RuntimeException;
+use GuzzleHttp\Client;
+use GuzzleHttp\Psr7\Request;
 use EasyRdf\Literal;
 use EasyRdf\Resource;
 use EasyRdf\Literal\Boolean as lBoolean;
@@ -333,13 +334,22 @@ class Doorkeeper {
     }
 
     static private function maintainPropertyRange(Resource $meta): void {
+        $refRanges    = (array) RC::$config->doorkeeper->referenceRanges;
+        $refRangeUris = array_keys($refRanges);
+
         foreach ($meta->propertyUris() as $prop) {
             $propDesc = self::$ontology->getProperty($meta, $prop);
             if ($propDesc === null || !is_array($propDesc->range) || count($propDesc->range) === 0) {
                 continue;
             }
+            $checkRefs = array_intersect($propDesc->range, $refRangeUris);
+
             if (!empty($propDesc->vocabs)) {
                 self::maintainPropertyRangeVocabs($meta, $propDesc, $prop);
+            } elseif (count($checkRefs) > 0) {
+                foreach ($checkRefs as $i) {
+                    self::checkPropertyRangeUri($meta, $refRanges[$i], $prop);
+                }
             } else {
                 self::maintainPropertyRangeLiteral($meta, $propDesc, $prop);
             }
@@ -405,6 +415,44 @@ class Doorkeeper {
         }
     }
 
+    static private function checkPropertyRangeUri(Resource $meta,
+                                                  array $sources, string $prop): void {
+        static $client = null;
+        if ($client === null) {
+            $client = new Client(['http_errors' => false]);
+        }
+        static $defs = null;
+        if ($defs === null) {
+            $defs = RC::$config->doorkeeper->referenceSources;
+        }
+
+        foreach ($meta->all($prop) as $p) {
+            if (!($p instanceof Resource)) {
+                throw new DoorkeeperException("property $prop has a literal value");
+            }
+            $uri   = (string) $p;
+            $match = false;
+$match = true;
+//            foreach ($sources as $src) {
+//                if (str_starts_with($uri, $src->match)) {
+//                    if (!empty($src->resolve)) {
+//                        $uri = str_replace('%id%', $uri, $src->resolve);
+//                        $resp   = $client->send(new Request('HEAD', $uri));
+//                        $status = $resp->getStatusCode();
+//                        if ($status !== 200) {
+//                            throw new DoorkeeperException("property $prop: can't resolve $uri (status $status)");
+//                        }
+//                    }
+//                    $match = true;
+//                    break;
+//                }
+//            }
+            if (!$match) {
+                throw new DoorkeeperException("property $prop: $uri doesn't match any allowed namespace");
+            }
+        }
+    }
+
     static private function maintainDefaultValues(Resource $meta): void {
         foreach ($meta->allResources(RDF::RDF_TYPE) as $class) {
             $c = self::$ontology->getClass($class);
@@ -436,7 +484,8 @@ class Doorkeeper {
         $idProp = RC::$config->schema->id;
         foreach ($meta->allResources($idProp) as $id) {
             $ids = (string) $id;
-            $std = self::$uriNorm->normalize($id, false);
+            $std = self::$uriNorm->normalize($ids);
+            RC::$log->info("normalizing $ids to $std");
             if ($std !== (string) $id) {
                 $meta->deleteResource($idProp, $ids);
                 $meta->addResource($idProp, $std);
@@ -828,7 +877,6 @@ class Doorkeeper {
 //            $msg = "Some resources locked by another transaction (" . ($result->all - $result->locked) . " out of " . $result->all . ")";
 //            throw new DoorkeeperException($msg, 409);
 //        }
-
         // perform the actual metadata update
         self::updateCollectionSize($pdo);
         self::updateCollectionAggregates($pdo);

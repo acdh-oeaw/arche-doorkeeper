@@ -43,6 +43,29 @@ schema:
 doorkeeper:
     rolePublic: public
     roleAcademic: academic
+    referenceSources:
+        orcid:
+            match: https://orcid.org
+            resolve: "%id%"
+            format: text/turtle
+        gnd:
+            match: https://d-nb.info/gnd
+            resolve: "%id%/about/lds.ttl"
+            format: text/turtle
+        geonames:
+            match: https://sws.geonames.org/
+            resolve: "%id%/about.rdf"
+            format: application/rdf+xml
+        getty:
+            match: http://vocab.getty.edu
+            resolve: "%id%"
+            format: text/turtle
+        repo:
+            match: http://127.0.0.1/api/
+            resolve: "%id/metadata"
+            format: application/n-triples
+    referenceRanges:
+        https://vocabs.acdh.oeaw.ac.at/schema#Agent: [viaf, orcid, gnd, wikidata, repo]
     # Should Doorkeeper::checkUnknownProperties() be run? We need to be able to turn it off for the ontology import.
     checkUnknownProperties: true
     # Should Doorkeeper::checkAutoCreatedResources() be run? We need to be able to turn it off for the ontology import.

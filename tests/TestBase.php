@@ -67,7 +67,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
         ];
         self::$ontology = new Ontology(new PDO(self::$config->dbConn->admin), $cfgObj);
 
-        self::$sampleResUri = self::$config->schema->classes->collection;
+        self::$sampleResUri = 'https://orcid.org/0000-0001-5853-2534';
     }
 
     /**
