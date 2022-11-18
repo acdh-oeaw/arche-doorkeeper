@@ -353,7 +353,7 @@ class Doorkeeper {
 
             if (!empty($propDesc->vocabs)) {
                 self::maintainPropertyRangeVocabs($meta, $propDesc, $prop);
-            } elseif (count($toCheck) > 0) {
+            } elseif (count($rangesToCheck) > 0) {
                 foreach ($rangesToCheck as $i) {
                     self::checkPropertyRangeUri($meta, $i, $prop);
                 }
