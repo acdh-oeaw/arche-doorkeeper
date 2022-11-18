@@ -11,17 +11,14 @@
         }
     ],
     "require": {
-        "php": ">=8",
+        "php": ">=8 <8.2",
         "acdh-oeaw/easyrdf": ">=0.13.5",
         "acdh-oeaw/arche-core": "^3",
         "acdh-oeaw/epic-handle": "^1",
-        "acdh-oeaw/uri-normalizer": "dev-master",
-        "acdh-oeaw/arche-lib-schema": "^6.0.3",
+        "acdh-oeaw/uri-normalizer": "^2",
+        "acdh-oeaw/arche-lib-schema": "^6.1",
         "zozlak/rdf-constants": "^1",
-        "renanbr/bibtex-parser": "^2.1",
-        "sweetrdf/quick-rdf-io": "*",
-        "sweetrdf/quick-rdf": "*",
-        "sweetrdf/term-templates": "*"
+        "renanbr/bibtex-parser": "^2.1"
     },
     "autoload": {
         "psr-4": {
@@ -30,7 +27,11 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^9",
-        "phpstan/phpstan": "*"
+        "phpstan/phpstan": "*",
+        "sweetrdf/quick-rdf-io": "^1",
+        "sweetrdf/quick-rdf": "^1",
+        "sweetrdf/term-templates": "^1",
+        "acdh-oeaw/arche-lib-ingest": "^3.3.5"
     },
     "autoload-dev": {
         "psr-4": {

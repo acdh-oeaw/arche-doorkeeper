@@ -43,6 +43,7 @@ use RenanBr\BibTexParser\Parser as BiblatexP;
 use RenanBr\BibTexParser\Exception\ParserException as BiblatexE1;
 use RenanBr\BibTexParser\Exception\ProcessorException as BiblatexE2;
 use acdhOeaw\UriNormalizer;
+use acdhOeaw\UriNormalizerCache;
 use acdhOeaw\UriNormalizerException;
 use acdhOeaw\UriNormRules;
 use acdhOeaw\epicHandle\HandleService;
@@ -345,12 +346,15 @@ class Doorkeeper {
             if ($propDesc === null || !is_array($propDesc->range) || count($propDesc->range) === 0) {
                 continue;
             }
-            $toCheck = array_intersect($propDesc->range, $checkRangeUris);
+            // at least as for arche-lib-schema 6.1.0 the range is always a single class
+            // (even if identified by all it's ids) so we don't need to worry about
+            // range's parent class rules relaxing the check
+            $rangesToCheck = array_intersect($propDesc->range, $checkRangeUris);
 
             if (!empty($propDesc->vocabs)) {
                 self::maintainPropertyRangeVocabs($meta, $propDesc, $prop);
             } elseif (count($toCheck) > 0) {
-                foreach ($toCheck as $i) {
+                foreach ($rangesToCheck as $i) {
                     self::checkPropertyRangeUri($meta, $i, $prop);
                 }
             } else {
@@ -400,7 +404,7 @@ class Doorkeeper {
             if (in_array(RDF::XSD_STRING, $range)) {
                 $meta->delete($prop, $l);
                 $meta->addLiteral($prop, (string) $l);
-                RC::$log->info("\t\tcasting $prop value from $type to string");
+                RC::$log->debug("\t\tcasting $prop value from $type to string");
             } else {
                 try {
                     $rangeTmp = array_intersect($range, self::LITERAL_TYPES);
@@ -408,7 +412,7 @@ class Doorkeeper {
                     $value    = self::castLiteral($l, $rangeTmp);
                     $meta->delete($prop, $l);
                     $meta->addLiteral($prop, $value);
-                    RC::$log->info("\t\tcasting $prop value from $type to $rangeTmp");
+                    RC::$log->debug("\t\tcasting $prop value from $type to $rangeTmp");
                 } catch (RuntimeException $ex) {
                     RC::$log->info("\t\t" . $ex->getMessage());
                 } catch (DoorkeeperException $ex) {
@@ -426,12 +430,16 @@ class Doorkeeper {
         }
         static $client = null;
         if ($client === null) {
-            $client = new \GuzzleHttp\Client();
+            $client = new Client();
+        }
+        static $cache = null;
+        if ($cache === null) {
+            $cache = new UriNormalizerCache('cache.sqlite');
         }
         static $normalizers = [];
         if (!isset($normalizers[$rangeUri])) {
             $rules                  = UriNormRules::getRules($rangeDefs->$rangeUri);
-            $normalizers[$rangeUri] = new UriNormalizer($rules, '', $client);
+            $normalizers[$rangeUri] = new UriNormalizer($rules, '', $client, $cache);
         }
 
         /** @var UriNormalizer $norm */
@@ -441,7 +449,8 @@ class Doorkeeper {
                 throw new DoorkeeperException("property $prop has a literal value");
             }
             try {
-                $norm->normalize((string) $obj);
+                $norm->resolve((string) $obj);
+                RC::$log->debug("\t\t$prop value $obj resolved successfully");
             } catch (UriNormalizerException $ex) {
                 throw new DoorkeeperException($ex->getMessage(), $ex->getCode(), $ex);
             }
@@ -1041,7 +1050,7 @@ class Doorkeeper {
                     'parent'            => RC::$config->schema->parent,
                     'label'             => RC::$config->schema->label,
             ];
-            self::$ontology = new Ontology(RC::$pdo, $cfg);
+            self::$ontology = new Ontology(RC::$pdo, $cfg, 'ontology.cache');
         }
     }
 

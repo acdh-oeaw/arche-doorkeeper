@@ -807,4 +807,14 @@ class ResourceTest extends TestBase {
 
         self::$repo->rollback();
     }
+
+//    public function testRangeUri(): void {
+//        \acdhOeaw\arche\lib\ingest\MetadataCollection::$debug = true;
+//        $graph = new \acdhOeaw\arche\lib\ingest\MetadataCollection(self::$repo, __DIR__ . '/kraus_processed.nt');
+//        $graph->preprocess();
+//        self::$repo->begin();
+//        $graph->import(self::$repo->getSchema()->namespaces->id, \acdhOeaw\arche\lib\ingest\MetadataCollection::SKIP, \acdhOeaw\arche\lib\ingest\MetadataCollection::ERRMODE_PASS, 6, 7);
+//        //self::$repo->commit();
+//        self::$repo->rollback();
+//    }
 }
