@@ -1050,7 +1050,7 @@ class Doorkeeper {
                     'parent'            => RC::$config->schema->parent,
                     'label'             => RC::$config->schema->label,
             ];
-            self::$ontology = new Ontology(RC::$pdo, $cfg, 'ontology.cache');
+            self::$ontology = new Ontology(RC::$pdo, $cfg, RC::$config->doorkeeper->ontologyCacheFile ?? '');
         }
     }
 
