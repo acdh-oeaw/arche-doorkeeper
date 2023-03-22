@@ -143,6 +143,7 @@ class ResourceTest extends TestBase {
         $pid = 'https://foo.bar/' . rand();
         $im  = self::createMetadata([
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => '2017',
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate' => '2017-03-08T20:45:17',
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'       => '300.54',
                 'https://other/property'                                    => new Literal('test value', 'en'),
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'              => $pid,
@@ -155,6 +156,10 @@ class ResourceTest extends TestBase {
         $date = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate');
         $this->assertEquals(RDF::XSD_DATE, $date->getDatatypeUri());
         $this->assertEquals('2017-01-01', (string) $date);
+
+        $date = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate');
+        $this->assertEquals(RDF::XSD_DATE, $date->getDatatypeUri());
+        $this->assertEquals('2017-03-08', (string) $date);
 
         $int = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize');
         $this->assertEquals(RDF::XSD_NON_NEGATIVE_INTEGER, $int->getDatatypeUri());

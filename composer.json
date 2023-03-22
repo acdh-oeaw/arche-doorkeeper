@@ -13,7 +13,7 @@
     "require": {
         "php": ">=8 <8.2",
         "acdh-oeaw/easyrdf": ">=0.13.5",
-        "acdh-oeaw/arche-core": "^3",
+        "acdh-oeaw/arche-core": "^3.7.7",
         "acdh-oeaw/epic-handle": "^1",
         "acdh-oeaw/uri-normalizer": "^2",
         "acdh-oeaw/arche-lib-schema": "^6.1",
@@ -31,7 +31,7 @@
         "sweetrdf/quick-rdf-io": "^1",
         "sweetrdf/quick-rdf": "^1",
         "sweetrdf/term-templates": "^1",
-        "acdh-oeaw/arche-lib-ingest": "^3.3.5"
+        "acdh-oeaw/arche-lib-ingest": "^3.6.2"
     },
     "autoload-dev": {
         "psr-4": {

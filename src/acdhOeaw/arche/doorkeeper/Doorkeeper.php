@@ -27,6 +27,7 @@
 namespace acdhOeaw\arche\doorkeeper;
 
 use DateTime;
+use DateTimeInterface;
 use Exception;
 use PDO;
 use RuntimeException;
@@ -1074,16 +1075,20 @@ class Doorkeeper {
             case RDF::XSD_DATE_TIME:
                 $l     = is_numeric((string) $l) ? $l . '-01-01' : (string) $l;
                 try {
-                    new DateTime($l);
+                    $ldt = new DateTime($l);
                 } catch (Exception $e) {
                     throw new DoorkeeperException("value does not match data type: $l ($range)");
                 }
-                $value = $range === RDF::XSD_DATE ? new lDate($l, null, $range) : new lDateTime($l, null, $range);
+                if ($range === RDF::XSD_DATE) {
+                    $value = new lDate($ldt->format('Y-m-d'), null, $range);
+                } else {
+                    $value = new lDateTime($l, null, $range);
+                }
                 break;
             case RDF::XSD_DECIMAL:
             case RDF::XSD_FLOAT:
             case RDF::XSD_DOUBLE:
-                $l     = (string) $l;
+                $l = (string) $l;
                 if (!is_numeric($l)) {
                     throw new DoorkeeperException("value does not match data type: $l ($range)");
                 }
