@@ -486,10 +486,24 @@ class Doorkeeper {
             self::$uriNorm = new UriNormalizer();
         }
 
+        // enforce IDs to be in known namespaces for known classes
+        $forceNormalize = false;
+        foreach ($meta->allResources(RDF::RDF_TYPE) as $class) {
+            $c = self::$ontology->getClass($class);
+            if ($c !== null) {
+                $forceNormalize = true;
+                break;
+            }
+        }
+        
         $idProp = RC::$config->schema->id;
         foreach ($meta->allResources($idProp) as $id) {
             $ids = (string) $id;
-            $std = self::$uriNorm->normalize($ids, false);
+            try {
+                $std = self::$uriNorm->normalize($ids, $forceNormalize);
+            } catch (UriNormalizerException $e) {
+                throw new DoorkeeperException($e->getMessage());
+            }
             if ($std !== (string) $id) {
                 $meta->deleteResource($idProp, $ids);
                 $meta->addResource($idProp, $std);

@@ -126,7 +126,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
         $r = (new Graph())->resource('.');
 
         if (!isset($props[$idProp])) {
-            $r->addResource($idProp, 'https://random/' . microtime(true));
+            $r->addResource($idProp, 'https://id.acdh.oeaw.ac.at/test/' . microtime(true));
         }
         if (!isset($props[$labelProp])) {
             $r->addLiteral($labelProp, 'Sample label', 'en');

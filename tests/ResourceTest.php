@@ -143,7 +143,7 @@ class ResourceTest extends TestBase {
         $pid = 'https://foo.bar/' . rand();
         $im  = self::createMetadata([
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => '2017',
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate' => '2017-03-08T20:45:17',
+                'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate'   => '2017-03-08T20:45:17',
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'       => '300.54',
                 'https://other/property'                                    => new Literal('test value', 'en'),
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'              => $pid,
@@ -813,6 +813,49 @@ class ResourceTest extends TestBase {
         self::$repo->rollback();
     }
 
+    public function testRangeUri(): void {
+        $prop  = 'https://vocabs.acdh.oeaw.ac.at/schema#hasMetadataCreator';
+        $class = 'https://vocabs.acdh.oeaw.ac.at/schema#Collection';
+        $meta  = self::createMetadata([], $class);
+
+        self::$repo->begin();
+        $r    = self::$repo->createResource($meta);
+        $meta = $r->getMetadata();
+
+        $meta->delete($prop);
+        $meta->addResource($prop, 'https://unasccepted/namespace');
+        $r->setMetadata($meta);
+        try {
+            $r->updateMetadata();
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $resp = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $this->assertStringContainsString("https://unasccepted/namespace doesn't match any rule", (string) $resp->getBody());
+        }
+        self::$repo->rollback();
+    }
+
+    public function testBadIdentifier(): void {
+        $idProp = self::$config->schema->id;
+
+        $meta1 = self::createMetadata();
+        $meta2 = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $meta1->addResource($idProp, 'http://unable/to/normalize1');
+        $meta2->addResource($idProp, 'http://unable/to/normalize2');
+
+        self::$repo->begin();
+        self::$repo->createResource($meta1);
+        try {
+            self::$repo->createResource($meta2);
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $resp = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $this->assertStringContainsString("http://unable/to/normalize2 doesn't match any rule", (string) $resp->getBody());
+        }
+        self::$repo->rollback();
+    }
 //    public function testRangeUri(): void {
 //        \acdhOeaw\arche\lib\ingest\MetadataCollection::$debug = true;
 //        $graph = new \acdhOeaw\arche\lib\ingest\MetadataCollection(self::$repo, __DIR__ . '/kraus_processed.nt');
