@@ -249,7 +249,7 @@ class ResourceTest extends TestBase {
         $this->assertIsObject($r);
 
         $im->deleteResource($idProp);
-        $im->addResource($idProp, 'https://random/' . microtime(true));
+        $im->addResource($idProp, 'https://id.acdh.oeaw.ac.at/test/' . microtime(true));
         $im->addLiteral($prop, '2020-08-01');
         try {
             self::$repo->createResource($im);
@@ -840,8 +840,8 @@ class ResourceTest extends TestBase {
         $idProp = self::$config->schema->id;
 
         $meta1 = self::createMetadata();
-        $meta2 = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         $meta1->addResource($idProp, 'http://unable/to/normalize1');
+        $meta2 = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         $meta2->addResource($idProp, 'http://unable/to/normalize2');
 
         self::$repo->begin();
