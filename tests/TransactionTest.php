@@ -235,13 +235,29 @@ class TransactionTest extends TestBase {
         $this->testCollectionAggregates();
     }
 
+    /**
+     * Resources created from object values which passed the namespace check
+     * should be allowed and others should be denied.
+     * 
+     * @return void
+     */
     public function testAutoGenResource(): void {
-        $collClass        = self::$config->schema->classes->collection;
-        $parentProp       = self::$config->schema->parent;
-        $randRes          = 'https://bar/' . rand();
+        $collClass      = self::$config->schema->classes->collection;
+        $notCheckedProp = self::$config->schema->parent;
+        $checkedProp    = 'https://vocabs.acdh.oeaw.ac.at/schema#hasDepositor';
+        $invalidRes     = 'https://bar/' . rand();
+        $validRes       = 'https://orcid.org/0000-0003-0065-8112'; //  random but existing ORCID
+
         self::$repo->begin();
-        $r                = self::$repo->createResource(self::createMetadata([$parentProp => $randRes], $collClass));
+        $r                = self::$repo->createResource(self::createMetadata([$checkedProp => $validRes], $collClass));
         $this->toDelete[] = $r;
+        self::$repo->commit();
+
+        $m = $r->getMetadata();
+        $m->addResource($notCheckedProp, $invalidRes);
+        $r->setMetadata($m);
+        self::$repo->begin();
+        $r->updateMetadata();
         try {
             self::$repo->commit();
             $this->assertTrue(false);
@@ -249,7 +265,7 @@ class TransactionTest extends TestBase {
             $resp   = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
             $errors = explode("\n", (string) $resp->getBody());
-            $this->assertMatchesRegularExpression("|Transaction created resources without any metadata:.*$randRes|", $errors[0]);
+            $this->assertMatchesRegularExpression("|Transaction created resources without any metadata:.*$invalidRes|", $errors[0]);
             sleep(1); // to avoid removing resources between the transaction is fully rolled back
         }
     }

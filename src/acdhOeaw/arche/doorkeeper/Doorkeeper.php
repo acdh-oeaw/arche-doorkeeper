@@ -116,6 +116,7 @@ class Doorkeeper {
      */
     static public function onTxCommit(string $method, int $txId,
                                       array $resourceIds): void {
+        self::loadOntology();
         // current state database handler
         $pdo = new PDO(RC::$config->dbConn->admin);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -856,7 +857,31 @@ class Doorkeeper {
         if (RC::$config->doorkeeper->checkAutoCreatedResources === false) {
             return;
         }
+
+        // find all properties which range has been checked
+        // all resources pointed with this properties are excluded from
+        // the no metadata check
+        $validRanges = array_keys(get_object_vars(RC::$config->doorkeeper->checkRanges));
+        $validProps  = [];
+        foreach (self::$ontology->getProperties() as $prop) {
+            if (count(array_intersect($prop->range, $validRanges))) {
+                $validProps = array_merge($validProps, $prop->property);
+            }
+        }
+        $plh = substr(str_repeat(', ?', count($validProps)), 2);
+        RC::$log->emergency(implode(', ', $validProps));
+
         $query      = "
+            WITH valid AS (
+                SELECT DISTINCT target_id AS id
+                FROM
+                    resources r
+                    JOIN relations rl ON rl.target_id = r.id
+                WHERE
+                    state = ?
+                    AND transaction_id = ?
+                    AND rl.property in ($plh)
+            )
             SELECT string_agg(ids, ', ' ORDER BY ids) AS invalid
             FROM
                 resources r
@@ -865,8 +890,13 @@ class Doorkeeper {
                 state = ?
                 AND transaction_id = ?
                 AND NOT EXISTS (SELECT 1 FROM metadata WHERE id = r.id AND property = ?)
+                AND NOT EXISTS (SELECT 1 FROM valid WHERE id = r.id)
         ";
-        $param      = [Transaction::STATE_ACTIVE, $txId, RC::$config->schema->label];
+        $param      = array_merge(
+            [Transaction::STATE_ACTIVE, $txId],
+            $validProps,
+            [Transaction::STATE_ACTIVE, $txId, RC::$config->schema->label]
+        );
         $query      = $pdo->prepare($query);
         $query->execute($param);
         $invalidRes = $query->fetchColumn();
