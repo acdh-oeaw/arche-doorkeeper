@@ -856,6 +856,7 @@ class ResourceTest extends TestBase {
         }
         self::$repo->rollback();
     }
+    
 //    public function testRangeUri(): void {
 //        \acdhOeaw\arche\lib\ingest\MetadataCollection::$debug = true;
 //        $graph = new \acdhOeaw\arche\lib\ingest\MetadataCollection(self::$repo, __DIR__ . '/kraus_processed.nt');

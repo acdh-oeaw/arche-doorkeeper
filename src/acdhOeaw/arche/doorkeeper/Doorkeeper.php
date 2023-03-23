@@ -124,7 +124,7 @@ class Doorkeeper {
         $pdo->beginTransaction();
 
         $errors    = [];
-        $functions = ['checkAutoCreatedResources'];
+        $functions = ['checkIsNewVersionOf', 'checkAutoCreatedResources'];
         foreach ($functions as $f) {
             try {
                 self::$f($pdo, $txId, $resourceIds);
@@ -495,7 +495,7 @@ class Doorkeeper {
                 break;
             }
         }
-        
+
         $idProp = RC::$config->schema->id;
         foreach ($meta->allResources($idProp) as $id) {
             $ids = (string) $id;
@@ -779,6 +779,67 @@ class Doorkeeper {
             if (substr($p, 0, $n) === $nmsp && self::$ontology->getProperty([], $p) === null) {
                 throw new DoorkeeperException("property $p is in the ontology namespace but is not included in the ontology");
             }
+        }
+    }
+
+    /**
+     * isNewVersionOf can't create cycles so creation of the 2nd (and higher order)
+     * isNewVersionOf links to a resource is forbidden.
+     * 
+     * As the doorkeeper can't lock resources in an effective way checking it is
+     * possible only at the transaction commit.
+     * 
+     * @param PDO $pdo
+     * @param int $txId
+     * @param array<int> $resourceIds
+     * @return void
+     * @throws DoorkeeperException
+     */
+    static public function checkIsNewVersionOf(PDO $pdo, int $txId,
+                                               array $resourceIds): void {
+        $nvProp    = RC::$config->schema->isNewVersionOf;
+        $query     = "
+            WITH err AS (
+                SELECT target_id, string_agg(id::text, ', ' ORDER BY id) AS old
+                FROM
+                    relations rl1
+                    JOIN resources r1 USING (id)
+                WHERE
+                    rl1.property = ?
+                    AND r1.state = ?
+                    AND EXISTS (
+                        SELECT 1
+                        FROM
+                            resources r2
+                            JOIN relations rl2 USING (id)
+                            JOIN resources r3 ON rl2.target_id = r3.id
+                        WHERE
+                            rl2.property = ?
+                            AND r2.transaction_id = ?
+                            AND r2.state = ?
+                            AND r3.state = ?
+                            AND rl1.target_id = rl2.target_id
+                    )
+
+                GROUP BY 1
+                HAVING count(*) > 1
+            )
+            SELECT string_agg(target_id || ' (' || old || ')', ', ' ORDER BY target_id)
+            FROM err
+        ";
+        $param     = [
+            $nvProp,
+            Transaction::STATE_ACTIVE,
+            $nvProp,
+            $txId,
+            Transaction::STATE_ACTIVE,
+            Transaction::STATE_ACTIVE,
+        ];
+        $query     = $pdo->prepare($query);
+        $query->execute($param);
+        $conflicts = $query->fetchColumn();
+        if ($conflicts !== null) {
+            throw new DoorkeeperException("More than one $nvProp pointing to some resources: $conflicts");
         }
     }
 

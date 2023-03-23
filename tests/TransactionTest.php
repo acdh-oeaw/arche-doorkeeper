@@ -250,7 +250,46 @@ class TransactionTest extends TestBase {
             $this->assertEquals(400, $resp->getStatusCode());
             $errors = explode("\n", (string) $resp->getBody());
             $this->assertMatchesRegularExpression("|Transaction created resources without any metadata:.*$randRes|", $errors[0]);
-            sleep(1);
+            sleep(1); // to avoid removing resources between the transaction is fully rolled back
+        }
+    }
+
+    public function testIsNewVersionOf(): void {
+        $verProp = self::$config->schema->isNewVersionOf;
+
+        $new1m = self::createMetadata();
+        $new2m = self::createMetadata();
+        $old1m = self::createMetadata();
+        $old2m = self::createMetadata();
+
+        self::$repo->begin();
+        $new1r            = self::$repo->createResource($new1m);
+        $this->toDelete[] = $new1r;
+        $new2r            = self::$repo->createResource($new2m);
+        $this->toDelete[] = $new2r;
+
+        $old1m->addResource($verProp, $new1r->getUri());
+        $old1m->addResource($verProp, $new2r->getUri());
+
+        $old1r            = self::$repo->createResource($old1m);
+        $this->toDelete[] = $old1r;
+
+        // this should succeed
+        self::$repo->commit();
+
+        $old2m->addResource($verProp, $new1r->getUri());
+        self::$repo->begin();
+        $old2r            = self::$repo->createResource($old2m);
+        echo "old2: " . $old2r->getUri() . "\n";
+        $this->toDelete[] = $old2r;
+        try {
+            self::$repo->commit();
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $resp = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $this->assertStringContainsString("More than one $verProp pointing to some resources:", (string) $resp->getBody());
+            sleep(1); // to avoid removing resources between the transaction is fully rolled back
         }
     }
 }

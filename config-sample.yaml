@@ -26,6 +26,7 @@ schema:
     binarySizeCumulative: https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize
     pid: https://vocabs.acdh.oeaw.ac.at/schema#hasPid
     hosting: https://vocabs.acdh.oeaw.ac.at/schema#hasHosting
+    isNewVersionOf: https://vocabs.acdh.oeaw.ac.at/schema#isNewVersionOf
     accessRestriction: https://vocabs.acdh.oeaw.ac.at/schema#hasAccessRestriction
     accessRole: https://vocabs.acdh.oeaw.ac.at/schema#hasRestrictionRole
     countCumulative: https://vocabs.acdh.oeaw.ac.at/schema#hasNumberOfItems
