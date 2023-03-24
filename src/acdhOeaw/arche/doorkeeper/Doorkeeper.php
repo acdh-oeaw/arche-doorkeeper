@@ -841,7 +841,7 @@ class Doorkeeper {
         $query->execute($param);
         $conflicts = $query->fetchColumn();
         $t         = microtime(true) - $t;
-        RC::$log->debug("\tcheckIsNewVersionOf performed in $t s");
+        RC::$log->debug("\t\tcheckIsNewVersionOf performed in $t s");
         if ($conflicts !== null) {
             throw new DoorkeeperException("More than one $nvProp pointing to some resources: $conflicts");
         }
@@ -909,7 +909,7 @@ class Doorkeeper {
         $query->execute($param);
         $invalidRes = $query->fetchColumn();
         $t         = microtime(true) - $t;
-        RC::$log->debug("\tcheckAutoCreatedResources performed in $t s");
+        RC::$log->debug("\t\tcheckAutoCreatedResources performed in $t s");
         if (!empty($invalidRes)) {
             throw new DoorkeeperException("Transaction created resources without any metadata: $invalidRes");
         }
