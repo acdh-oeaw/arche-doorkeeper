@@ -928,6 +928,7 @@ class Doorkeeper {
                                               array $resourceIds): void {
         RC::$log->info("\t\tUpdating collections affected by the transaction");
 
+        $t0     = microtime(true);
         $query  = $pdo->prepare("
             SELECT id 
             FROM resources 
@@ -975,6 +976,7 @@ class Doorkeeper {
         );
         $query = $pdo->prepare($query);
         $query->execute($param);
+        $t1    = microtime(true);
 
         // try to lock resources to be updated
         // TODO - how to lock them in a way which doesn't cause a deadlock
@@ -999,12 +1001,15 @@ class Doorkeeper {
 //        }
         // perform the actual metadata update
         self::updateCollectionSize($pdo);
+        $t2 = microtime(true);
         self::updateCollectionAggregates($pdo);
+        $t3 = microtime(true);
 
         $query = $pdo->query("
             SELECT json_agg(c.cid) FROM (SELECT DISTINCT cid FROM _resources) c
         ");
         RC::$log->debug("\t\t\tupdated resources: " . $query->fetchColumn());
+        RC::$log->debug("\t\t\ttiming: init " . ($t1 - $t0) . " size " . ($t2 - $t1) . " aggregates " . ($t3 - $t2));
     }
 
     static private function updateCollectionSize(PDO $pdo): void {
