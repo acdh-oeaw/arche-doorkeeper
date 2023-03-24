@@ -836,9 +836,12 @@ class Doorkeeper {
             Transaction::STATE_ACTIVE,
             Transaction::STATE_ACTIVE,
         ];
+        $t         = microtime(true);
         $query     = $pdo->prepare($query);
         $query->execute($param);
         $conflicts = $query->fetchColumn();
+        $t         = microtime(true) - $t;
+        RC::$log->debug("\tcheckIsNewVersionOf performed in $t s");
         if ($conflicts !== null) {
             throw new DoorkeeperException("More than one $nvProp pointing to some resources: $conflicts");
         }
@@ -870,9 +873,10 @@ class Doorkeeper {
         }
         $plh = substr(str_repeat(', ?', count($validProps)), 2);
         RC::$log->emergency(implode(', ', $validProps));
-
-        $query      = "
-            WITH valid AS (
+        if ($plh === '') {
+            $validQuery = "SELECT 1::bigint AS id WHERE false";
+        } else {
+            $validQuery = "
                 SELECT DISTINCT target_id AS id
                 FROM
                     resources r
@@ -881,7 +885,11 @@ class Doorkeeper {
                     state = ?
                     AND transaction_id = ?
                     AND rl.property in ($plh)
-            )
+            ";
+        }
+
+        $query      = "
+            WITH valid AS ($validQuery)
             SELECT string_agg(ids, ', ' ORDER BY ids) AS invalid
             FROM
                 resources r
@@ -897,9 +905,12 @@ class Doorkeeper {
             $validProps,
             [Transaction::STATE_ACTIVE, $txId, RC::$config->schema->label]
         );
+        $t          = microtime(true);
         $query      = $pdo->prepare($query);
         $query->execute($param);
         $invalidRes = $query->fetchColumn();
+        $t         = microtime(true) - $t;
+        RC::$log->debug("\tcheckAutoCreatedResources performed in $t s");
         if (!empty($invalidRes)) {
             throw new DoorkeeperException("Transaction created resources without any metadata: $invalidRes");
         }
