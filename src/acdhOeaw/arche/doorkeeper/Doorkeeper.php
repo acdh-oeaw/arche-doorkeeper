@@ -872,7 +872,6 @@ class Doorkeeper {
             }
         }
         $plh = substr(str_repeat(', ?', count($validProps)), 2);
-        RC::$log->emergency(implode(', ', $validProps));
         if ($plh === '') {
             $validQuery = "SELECT 1::bigint AS id WHERE false";
         } else {
