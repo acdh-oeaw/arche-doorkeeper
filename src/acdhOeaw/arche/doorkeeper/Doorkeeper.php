@@ -86,7 +86,7 @@ class Doorkeeper {
         $errors    = [];
         // checkTitleProp before checkCardinalities!
         $functions = [
-            'maintainDefaultValues', 'maintainAccessRights', 'maintainPropertyRange',
+            'maintainDefaultValues', 'maintainWkt', 'maintainAccessRights', 'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
             'checkIdCount', 'checkLanguage', 'checkUnknownProperties', 'checkBiblatex',
             'maintainCmdiPid', 'maintainPid', // so no PIDs are minted if checks fail
@@ -139,6 +139,20 @@ class Doorkeeper {
         self::updateCollections($pdo, $txId, $resourceIds);
 
         $pdo->commit();
+    }
+
+    static private function maintainWkt(Resource $meta): void {
+        $latProp = RC::$config->schema->latitude;
+        $lonProp = RC::$config->schema->longitude;
+        $wktProp = RC::$config->schema->wkt;
+        if ($meta->get($wktProp) !== null) {
+            return;
+        }
+        $lat = (string) $meta->getLiteral($latProp);
+        $lon = (string) $meta->getLiteral($lonProp);
+        if (!empty($lat) && !empty($lon)) {
+            $meta->addLiteral($wktProp, "POINT($lon $lat)");
+        }
     }
 
     static private function maintainPid(Resource $meta): void {

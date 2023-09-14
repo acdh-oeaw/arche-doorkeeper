@@ -891,6 +891,31 @@ class ResourceTest extends TestBase {
         }
         self::$repo->rollback();
     }
+
+    public function testWkt(): void {
+        $latProp = self::$config->schema->latitude;
+        $lonProp = self::$config->schema->longitude;
+        $wktProp = self::$config->schema->wkt;
+        self::$repo->begin();
+
+        // no pid generated automatically
+        $r = self::$repo->createResource(self::createMetadata());
+        $m = $r->getGraph();
+        $this->assertNull($m->get($latProp));
+        $this->assertNull($m->get($lonProp));
+        $this->assertNull($m->get($wktProp));
+
+        $m->addLiteral($lonProp, 16.5);
+        $m->addLiteral($latProp, 48.1);
+        $r->setGraph($m);
+        $r->updateMetadata();
+        $m = $r->getGraph();
+        $this->assertEquals('48.1', (string) $m->get($latProp));
+        $this->assertEquals('16.5', (string) $m->get($lonProp));
+        $this->assertEquals('POINT(16.5 48.1)', (string) $m->get($wktProp));
+
+        self::$repo->rollback();
+    }
 //    public function testRangeUri(): void {
 //        \acdhOeaw\arche\lib\ingest\MetadataCollection::$debug = true;
 //        $graph = new \acdhOeaw\arche\lib\ingest\MetadataCollection(self::$repo, __DIR__ . '/kraus_processed.nt');
