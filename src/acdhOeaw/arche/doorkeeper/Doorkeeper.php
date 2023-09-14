@@ -142,17 +142,33 @@ class Doorkeeper {
     }
 
     static private function maintainPid(Resource $meta): void {
-        $cfg         = RC::$config->doorkeeper->epicPid;
-        $idProp      = RC::$config->schema->id;
-        $idNmsp      = RC::$config->schema->namespaces->id;
-        $pidProp     = RC::$config->schema->pid;
-        $cmdiPidProp = RC::$config->schema->cmdiPid;
-        $ids         = self::toString($meta->allResources($idProp));
+        $cfg      = RC::$config->doorkeeper->epicPid;
+        $idProp   = RC::$config->schema->id;
+        $idNmsp   = RC::$config->schema->namespaces->id;
+        $pidProp  = RC::$config->schema->pid;
+        $propRead = RC::$config->accessControl->schema->read;
+        $ids      = self::toString($meta->allResources($idProp));
 
-        $nIdNmsp    = strlen($idNmsp);
+        $classesAlways        = [
+            RC::$config->schema->classes->topCollection,
+            RC::$config->schema->classes->collection,
+        ];
+        $classesNotRestricted = [
+            RC::$config->schema->classes->resource,
+            RC::$config->schema->classes->metadata,
+        ];
+        $rolesNotRestricted   = [
+            RC::$config->doorkeeper->rolePublic,
+            RC::$config->doorkeeper->roleAcademic,
+        ];
+        $class                = self::toString($meta->allResources(RDF::RDF_TYPE));
+        $roles                = self::toString($meta->allLiterals($propRead));
+        $public               = count(array_intersect($class, $classesAlways)) > 0 ||
+            count(array_intersect($class, $classesNotRestricted)) > 0 && count(array_intersect($roles, $rolesNotRestricted)) > 0;
+
         $idSubNmsps = [];
         foreach (RC::$config->schema->namespaces as $i) {
-            if (substr($i, 0, $nIdNmsp) === $idNmsp && $i !== $idNmsp) {
+            if (str_starts_with($i, $idNmsp) && $i !== $idNmsp) {
                 $idSubNmsps[] = $i;
             }
         }
@@ -163,7 +179,7 @@ class Doorkeeper {
             if (str_starts_with($i, $cfg->resolver)) {
                 $curPid = $i;
             }
-            if (substr($i, 0, $nIdNmsp) === $idNmsp) {
+            if (str_starts_with($i, $idNmsp)) {
                 $flag = true;
                 foreach ($idSubNmsps as $j) {
                     $flag &= substr($i, 0, strlen($j)) !== $j;
@@ -175,7 +191,7 @@ class Doorkeeper {
         }
         $pidLit = $meta->getLiteral($pidProp);
         $pidLit = $pidLit !== null ? (string) $pidLit : null;
-        if ($pidLit === $cfg->createValue && $id !== null) {
+        if (($pidLit === $cfg->createValue || $public) && $id !== null) {
             if (empty($cfg->pswd)) {
                 RC::$log->info("\t\tskipping PID (re)generation - no EPIC password provided");
                 return;
@@ -908,7 +924,7 @@ class Doorkeeper {
         $query      = $pdo->prepare($query);
         $query->execute($param);
         $invalidRes = $query->fetchColumn();
-        $t         = microtime(true) - $t;
+        $t          = microtime(true) - $t;
         RC::$log->debug("\t\tcheckAutoCreatedResources performed in $t s");
         if (!empty($invalidRes)) {
             throw new DoorkeeperException("Transaction created resources without any metadata: $invalidRes");

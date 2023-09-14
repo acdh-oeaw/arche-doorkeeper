@@ -571,12 +571,15 @@ class ResourceTest extends TestBase {
     }
 
     public function testPidGeneration(): void {
-        $idProp  = self::$config->schema->id;
-        $pidProp = self::$config->schema->pid;
-        $pidNmsp = self::$config->doorkeeper->epicPid->resolver;
-        $idNmsp  = self::$config->schema->namespaces->id;
-        $idn     = rand();
-        $im      = self::createMetadata([$idProp => $idNmsp . $idn]);
+        $idProp     = self::$config->schema->id;
+        $accessProp = self::$config->schema->accessRestriction;
+        $pidProp    = self::$config->schema->pid;
+        $pidNmsp    = self::$config->doorkeeper->epicPid->resolver;
+        $idNmsp     = self::$config->schema->namespaces->id;
+        $restricted = 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted';
+        $academic   = 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic';
+        $public     = 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public';
+        $im         = self::createMetadata([$idProp => $idNmsp . rand()]);
         self::$repo->begin();
 
         // no pid generated automatically
@@ -595,6 +598,38 @@ class ResourceTest extends TestBase {
         $this->assertStringStartsWith($pidNmsp, (string) $pids[0]);
         $this->assertContains((string) $pids[0], $this->toStr($m2->allResources($idProp)));
 
+        // pid generated automatically and promoted to an id
+        // for all resources of class TopCollection/Collection/Resource/Metadata with non-restricted access
+
+        $classes = [
+            self::$config->schema->classes->resource,
+            self::$config->schema->classes->metadata,
+        ];
+        foreach ($classes as $class) {
+            $r = self::$repo->createResource(self::createMetadata([$accessProp => $restricted], $class));
+            $m = $r->getGraph();
+            $this->assertEquals(0, count($m->all($pidProp)), $class);
+
+            $r = self::$repo->createResource(self::createMetadata([$accessProp => $academic], $class));
+            $m = $r->getGraph();
+            $this->assertEquals(1, count($m->all($pidProp)), $class);
+
+            $r = self::$repo->createResource(self::createMetadata([$accessProp => $public], $class));
+            $m = $r->getGraph();
+            $this->assertEquals(1, count($m->all($pidProp)), $class);
+        }
+        $classes = [
+            self::$config->schema->classes->resource,
+            self::$config->schema->classes->topCollection,
+            self::$config->schema->classes->collection,
+            self::$config->schema->classes->resource,
+            self::$config->schema->classes->metadata,
+        ];
+        foreach ($classes as $class) {
+            $r = self::$repo->createResource(self::createMetadata([], $class));
+            $m = $r->getGraph();
+            $this->assertEquals(1, count($m->all($pidProp)), $class);
+        }
         self::$repo->rollback();
     }
 
@@ -856,7 +891,6 @@ class ResourceTest extends TestBase {
         }
         self::$repo->rollback();
     }
-    
 //    public function testRangeUri(): void {
 //        \acdhOeaw\arche\lib\ingest\MetadataCollection::$debug = true;
 //        $graph = new \acdhOeaw\arche\lib\ingest\MetadataCollection(self::$repo, __DIR__ . '/kraus_processed.nt');
