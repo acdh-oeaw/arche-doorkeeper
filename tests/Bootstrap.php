@@ -27,30 +27,47 @@
 namespace acdhOeaw\arche\doorkeeper\tests;
 
 use DirectoryIterator;
-use PHPUnit\Runner\AfterLastTestHook;
-use PHPUnit\Runner\BeforeFirstTestHook;
+use PHPUnit\Runner\Extension\Extension;
+use PHPUnit\Runner\Extension\Facade;
+use PHPUnit\Runner\Extension\ParameterCollection;
+use PHPUnit\TextUI\Configuration\Configuration;
+use PHPUnit\Event\TestRunner\ExecutionStarted;
+use PHPUnit\Event\TestRunner\ExecutionFinished;
+use PHPUnit\Event\TestRunner\ExecutionStartedSubscriber;
+use PHPUnit\Event\TestRunner\ExecutionFinishedSubscriber;
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Filter;
-use SebastianBergmann\CodeCoverage\RawCodeCoverageData;
+use SebastianBergmann\CodeCoverage\Data\RawCodeCoverageData;
 use SebastianBergmann\CodeCoverage\Report\Clover;
-use SebastianBergmann\CodeCoverage\Report\Html\Facade;
-use SebastianBergmann\CodeCoverage\Driver\Xdebug2Driver;
-use SebastianBergmann\CodeCoverage\Driver\Xdebug3Driver;
+use SebastianBergmann\CodeCoverage\Report\Html\HtmlFacade;
+use SebastianBergmann\CodeCoverage\Driver\XdebugDriver;
+use acdhOeaw\arche\lib\Config;
+use function \GuzzleHttp\json_decode;
 
 /**
  * Description of CoverageGen
  *
  * @author zozlak
  */
-class Bootstrap implements AfterLastTestHook, BeforeFirstTestHook {
+class Bootstrap implements Extension {
 
-    private object $config;
+    public function bootstrap(Configuration $configuration, Facade $facade,
+                              ParameterCollection $parameters): void {
+
+        $facade->registerSubscriber(new Init());
+        $facade->registerSubscriber(new Coverage());
+    }
+}
+
+class Init implements ExecutionStartedSubscriber {
+
+    private Config $config;
 
     public function __construct() {
-        $this->config = json_decode(json_encode(yaml_parse_file(__DIR__ . '/../config.yaml')));
+        $this->config = Config::fromYaml(__DIR__ . '/../config.yaml');
     }
 
-    public function executeBeforeFirstTest(): void {
+    public function notify(ExecutionStarted $event): void {
         $paths = [
             __DIR__ . '/../log/' . basename($this->config->transactionController->logging->file),
             __DIR__ . '/../log/' . basename($this->config->rest->logging->file),
@@ -64,14 +81,18 @@ class Bootstrap implements AfterLastTestHook, BeforeFirstTestHook {
         system('rm -fR ' . escapeshellarg(__DIR__ . '/../build/logs/'));
         system('mkdir -p ' . escapeshellarg(__DIR__ . '/../build/logs/'));
     }
+}
 
-    public function executeAfterLastTest(): void {
+class Coverage implements ExecutionFinishedSubscriber {
+
+    public function notify(ExecutionFinished $event): void {
+
         $testEnvDir = '/home/www-data/arche-doorkeeper/src';
         $localDir   = realpath(__DIR__ . '/../src');
-        $filter = new Filter();
+        $filter     = new Filter();
         $filter->includeDirectory($localDir);
-        $driver = phpversion('xdebug') < '3' ? new Xdebug2Driver($filter) : new Xdebug3Driver($filter);
-        $cc     = new CodeCoverage($driver, $filter);
+        $driver     = new XdebugDriver($filter);
+        $cc         = new CodeCoverage($driver, $filter);
         foreach (new DirectoryIterator(__DIR__ . '/../build/logs') as $i) {
             if ($i->getExtension() === 'json') {
                 $rawData = (array) json_decode((string) file_get_contents($i->getPathname()), true);
@@ -88,8 +109,7 @@ class Bootstrap implements AfterLastTestHook, BeforeFirstTestHook {
         $outDir = __DIR__ . '/../build/logs/';
         $writer = new Clover();
         $writer->process($cc, $outDir . 'clover.xml');
-        $writer = new Facade();
+        $writer = new HtmlFacade();
         $writer->process($cc, $outDir);
     }
-
 }

@@ -2,6 +2,7 @@
 /composer.lock
 /vendor
 /.phpunit.result.cache
+/.phpunit.cache
 /.phpdoc
 /build/logs
 /config.yaml
