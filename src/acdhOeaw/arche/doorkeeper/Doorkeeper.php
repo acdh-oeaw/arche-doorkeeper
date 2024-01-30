@@ -431,7 +431,7 @@ class Doorkeeper {
                                                          NamedNodeInterface $prop): void {
         $res   = $meta->getNode();
         $range = $propDesc->range;
-        foreach ($meta->listObjects(new PT($prop)) as $l) {
+        foreach ($meta->listObjects(new PT($prop, new LT(null, LT::ANY))) as $l) {
             $type = $l instanceof LiteralInterface ? $l->getDatatype() : null;
             if (in_array($type, $range)) {
                 continue;
