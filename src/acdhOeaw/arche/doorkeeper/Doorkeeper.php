@@ -433,7 +433,8 @@ class Doorkeeper {
         $range = $propDesc->range;
         foreach ($meta->listObjects(new PT($prop, new LT(null, LT::ANY))) as $l) {
             $type = $l instanceof LiteralInterface ? $l->getDatatype() : null;
-            if (in_array($type, $range)) {
+            // at some point we should fix ranges in the ontology
+            if (in_array($type, $range) || $type === RDF::RDF_LANG_STRING && in_array(RDF::XSD_STRING, $range)) {
                 continue;
             }
             if (in_array(RDF::XSD_STRING, $range)) {
@@ -724,6 +725,7 @@ class Doorkeeper {
         $titles = iterator_to_array($meta->listObjects(new PT($titleProp)));
         $langs  = [];
         foreach ($titles as $i) {
+            RC::$log->critical($i->getValue() . '@' . $i->getLang() . '^' . $i->getDatatype());
             $lang = $i instanceof LiteralInterface ? $i->getLang() : '';
             if (isset($langs[$lang])) {
                 throw new DoorkeeperException("more than one $titleProp property");

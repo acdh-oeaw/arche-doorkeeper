@@ -41,14 +41,14 @@ use zozlak\RdfConstants as RDF;
 class TransactionTest extends TestBase {
 
     public function testCollectionExtent(): void {
-        $schema    = self::$config->schema;
+        $schema    = self::$schema;
         $sizeProp  = $schema->binarySizeCumulative;
         $countProp = $schema->countCumulative;
         $rdfType   = DF::namedNode(RDF::RDF_TYPE);
 
         self::$repo->begin();
         $rCol1          = self::$repo->createResource(self::createMetadata([], $schema->classes->collection));
-        $rCol2Meta      = self::createMetadata([$schema->parent => $rCol1->getUri()], $schema->classes->collection);
+        $rCol2Meta      = self::createMetadata([(string) $schema->parent => $rCol1->getUri()], $schema->classes->collection);
         $rCol2          = self::$repo->createResource($rCol2Meta);
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$rCol1, $rCol2]);
@@ -57,10 +57,10 @@ class TransactionTest extends TestBase {
         $bin1Size       = filesize(__FILE__);
         $bin2Size       = filesize(__DIR__ . '/../config-sample.yaml');
         self::$repo->begin();
-        $meta1          = self::createMetadata([$schema->parent => $rCol1->getUri()]);
+        $meta1          = self::createMetadata([(string) $schema->parent => $rCol1->getUri()]);
         $binary1        = new BinaryPayload(null, __FILE__);
         $rBin1          = self::$repo->createResource($meta1, $binary1);
-        $meta2          = self::createMetadata([$schema->parent => $rCol2->getUri()]);
+        $meta2          = self::createMetadata([(string) $schema->parent => $rCol2->getUri()]);
         $binary2        = new BinaryPayload(null, __DIR__ . '/../config-sample.yaml');
         $rBin2          = self::$repo->createResource($meta2, $binary2);
         self::$repo->commit();
@@ -72,7 +72,7 @@ class TransactionTest extends TestBase {
         $rBin1Meta = $rBin1->getGraph();
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertNull($rBin1Meta->getObject($countProp));
+        $this->assertNull($rBin1Meta->getObject(new PT($countProp)));
         $this->assertEquals($bin1Size + $bin2Size, $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
         $this->assertEquals(3, $rCol1Meta->getObject(new PT($countProp))?->getValue());
         $this->assertEquals($bin2Size, $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
@@ -138,7 +138,7 @@ class TransactionTest extends TestBase {
 
     public function testCollectionExtent2(): void {
         // move between two independent collections
-        $schema     = self::$config->schema;
+        $schema     = self::$schema;
         $sizeProp   = $schema->binarySizeCumulative;
         $countProp  = $schema->countCumulative;
         $parentProp = $schema->parent;
@@ -153,7 +153,7 @@ class TransactionTest extends TestBase {
         // add resources
         $binSize        = filesize(__FILE__);
         self::$repo->begin();
-        $meta           = self::createMetadata([$parentProp => $rCol1->getUri()]);
+        $meta           = self::createMetadata([(string) $parentProp => $rCol1->getUri()]);
         $binary         = new BinaryPayload(null, __FILE__);
         $rBin           = self::$repo->createResource($meta, $binary);
         self::$repo->commit();
@@ -186,7 +186,7 @@ class TransactionTest extends TestBase {
     }
 
     public function testCollectionAggregates(): void {
-        $schema         = self::$config->schema;
+        $schema         = self::$schema;
         $accessProp     = $schema->accessRestriction;
         $accessAggProp  = $schema->accessRestrictionAgg;
         $licenseProp    = $schema->license;
@@ -207,21 +207,21 @@ class TransactionTest extends TestBase {
         // add resources
         self::$repo->begin();
         $meta           = self::createMetadata([
-                $parentProp  => $rCol1->getUri(),
-                $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
-                $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/mit',
+                (string) $parentProp  => $rCol1->getUri(),
+                (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
+                (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/mit',
         ]);
         $rBin1          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
         $meta           = self::createMetadata([
-                $parentProp  => $rCol1->getUri(),
-                $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
-                $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-4-0',
+                (string) $parentProp  => $rCol1->getUri(),
+                (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
+                (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-4-0',
         ]);
         $rBin2          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
         $meta           = self::createMetadata([
-                $parentProp  => $rCol1->getUri(),
-                $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
-                $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/noc-nc',
+                (string) $parentProp  => $rCol1->getUri(),
+                (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
+                (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/noc-nc',
         ]);
         $rBin3          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
         self::$repo->commit();
@@ -241,6 +241,7 @@ class TransactionTest extends TestBase {
 
     public function testTopCollectionAggregates(): void {
         self::$config->schema->classes->collection = 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection';
+        self::$schema = new \acdhOeaw\arche\lib\Schema(self::$config->schema);
         $this->testCollectionAggregates();
     }
 
@@ -251,7 +252,7 @@ class TransactionTest extends TestBase {
      * @return void
      */
     public function testAutoGenResource(): void {
-        $schema         = self::$config->schema;
+        $schema         = self::$schema;
         $collClass      = $schema->classes->collection;
         $notCheckedProp = $schema->parent;
         $checkedProp    = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasDepositor');
@@ -281,7 +282,7 @@ class TransactionTest extends TestBase {
     }
 
     public function testIsNewVersionOf(): void {
-        $schema  = self::$config->schema;
+        $schema  = self::$schema;
         $verProp = $schema->isNewVersionOf;
 
         $new1m = self::createMetadata();

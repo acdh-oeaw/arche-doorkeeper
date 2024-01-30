@@ -34,6 +34,7 @@ use quickRdf\DataFactory as DF;
 use quickRdf\DatasetNode;
 use termTemplates\PredicateTemplate as PT;
 use acdhOeaw\arche\lib\Repo;
+use acdhOeaw\arche\lib\Schema;
 use acdhOeaw\arche\lib\exception\NotFound;
 use acdhOeaw\arche\lib\schema\Ontology;
 use acdhOeaw\arche\lib\schema\PropertyDesc;
@@ -46,6 +47,7 @@ use acdhOeaw\arche\lib\schema\PropertyDesc;
 class TestBase extends \PHPUnit\Framework\TestCase {
 
     static protected Repo $repo;
+    static protected Schema $schema;
     static protected object $config;
 
     /**
@@ -59,7 +61,8 @@ class TestBase extends \PHPUnit\Framework\TestCase {
 
         self::$config   = json_decode(json_encode(yaml_parse_file(__DIR__ . '/../config.yaml')));
         self::$repo     = Repo::factory(__DIR__ . '/../config.yaml');
-        self::$ontology = Ontology::factoryDb(new PDO(self::$config->dbConn->admin), self::$config->schema);
+        self::$schema   = self::$repo->getSchema();
+        self::$ontology = Ontology::factoryDb(new PDO(self::$config->dbConn->admin), self::$schema);
 
         self::$sampleResUri = 'https://orcid.org/0000-0001-5853-2534';
     }
@@ -114,8 +117,8 @@ class TestBase extends \PHPUnit\Framework\TestCase {
      */
     static protected function createMetadata(array $props = [],
                                              string $class = null): DatasetNode {
-        $idProp    = self::$config->schema->id;
-        $labelProp = self::$config->schema->label;
+        $idProp    = self::$schema->id;
+        $labelProp = self::$schema->label;
 
         $r = DF::namedNode('https://id.acdh.oeaw.ac.at/test/' . microtime(true) . rand());
         $d = new DatasetNode($r);
@@ -139,9 +142,9 @@ class TestBase extends \PHPUnit\Framework\TestCase {
                     continue;
                 }
                 if ($pDef === null) {
-                    $pDef = (object)[
-                        'type' => preg_match('|^https?://.|', $v) ? RDF::OWL_OBJECT_PROPERTY : RDF::OWL_DATATYPE_PROPERTY,
-                        'langTag' => true,
+                    $pDef = (object) [
+                            'type'    => preg_match('|^https?://.|', $v) ? RDF::OWL_OBJECT_PROPERTY : RDF::OWL_DATATYPE_PROPERTY,
+                            'langTag' => true,
                     ];
                 }
                 if ($pDef->type === RDF::OWL_OBJECT_PROPERTY) {
