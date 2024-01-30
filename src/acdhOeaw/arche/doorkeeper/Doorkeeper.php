@@ -27,18 +27,19 @@
 namespace acdhOeaw\arche\doorkeeper;
 
 use DateTime;
-use DateTimeInterface;
 use Exception;
 use PDO;
 use RuntimeException;
 use GuzzleHttp\Client;
-use EasyRdf\Literal;
-use EasyRdf\Resource;
-use EasyRdf\Literal\Boolean as lBoolean;
-use EasyRdf\Literal\Date as lDate;
-use EasyRdf\Literal\DateTime as lDateTime;
-use EasyRdf\Literal\Decimal as lDecimal;
-use EasyRdf\Literal\Integer as lInteger;
+use rdfInterface\DatasetNodeInterface;
+use rdfInterface\LiteralInterface;
+use rdfInterface\NamedNodeInterface;
+use quickRdf\DataFactory as DF;
+use termTemplates\LiteralTemplate as LT;
+use termTemplates\NamedNodeTemplate as NNT;
+use termTemplates\NotTemplate as NOT;
+use termTemplates\PredicateTemplate as PT;
+use termTemplates\ValueTemplate as VT;
 use RenanBr\BibTexParser\Listener as BiblatexL;
 use RenanBr\BibTexParser\Parser as BiblatexP;
 use RenanBr\BibTexParser\Exception\ParserException as BiblatexE1;
@@ -76,7 +77,8 @@ class Doorkeeper {
     static private Ontology $ontology;
     static private UriNormalizer $uriNorm;
 
-    static public function onResEdit(int $id, Resource $meta, ?string $path): Resource {
+    static public function onResEdit(int $id, DatasetNodeInterface $meta,
+                                     ?string $path): DatasetNodeInterface {
         self::loadOntology();
         $pdo       = new PDO(RC::$config->dbConn->admin);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -141,47 +143,50 @@ class Doorkeeper {
         $pdo->commit();
     }
 
-    static private function maintainWkt(Resource $meta): void {
-        $latProp = RC::$config->schema->latitude;
-        $lonProp = RC::$config->schema->longitude;
-        $wktProp = RC::$config->schema->wkt;
-        if ($meta->get($wktProp) !== null) {
+    static private function maintainWkt(DatasetNodeInterface $meta): void {
+        $latProp = RC::$schema->latitude;
+        $lonProp = RC::$schema->longitude;
+        $wktProp = RC::$schema->wkt;
+        if ($meta->any(new PT($wktProp))) {
             return;
         }
-        $lat = (string) $meta->getLiteral($latProp);
-        $lon = (string) $meta->getLiteral($lonProp);
+        $lat = (string) $meta->getObject(new PT($latProp));
+        $lon = (string) $meta->getObject(new PT($lonProp));
         if (!empty($lat) && !empty($lon)) {
-            $meta->addLiteral($wktProp, "POINT($lon $lat)");
+            $meta->add(DF::quadNoSubject($wktProp, DF::literal("POINT($lon $lat)")));
         }
     }
 
-    static private function maintainPid(Resource $meta): void {
+    static private function maintainPid(DatasetNodeInterface $meta): void {
         $cfg      = RC::$config->doorkeeper->epicPid;
-        $idProp   = RC::$config->schema->id;
-        $idNmsp   = RC::$config->schema->namespaces->id;
-        $pidProp  = RC::$config->schema->pid;
+        $idProp   = RC::$schema->id;
+        $idNmsp   = RC::$schema->namespaces->id;
+        $pidProp  = RC::$schema->pid;
         $propRead = RC::$config->accessControl->schema->read;
-        $ids      = self::toString($meta->allResources($idProp));
+        $pidTmpl  = new PT($pidProp);
+        $res      = $meta->getNode();
+        $ids      = $meta->listObjects(new PT($idProp))->getValues();
 
         $classesAlways        = [
-            RC::$config->schema->classes->topCollection,
-            RC::$config->schema->classes->collection,
+            RC::$schema->classes->topCollection,
+            RC::$schema->classes->collection,
         ];
         $classesNotRestricted = [
-            RC::$config->schema->classes->resource,
-            RC::$config->schema->classes->metadata,
+            RC::$schema->classes->resource,
+            RC::$schema->classes->metadata,
         ];
         $rolesNotRestricted   = [
             RC::$config->doorkeeper->rolePublic,
             RC::$config->doorkeeper->roleAcademic,
         ];
-        $class                = self::toString($meta->allResources(RDF::RDF_TYPE));
-        $roles                = self::toString($meta->allLiterals($propRead));
+        $class                = $meta->listObjects(new PT(RDF::RDF_TYPE))->getValues();
+        $roles                = $meta->listObjects(new PT($propRead))->getValues();
         $public               = count(array_intersect($class, $classesAlways)) > 0 ||
             count(array_intersect($class, $classesNotRestricted)) > 0 && count(array_intersect($roles, $rolesNotRestricted)) > 0;
 
         $idSubNmsps = [];
-        foreach (RC::$config->schema->namespaces as $i) {
+        foreach ((array) RC::$schema->namespaces as $i) {
+            $i = (string) $i;
             if (str_starts_with($i, $idNmsp) && $i !== $idNmsp) {
                 $idSubNmsps[] = $i;
             }
@@ -196,14 +201,14 @@ class Doorkeeper {
             if (str_starts_with($i, $idNmsp)) {
                 $flag = true;
                 foreach ($idSubNmsps as $j) {
-                    $flag &= substr($i, 0, strlen($j)) !== $j;
+                    $flag &= !str_starts_with($i, $j);
                 }
                 if ($flag) {
                     $id = $i;
                 }
             }
         }
-        $pidLit = $meta->getLiteral($pidProp);
+        $pidLit = $meta->getObject($pidTmpl);
         $pidLit = $pidLit !== null ? (string) $pidLit : null;
         if (($pidLit === $cfg->createValue || $public) && $id !== null) {
             if (empty($cfg->pswd)) {
@@ -212,14 +217,14 @@ class Doorkeeper {
             }
             $ps = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
             if ($curPid === null) {
-                $meta->delete($pidProp);
+                $meta->delete($pidTmpl);
                 $pid = $ps->create($id);
                 $pid = str_replace($cfg->url, $cfg->resolver, $pid);
                 RC::$log->info("\t\tregistered PID $pid pointing to " . $id);
-                $meta->addLiteral($pidProp, new Literal($pid, null, RDF::XSD_ANY_URI));
+                $meta->add(DF::Quad($res, $pidProp, DF::literal($pid, null, RDF::XSD_ANY_URI)));
             } else {
-                $meta->delete($pidProp);
-                $meta->addLiteral($pidProp, new Literal($curPid, null, RDF::XSD_ANY_URI));
+                $meta->delete($pidTmpl);
+                $meta->add(DF::quad($res, $pidProp, DF::literal($curPid, null, RDF::XSD_ANY_URI)));
                 $pid = str_replace($cfg->resolver, $cfg->url, $curPid);
                 $ret = $ps->update($pid, $id);
                 RC::$log->info("\t\trecreated PID $curPid pointing to " . $id . " with return code " . $ret);
@@ -232,20 +237,20 @@ class Doorkeeper {
             }
             $stdPid = self::$uriNorm->normalize($pidLit, false);
             if ($stdPid !== $pidLit) {
-                $meta->delete($pidProp);
-                $meta->addLiteral($pidProp, $stdPid);
+                $meta->delete($pidTmpl);
+                $meta->add(DF::quad($res, $pidProp, DF::literal($stdPid, null, RDF::XSD_ANY_URI)));
                 RC::$log->info("\t\tPID $pidLit standardized to $stdPid");
             }
         }
         // promote PIDs to IDs
-        foreach ($meta->all($pidProp) as $i) {
-            $i = (string) $i;
+        foreach ($meta->getIterator($pidTmpl) as $i) {
+            $i = (string) $i->getObject();
             if ($i === '') {
                 throw new DoorkeeperException("Empty PID");
             }
             if ($i !== $cfg->createValue && !in_array($i, $ids)) {
                 RC::$log->info("\t\tpromoting PID $i to an id");
-                $meta->addResource($idProp, $i);
+                $meta->add(DF::quad($res, $idProp, DF::literal($i)));
             }
         }
     }
@@ -261,20 +266,20 @@ class Doorkeeper {
      * `cfg.doorkeeper.epicPid.clarinSet`) OAI-PMH set.
      * 
      * This method takes care of it.
-     * @param Resource $meta
-     * @param \PDO $pdo
+     * @param DatasetNodeInterface $meta
+     * @param PDO $pdo
      * @return void
      * @throws DoorkeeperException
      */
-    static private function maintainCmdiPid(Resource $meta, PDO $pdo): void {
+    static private function maintainCmdiPid(DatasetNodeInterface $meta, PDO $pdo): void {
         $cfg        = RC::$config->doorkeeper->epicPid;
-        $pidProp    = RC::$config->schema->cmdiPid;
-        $stdPidProp = RC::$config->schema->pid;
-        $pidNmsp    = RC::$config->schema->namespaces->cmdi;
+        $pidProp    = RC::$schema->cmdiPid;
+        $stdPidProp = RC::$schema->pid;
+        $pidNmsp    = RC::$schema->namespaces->cmdi;
         $setProp    = $cfg->clarinSetProperty;
-        $idProp     = RC::$config->schema->id;
+        $idProp     = RC::$schema->id;
         $idNmsp     = RC::getBaseUrl();
-        if ($meta->getLiteral($pidProp) !== null || $meta->getResource($setProp) === null) {
+        if ($meta->any(new PT($pidProp)) || $meta->any(new PT($setProp))) {
             // CMDI PID exists or OAI-PMH set property doesn't exist - nothing to do
             return;
         }
@@ -283,36 +288,27 @@ class Doorkeeper {
         $query->execute([$cfg->clarinSet]);
         $clarinSets = $query->fetchAll(PDO::FETCH_COLUMN);
 
-        $clarin = false;
-        foreach ($meta->allResources($setProp) as $set) {
-            if (in_array((string) $set, $clarinSets)) {
-                $clarin = true;
-                break;
-            }
-        }
-        if ($clarin) {
+        $sets = $meta->listObjects(new PT($setProp))->getValues();
+        if (count(array_intersect($sets, $clarinSets)) > 0) {
             if (empty($cfg->pswd)) {
                 RC::$log->info("\t\tskipping CMDI PID generation - no EPIC password provided");
                 return;
             }
-            $id = null;
-            foreach ($meta->allResources($idProp) as $i) {
-                if (str_starts_with($i, $idNmsp)) {
-                    $id = $pidNmsp . substr((string) $i, strlen($idNmsp));
-                    break;
-                }
-            }
+            $res = $meta->getNode();
+            $id  = null;
+            $id  = (string) $meta->getObject(new PT($idProp, new VT($idNmsp, VT::STARTS)));
             if (!empty($id)) {
+                $id  = $pidNmsp . substr((string) $id, strlen($idNmsp));
                 $ps  = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
                 $pid = $ps->create($id);
                 $pid = str_replace($cfg->url, $cfg->resolver, $pid);
                 RC::$log->info("\t\tregistered CMDI PID $pid pointing to " . $id);
-                $meta->addLiteral($pidProp, new Literal($pid, null, RDF::XSD_ANY_URI));
-                $meta->addResource(RC::$config->schema->id, $id);
+                $meta->add(DF::quad($res, $pidProp, DF::literal($pid, null, RDF::XSD_ANY_URI)));
+                $meta->add(DF::quad($res, RC::$schema->id, DF::literal($id)));
             }
             // if normal PID is missing, trigger its generation
-            if ($meta->getLiteral($stdPidProp) === null) {
-                $meta->addLiteral($stdPidProp, "create");
+            if ($meta->any(new PT($stdPidProp))) {
+                $meta->add(DF::quad($res, $stdPidProp, DF::literal("create")));
             }
         }
     }
@@ -329,19 +325,21 @@ class Doorkeeper {
      *   `cfg.doorkeeper.roleAcademic` and granted to users listed
      *   in `cfg.schema.accessRole`
      * 
-     * @param \EasyRdf\Resource $meta repository resource's metadata
-     * @param \PDO $pdo
+     * @param DatasetNodeInterface $meta repository resource's metadata
+     * @param PDO $pdo
      */
-    static public function maintainAccessRights(Resource $meta, PDO $pdo): void {
-        $accessRestr = (string) $meta->getResource(RC::$config->schema->accessRestriction);
+    static public function maintainAccessRights(DatasetNodeInterface $meta,
+                                                PDO $pdo): void {
+        $accessRestr = (string) $meta->getObject(RC::$schema->accessRestriction);
         if (empty($accessRestr)) {
             return;
         }
 
         $propRead     = RC::$config->accessControl->schema->read;
-        $propRoles    = RC::$config->schema->accessRole;
+        $propRoles    = RC::$schema->accessRole;
         $rolePublic   = RC::$config->doorkeeper->rolePublic;
         $roleAcademic = RC::$config->doorkeeper->roleAcademic;
+        $res          = $meta->getNode();
 
         $query          = $pdo->prepare("SELECT i1.ids FROM identifiers i1 JOIN identifiers i2 USING (id) WHERE i2.ids = ?");
         $query->execute([$accessRestr]);
@@ -350,30 +348,30 @@ class Doorkeeper {
         RC::$log->info("\t\tmaintaining access rights for " . implode(', ', $accessRestrIds));
 
         if (in_array('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public', $accessRestrIds)) {
-            $meta->addLiteral($propRead, $rolePublic);
+            $meta->add(DF::quad($res, $propRead, DF::literal($rolePublic)));
             RC::$log->info("\t\t\tpublic");
         } else {
-            $meta->delete($propRead, $rolePublic);
+            $meta->delete(new PT($propRead, new VT($rolePublic)));
             if (in_array('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic', $accessRestrIds)) {
-                $meta->addLiteral($propRead, $roleAcademic);
+                $meta->add(DF::quad($res, $propRead, DF::literal($roleAcademic)));
                 RC::$log->info("\t\t\tacademic");
             } else {
-                $meta->delete($propRead, $roleAcademic);
-                foreach ($meta->all($propRoles) as $role) {
-                    $meta->addLiteral($propRead, $role);
+                $meta->delete(new PT($propRead, new VT($roleAcademic)));
+                foreach ($meta->getIterator(new PT($propRoles)) as $i) {
+                    $meta->add($i->withPredicate($propRead));
                 }
                 RC::$log->info("\t\t\trestricted");
             }
         }
     }
 
-    static private function maintainPropertyRange(Resource $meta): void {
+    static private function maintainPropertyRange(DatasetNodeInterface $meta): void {
         static $checkRangeUris = null;
         if ($checkRangeUris === null) {
             $checkRangeUris = array_keys((array) RC::$config->doorkeeper->checkRanges);
         }
 
-        foreach ($meta->propertyUris() as $prop) {
+        foreach ($meta->listPredicates() as $prop) {
             $propDesc = self::$ontology->getProperty($meta, $prop);
             if ($propDesc === null || !is_array($propDesc->range) || count($propDesc->range) === 0) {
                 continue;
@@ -395,20 +393,21 @@ class Doorkeeper {
         }
     }
 
-    static private function maintainPropertyRangeVocabs(Resource $meta,
+    static private function maintainPropertyRangeVocabs(DatasetNodeInterface $meta,
                                                         PropertyDesc $propDesc,
                                                         string $prop): void {
         if (RC::$config->doorkeeper->checkVocabularyValues === false) {
             return;
         }
-        foreach ($meta->all($prop) as $v) {
+        $res = $meta->getNode();
+        foreach ($meta->listObjects(new PT($prop)) as $v) {
             $vs  = (string) $v;
             $vid = $propDesc->checkVocabularyValue($vs, Ontology::VOCABSVALUE_ID);
-            if (!empty($vid) && !($v instanceof Resource)) {
-                // the value is right, just it's literal and it should be a resource
+            if (!empty($vid) && !($v instanceof NamedNodeInterface)) {
+                // the value is right, just it's literal and it should be a named node
             } elseif (empty($vid)) {
-                if ($v instanceof Resource) {
-                    // value is not a proper id and it's a resource
+                if ($v instanceof NamedNodeInterface) {
+                    // value is not a proper id and it's a named node
                     throw new DoorkeeperException("property $prop value $vs is not in the $propDesc->vocabs vocabulary");
                 }
                 $vid = $propDesc->checkVocabularyValue($vs, Ontology::VOCABSVALUE_ALL);
@@ -416,34 +415,34 @@ class Doorkeeper {
                     throw new DoorkeeperException("property $prop value $vs is not in the $propDesc->vocabs vocabulary");
                 }
                 // map to the right value
-                $meta->delete($prop, $v);
-                $meta->addResource($prop, $vid);
+                $meta->delete(new PT($prop, $v));
+                $meta->add(DF::quad($res, $prop, DF::namedNode($vid)));
                 RC::$log->info("\t\tproperty $prop mapping literal value '$vs' to resource $vid");
             }
         }
     }
 
-    static private function maintainPropertyRangeLiteral(Resource $meta,
+    static private function maintainPropertyRangeLiteral(DatasetNodeInterface $meta,
                                                          PropertyDesc $propDesc,
                                                          string $prop): void {
+        $res   = $meta->getNode();
         $range = $propDesc->range;
-        foreach ($meta->allLiterals($prop) as $l) {
-            /* @var $l \EasyRdf\Literal */
-            $type = $l->getDatatypeUri() ?: RDF::XSD_STRING;
+        foreach ($meta->listObjects(new PT($prop)) as $l) {
+            $type = $l instanceof LiteralInterface ? $l->getDatatype() : null;
             if (in_array($type, $range)) {
                 continue;
             }
             if (in_array(RDF::XSD_STRING, $range)) {
-                $meta->delete($prop, $l);
-                $meta->addLiteral($prop, (string) $l);
+                $meta->delete(new PT($prop, $l));
+                $meta->add(DF::quad($res, $prop, DF::literal((string) $l)));
                 RC::$log->debug("\t\tcasting $prop value from $type to string");
             } else {
                 try {
                     $rangeTmp = array_intersect($range, self::LITERAL_TYPES);
                     $rangeTmp = (reset($rangeTmp) ?: reset($range)) ?: RDF::XSD_STRING;
                     $value    = self::castLiteral($l, $rangeTmp);
-                    $meta->delete($prop, $l);
-                    $meta->addLiteral($prop, $value);
+                    $meta->delete(new PT($prop, $l));
+                    $meta->add(DF::quad($res, $prop, $value));
                     RC::$log->debug("\t\tcasting $prop value from $type to $rangeTmp");
                 } catch (RuntimeException $ex) {
                     RC::$log->info("\t\t" . $ex->getMessage());
@@ -454,7 +453,7 @@ class Doorkeeper {
         }
     }
 
-    static private function checkPropertyRangeUri(Resource $meta,
+    static private function checkPropertyRangeUri(DatasetNodeInterface $meta,
                                                   string $rangeUri, string $prop): void {
         static $rangeDefs = null;
         if ($rangeDefs === null) {
@@ -476,8 +475,8 @@ class Doorkeeper {
 
         /** @var UriNormalizer $norm */
         $norm = $normalizers[$rangeUri];
-        foreach ($meta->all($prop) as $obj) {
-            if (!($obj instanceof Resource)) {
+        foreach ($meta->listObjects(new PT($prop)) as $obj) {
+            if (!($obj instanceof NamedNodeInterface)) {
                 throw new DoorkeeperException("property $prop has a literal value");
             }
             try {
@@ -489,37 +488,42 @@ class Doorkeeper {
         }
     }
 
-    static private function maintainDefaultValues(Resource $meta): void {
-        foreach ($meta->allResources(RDF::RDF_TYPE) as $class) {
+    static private function maintainDefaultValues(DatasetNodeInterface $meta): void {
+        $res = $meta->getNode();
+        foreach ($meta->listObjects(new PT(RDF::RDF_TYPE)) as $class) {
             $c = self::$ontology->getClass($class);
             if ($c === null) {
                 continue;
             }
             foreach ($c->properties as $p) {
-                if (!empty($p->defaultValue) && $meta->get($p->uri) === null) {
+                if (!empty($p->defaultValue) && $meta->none(new PT($p->uri))) {
+                    $val = null;
                     switch ($p->type) {
                         case RDF::OWL_OBJECT_PROPERTY:
-                            $val = new Resource($p->defaultValue);
+                            $val = DF::namedNode($p->defaultValue);
                             break;
                         case RDF::OWL_DATATYPE_PROPERTY:
-                            $val = new Literal($p->defaultValue, $p->langTag ? 'en' : null, reset($p->range) ?: RDF::XSD_STRING);
+                            $val = DF::literal($p->defaultValue, $p->langTag ? 'en' : null, reset($p->range) ?: RDF::XSD_STRING);
                             break;
                     }
-                    $meta->add($p->uri, $val ?? null);
+                    if (is_object($val)) {
+                        $meta->add(DF::quad($res, DF::namedNode($p->uri), $val));
+                    }
                     RC::$log->info("\t\t$p->uri added with a default value of $p->defaultValue");
                 }
             }
         }
     }
 
-    static private function normalizeIds(Resource $meta): void {
+    static private function normalizeIds(DatasetNodeInterface $meta): void {
         if (!isset(self::$uriNorm)) {
             self::$uriNorm = new UriNormalizer();
         }
+        $res = $meta->getNode();
 
         // enforce IDs to be in known namespaces for known classes
         $forceNormalize = false;
-        foreach ($meta->allResources(RDF::RDF_TYPE) as $class) {
+        foreach ($meta->listObjects(new PT(RDF::RDF_TYPE)) as $class) {
             $c = self::$ontology->getClass($class);
             if ($c !== null) {
                 $forceNormalize = true;
@@ -527,31 +531,29 @@ class Doorkeeper {
             }
         }
 
-        $idProp = RC::$config->schema->id;
-        foreach ($meta->allResources($idProp) as $id) {
+        $idProp = RC::$schema->id;
+        foreach ($meta->listObjects(new PT($idProp)) as $id) {
             $ids = (string) $id;
             try {
                 $std = self::$uriNorm->normalize($ids, $forceNormalize);
             } catch (UriNormalizerException $e) {
                 throw new DoorkeeperException($e->getMessage());
             }
-            if ($std !== (string) $id) {
-                $meta->deleteResource($idProp, $ids);
-                $meta->addResource($idProp, $std);
+            if ($std !== $ids) {
+                $meta->delete(new PT($idProp, $id));
+                $meta->add(DF::quad($res, $idProp, DF::namedNode($std)));
                 RC::$log->info("\t\tid URI $ids standardized to $std");
             }
         }
     }
 
-    static private function checkLanguage(Resource $meta): void {
-        foreach ($meta->propertyUris() as $prop) {
+    static private function checkLanguage(DatasetNodeInterface $meta): void {
+        foreach ($meta->listPredicates() as $prop) {
             $p = self::$ontology->getProperty([], $prop);
             if (is_object($p) && $p->langTag) {
-                foreach ($meta->allLiterals($prop) as $value) {
-                    /* @var $value \EasyRdf\Literal */
-                    if (empty($value->getLang())) {
-                        throw new DoorkeeperException("Property $prop with value " . (string) $value . " is not tagged with a language");
-                    }
+                $value = $meta->getObject(new PT($prop, new NOT(new LT(null, VT::ANY, ''))));
+                if (!$value !== null) {
+                    throw new DoorkeeperException("Property $prop with value " . (string) $value . " is not tagged with a language");
                 }
             }
         }
@@ -563,17 +565,17 @@ class Doorkeeper {
      * As the property type doesn't depend on the class context, the check can
      * and should be done for all metadata properties.
      * 
-     * @param \EasyRdf\Resource $meta
+     * @param DatasetNodeInterface $meta
      * @throws DoorkeeperException
      */
-    static private function checkPropertyTypes(Resource $meta): void {
-        foreach ($meta->propertyUris() as $p) {
+    static private function checkPropertyTypes(DatasetNodeInterface $meta): void {
+        foreach ($meta->listPredicates() as $p) {
             $pDef = self::$ontology->getProperty([], $p);
             if (is_object($pDef)) {
-                if ($pDef->type === RDF::OWL_DATATYPE_PROPERTY && $meta->getResource($p) !== null) {
+                if ($pDef->type === RDF::OWL_DATATYPE_PROPERTY && $meta->any(new PT($p, new NNT(null, NNT::ANY)))) {
                     throw new DoorkeeperException('URI value for a datatype property ' . $p);
                 }
-                if ($pDef->type === RDF::OWL_OBJECT_PROPERTY && $meta->getLiteral($p) !== null) {
+                if ($pDef->type === RDF::OWL_OBJECT_PROPERTY && $meta->any(new PT($p, new LT(null, LT::ANY)))) {
                     throw new DoorkeeperException('Literal value for an object property ' . $p);
                 }
             }
@@ -583,13 +585,14 @@ class Doorkeeper {
     /**
      * Checks property cardinalities according to the ontology.
      * 
-     * @param \EasyRdf\Resource $meta
+     * @param DatasetNodeInterface $meta
      * @throws DoorkeeperException
      */
-    static private function checkCardinalities(Resource $meta): void {
-        $ontologyNmsp = RC::$config->schema->namespaces->ontology;
+    static private function checkCardinalities(DatasetNodeInterface $meta): void {
+        //TODO - rewrite so it just iterates each triple once gathering counts of all properties
+        $ontologyNmsp = RC::$schema->namespaces->ontology;
         $inDomain     = [RDF::RDF_TYPE];
-        foreach ($meta->allResources(RDF::RDF_TYPE) as $class) {
+        foreach ($meta->listObjects(new PT(RDF::RDF_TYPE)) as $class) {
             $classDef = self::$ontology->getClass((string) $class);
             if ($classDef === null) {
                 continue;
@@ -604,8 +607,9 @@ class Doorkeeper {
                     $co  = $cd  = 0;
                     $cdl = ['' => 0];
                     foreach ($p->property as $i) {
-                        foreach ($meta->all($i) as $j) {
-                            if ($j instanceof Literal) {
+                        foreach ($meta->getIterator(new PT($i)) as $j) {
+                            $j = $j->getObject();
+                            if ($j instanceof LiteralInterface) {
                                 $cd++;
                                 $lang       = $j->getLang() ?: '';
                                 $cdl[$lang] = 1 + ($cdl[$lang] ?? 0);
@@ -625,7 +629,7 @@ class Doorkeeper {
         }
         // check only resources of a class(es) defined in the ontology
         if (count($inDomain) > 1) {
-            $outDomain = array_diff($meta->propertyUris(), $inDomain); // properties allowed on resource classes
+            $outDomain = array_diff($meta->listPredicates()->getValues(), $inDomain); // properties allowed on resource classes
             $owlThing  = self::$ontology->getClass(RDF::OWL_THING);
             $outDomain = array_diff($outDomain, array_keys($owlThing->properties)); // properties allowed on all resources
             if (count($outDomain) > 0) {
@@ -634,9 +638,9 @@ class Doorkeeper {
         }
     }
 
-    static private function checkBiblatex(Resource $meta): void {
-        $biblatexProp = RC::$config->schema->biblatex ?? 'foo';
-        $biblatex     = trim((string) $meta->getLiteral((string) $biblatexProp));
+    static private function checkBiblatex(DatasetNodeInterface $meta): void {
+        $biblatexProp = RC::$schema->biblatex ?? 'foo';
+        $biblatex     = trim((string) $meta->getObject((string) $biblatexProp));
         if (!empty($biblatex)) {
             if (substr($biblatex, 0, 1) !== '@') {
                 $biblatex = "@dataset{foo,\n$biblatex\n}";
@@ -671,16 +675,16 @@ class Doorkeeper {
      * Moreover resources representing ontology can have only one non-repository
      * ID (so they must always have exactly two).
      * 
-     * @param \EasyRdf\Resource $meta
+     * @param DatasetNodeInterface $meta
      * @throws DoorkeeperException
      */
-    static private function checkIdCount(Resource $meta): void {
-        $idProp       = RC::$config->schema->id;
+    static private function checkIdCount(DatasetNodeInterface $meta): void {
+        $idProp       = RC::$schema->id;
         $repoNmsp     = RC::getBaseUrl();
-        $ontologyNmsp = RC::$config->schema->namespaces->ontology;
+        $ontologyNmsp = RC::$schema->namespaces->ontology;
 
         $ontologyIdCount = $repoIdCount     = $nonRepoIdCount  = 0;
-        $ids             = $meta->allResources($idProp);
+        $ids             = $meta->listObjects($idProp)->getValues();
         foreach ($ids as $id) {
             $id           = (string) $id;
             $ontologyFlag = str_starts_with($id, $ontologyNmsp);
@@ -705,17 +709,18 @@ class Doorkeeper {
     /**
      * Every resource must have a title property (cfg.schema.label).
      * 
-     * @param \EasyRdf\Resource $meta
+     * @param DatasetNodeInterface $meta
      * @throws DoorkeeperException
      */
-    static private function checkTitleProp(Resource $meta): void {
-        $titleProp = RC::$config->schema->label;
+    static private function checkTitleProp(DatasetNodeInterface $meta): void {
+        $titleProp = RC::$schema->label;
+        $res       = $meta->getNode();
 
         // check existing titles
-        $titles = $meta->allLiterals($titleProp);
+        $titles = $meta->listObjects($titleProp);
         $langs  = [];
         foreach ($titles as $i) {
-            $lang = $i->getLang();
+            $lang = $i instanceof LiteralInterface ? $i->getLang() : '';
             if (isset($langs[$lang])) {
                 throw new DoorkeeperException("more than one $titleProp property");
             }
@@ -733,12 +738,12 @@ class Doorkeeper {
                 FROM metadata 
                 WHERE property = ? AND id = ?
             ");
-            $id    = preg_replace('|^.*/|', '', $meta->getUri());
+            $id    = preg_replace('|^.*/|', '', (string) $res);
             $query->execute([$titleProp, $id]);
             while ($i     = $query->fetchObject()) {
                 if (!isset($langs[$i->lang])) {
                     $titles[] = '';
-                    $meta->addLiteral($titleProp, $i->value, $i->lang);
+                    $meta->add(DF::quad($res, $titleProp, DF::literal($i->value, $i->lang)));
                 }
             }
         }
@@ -767,8 +772,8 @@ class Doorkeeper {
         $langs       = [];
         foreach ($searchProps as $parts) {
             foreach ($parts as $prop) {
-                foreach ($meta->allLiterals($prop) as $value) {
-                    $lang         = $value->getLang();
+                foreach ($meta->listObjects(new PT($prop)) as $value) {
+                    $lang         = $value instanceof LiteralInterface ? $value->getLang() : '';
                     $langs[$lang] = ($langs[$lang] ?? '') . ' ' . (string) $value;
                 }
             }
@@ -779,7 +784,7 @@ class Doorkeeper {
             $title = trim($title);
             if (!empty($title)) {
                 RC::$log->info("\t\tsetting title to $title");
-                $meta->addLiteral($titleProp, $title, (string) $lang);
+                $meta->add(DF::quad($res, $titleProp, DF::literal($title, (string) $lang)));
                 $count++;
             }
         }
@@ -791,23 +796,22 @@ class Doorkeeper {
     /**
      * If a property is in the ontology namespace it has to be part of the ontology.
      * 
-     * @param Resource $meta
+     * @param DatasetNodeInterface $meta
      * @return void
      */
-    static private function checkUnknownProperties(Resource $meta): void {
+    static private function checkUnknownProperties(DatasetNodeInterface $meta): void {
         if (RC::$config->doorkeeper->checkUnknownProperties === false) {
             return;
         }
-        $idProp = RC::$config->schema->id;
-        $nmsp   = RC::$config->schema->namespaces->ontology;
-        $n      = strlen($nmsp);
-        foreach ($meta->allResources($idProp) as $i) {
-            if (substr((string) $i, 0, $n) === $nmsp) {
+        $idProp = RC::$schema->id;
+        $nmsp   = RC::$schema->namespaces->ontology;
+        foreach ($meta->listObjects($idProp)->getValues() as $i) {
+            if (str_starts_with($i, $nmsp)) {
                 return; // apply on non-ontology resources only
             }
         }
-        foreach ($meta->propertyUris() as $p) {
-            if (substr($p, 0, $n) === $nmsp && self::$ontology->getProperty([], $p) === null) {
+        foreach ($meta->listPredicates()->getValues() as $p) {
+            if (str_starts_with($p, $nmsp) && self::$ontology->getProperty([], $p) === null) {
                 throw new DoorkeeperException("property $p is in the ontology namespace but is not included in the ontology");
             }
         }
@@ -828,7 +832,7 @@ class Doorkeeper {
      */
     static public function checkIsNewVersionOf(PDO $pdo, int $txId,
                                                array $resourceIds): void {
-        $nvProp    = RC::$config->schema->isNewVersionOf;
+        $nvProp    = RC::$schema->isNewVersionOf;
         $query     = "
             WITH err AS (
                 SELECT target_id, string_agg(id::text, ', ' ORDER BY id) AS old
@@ -932,7 +936,7 @@ class Doorkeeper {
         $param      = array_merge(
             [Transaction::STATE_ACTIVE, $txId],
             $validProps,
-            [Transaction::STATE_ACTIVE, $txId, RC::$config->schema->label]
+            [Transaction::STATE_ACTIVE, $txId, RC::$schema->label]
         );
         $t          = microtime(true);
         $query      = $pdo->prepare($query);
@@ -981,7 +985,7 @@ class Doorkeeper {
         ";
             $query     = str_replace('%ids%', substr(str_repeat('(?::bigint, 0), ', count($resIds)), 0, -2), $query);
             $query     = $pdoOld->prepare($query);
-            $query->execute(array_merge($resIds, [RC::$config->schema->parent]));
+            $query->execute(array_merge($resIds, [RC::$schema->parent]));
             $parentIds = $query->fetchAll(PDO::FETCH_COLUMN);
         } else {
             $parentIds = [];
@@ -1000,7 +1004,7 @@ class Doorkeeper {
         ";
         $query = str_replace('%ids%', substr(str_repeat('(?::bigint), ', count($parentIds)), 0, -2), $query);
         $param = array_merge(
-            [RC::$config->schema->parent, RC::$config->schema->parent, $txId],
+            [RC::$schema->parent, RC::$schema->parent, $txId],
             $parentIds,
         );
         $query = $pdo->prepare($query);
@@ -1042,11 +1046,11 @@ class Doorkeeper {
     }
 
     static private function updateCollectionSize(PDO $pdo): void {
-        $sizeProp      = RC::$config->schema->binarySize;
-        $acdhSizeProp  = RC::$config->schema->binarySizeCumulative;
-        $acdhCountProp = RC::$config->schema->countCumulative;
-        $collClass     = RC::$config->schema->classes->collection;
-        $topCollClass  = RC::$config->schema->classes->topCollection;
+        $sizeProp      = RC::$schema->binarySize;
+        $acdhSizeProp  = RC::$schema->binarySizeCumulative;
+        $acdhCountProp = RC::$schema->countCumulative;
+        $collClass     = RC::$schema->classes->collection;
+        $topCollClass  = RC::$schema->classes->topCollection;
 
         // compute children size and count
         $query = "
@@ -1099,13 +1103,13 @@ class Doorkeeper {
     }
 
     static private function updateCollectionAggregates(PDO $pdo): void {
-        $accessProp     = RC::$config->schema->accessRestriction;
-        $accessAggProp  = RC::$config->schema->accessRestrictionAgg;
-        $licenseProp    = RC::$config->schema->license;
-        $licenseAggProp = RC::$config->schema->licenseAgg;
-        $labelProp      = RC::$config->schema->label;
-        $collClass      = RC::$config->schema->classes->collection;
-        $topCollClass   = RC::$config->schema->classes->topCollection;
+        $accessProp     = RC::$schema->accessRestriction;
+        $accessAggProp  = RC::$schema->accessRestrictionAgg;
+        $licenseProp    = RC::$schema->license;
+        $licenseAggProp = RC::$schema->licenseAgg;
+        $labelProp      = RC::$schema->label;
+        $collClass      = RC::$schema->classes->collection;
+        $topCollClass   = RC::$schema->classes->topCollection;
 
         // compute aggregates
         $query = "
@@ -1196,43 +1200,33 @@ class Doorkeeper {
 
     static private function loadOntology(): void {
         if (!isset(self::$ontology)) {
-            $cfg            = (object) [
-                    'ontologyNamespace' => RC::$config->schema->namespaces->ontology,
-                    'parent'            => RC::$config->schema->parent,
-                    'label'             => RC::$config->schema->label,
-            ];
-            self::$ontology = new Ontology(RC::$pdo, $cfg, RC::$config->doorkeeper->ontologyCacheFile ?? '');
+            $cacheFile      = RC::$config->doorkeeper->ontologyCacheFile ?? '';
+            $cacheTtl       = RC::$config->doorkeeper->ontologyCacheTtl ?? 600;
+            self::$ontology = Ontology::factoryDb(RC::$pdo, RC::$schema, $cacheFile, $cacheTtl);
         }
     }
 
-    /**
-     * 
-     * @param array<mixed> $a
-     * @return array<string>
-     */
-    static private function toString(array $a): array {
-        return array_map(function ($x) {
-            return (string) $x;
-        }, $a);
-    }
-
-    static private function castLiteral(Literal $l, string $range): Literal {
+    static private function castLiteral(LiteralInterface $l, string $range): LiteralInterface {
+        $numValue = null;
         switch ($range) {
             case RDF::XSD_ANY_URI:
-                $value = new Literal((string) $l, null, RDF::XSD_ANY_URI);
+                $value = $l->withDatatype(RDF::XSD_ANY_URI);
                 break;
             case RDF::XSD_DATE:
             case RDF::XSD_DATE_TIME:
-                $l     = is_numeric((string) $l) ? $l . '-01-01' : (string) $l;
+                $l     = (string) $l;
+                if (is_numeric($l)) {
+                    $l .= '-01-01';
+                }
                 try {
                     $ldt = new DateTime($l);
                 } catch (Exception $e) {
                     throw new DoorkeeperException("value does not match data type: $l ($range)");
                 }
                 if ($range === RDF::XSD_DATE) {
-                    $value = new lDate($ldt->format('Y-m-d'), null, $range);
+                    $value = DF::literal($ldt->format('Y-m-d'), null, $range);
                 } else {
-                    $value = new lDateTime($l, null, $range);
+                    $value = DF::literal($l, null, $range);
                 }
                 break;
             case RDF::XSD_DECIMAL:
@@ -1242,7 +1236,8 @@ class Doorkeeper {
                 if (!is_numeric($l)) {
                     throw new DoorkeeperException("value does not match data type: $l ($range)");
                 }
-                $value = new lDecimal($l, null, $range);
+                $numValue = (float) $l;
+                $value    = DF::literal($numValue, null, $range);
                 break;
             case RDF::XSD_INTEGER:
             case RDF::XSD_NEGATIVE_INTEGER:
@@ -1257,24 +1252,27 @@ class Doorkeeper {
             case RDF::XSD_UNSIGNED_INT:
             case RDF::XSD_UNSIGNED_SHORT:
             case RDF::XSD_UNSIGNED_BYTE:
-                $l     = (string) $l;
+                $l        = (string) $l;
                 if (!is_numeric($l)) {
                     throw new DoorkeeperException("value does not match data type: $l ($range)");
                 }
-                $value = new lInteger((int) $l, null, $range);
+                $numValue = (int) $l;
+                $value    = DF::literal($numValue, null, $range);
                 break;
             case RDF::XSD_BOOLEAN:
-                $value = new lBoolean((string) ((bool) $l), null, $range);
+                $value    = DF::literal((string) ((bool) $l), null, $range);
                 break;
             default:
                 throw new RuntimeException('unknown range data type: ' . $range);
         }
-        $c1 = in_array($range, self::NON_NEGATIVE_NUMBERS) && $value->getValue() < 0;
-        $c2 = $range == RDF::XSD_NON_POSITIVE_INTEGER && $value->getValue() > 0;
-        $c3 = $range == RDF::XSD_NEGATIVE_INTEGER && $value->getValue() >= 0;
-        $c4 = $range == RDF::XSD_POSITIVE_INTEGER && $value->getValue() <= 0;
-        if ($c1 || $c2 || $c3 || $c4) {
-            throw new DoorkeeperException('value does not match data type: ' . $value->getValue() . ' (' . $range . ')');
+        if ($numValue !== null) {
+            $c1 = in_array($range, self::NON_NEGATIVE_NUMBERS) && $numValue < 0.0;
+            $c2 = $range == RDF::XSD_NON_POSITIVE_INTEGER && $numValue > 0.0;
+            $c3 = $range == RDF::XSD_NEGATIVE_INTEGER && $numValue >= 0.0;
+            $c4 = $range == RDF::XSD_POSITIVE_INTEGER && $numValue <= 0.0;
+            if ($c1 || $c2 || $c3 || $c4) {
+                throw new DoorkeeperException('value does not match data type: ' . $value->getValue() . ' (' . $range . ')');
+            }
         }
         return $value;
     }

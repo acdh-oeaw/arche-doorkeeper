@@ -11,15 +11,21 @@
         }
     ],
     "require": {
-        "php": ">=8 <8.2",
-        "acdh-oeaw/easyrdf": ">=0.13.5",
-        "acdh-oeaw/arche-core": "^3.7.7 | ^4",
+        "php": ">=8 <8.3",
+        "acdh-oeaw/arche-lib": "dev-rdfInterface",
+        "acdh-oeaw/arche-core": "dev-rdfinterface",
         "acdh-oeaw/epic-handle": "^1",
-        "acdh-oeaw/uri-normalizer": "^2",
-        "acdh-oeaw/arche-lib-schema": "^6.2",
+        "acdh-oeaw/uri-normalizer": "dev-master",
+        "acdh-oeaw/arche-lib-schema": "dev-master",
         "acdh-oeaw/arche-assets": "^3.10",
         "zozlak/rdf-constants": "^1",
-        "renanbr/bibtex-parser": "^2.1"
+        "renanbr/bibtex-parser": "^2.1",
+        "sweetrdf/quick-rdf-io": "dev-master",
+        "sweetrdf/quick-rdf": "dev-master",
+        "sweetrdf/simple-rdf": "dev-master",
+        "sweetrdf/rdf-interface": "dev-master",
+        "sweetrdf/rdf-helpers": "dev-dev",
+        "sweetrdf/term-templates": "dev-dev"
     },
     "autoload": {
         "psr-4": {
@@ -29,11 +35,8 @@
     "require-dev": {
         "phpunit/phpunit": "^10",
         "phpstan/phpstan": "*",
-        "sweetrdf/rdf-interface": "^2.0.0-RC5",
-        "sweetrdf/quick-rdf-io": "^1",
-        "sweetrdf/quick-rdf": "^2.0.0-RC2",
-        "sweetrdf/term-templates": "^2",
-        "acdh-oeaw/arche-lib-ingest": "^3.6.2"
+        "sweetrdf/term-templates": "dev-dev",
+        "acdh-oeaw/arche-lib-ingest": "dev-rdfInterface"
     },
     "autoload-dev": {
         "psr-4": {

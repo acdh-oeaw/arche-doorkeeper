@@ -27,6 +27,9 @@
 namespace acdhOeaw\arche\doorkeeper\tests;
 
 use GuzzleHttp\Exception\ClientException;
+use rdfInterface\LiteralInterface;
+use quickRdf\DataFactory as DF;
+use termTemplates\PredicateTemplate as PT;
 use acdhOeaw\arche\lib\BinaryPayload;
 use zozlak\RdfConstants as RDF;
 
@@ -38,12 +41,14 @@ use zozlak\RdfConstants as RDF;
 class TransactionTest extends TestBase {
 
     public function testCollectionExtent(): void {
-        $sizeProp  = self::$config->schema->binarySizeCumulative;
-        $countProp = self::$config->schema->countCumulative;
+        $schema    = self::$config->schema;
+        $sizeProp  = $schema->binarySizeCumulative;
+        $countProp = $schema->countCumulative;
+        $rdfType   = DF::namedNode(RDF::RDF_TYPE);
 
         self::$repo->begin();
-        $rCol1          = self::$repo->createResource(self::createMetadata([], self::$config->schema->classes->collection));
-        $rCol2Meta      = self::createMetadata([self::$config->schema->parent => $rCol1->getUri()], self::$config->schema->classes->collection);
+        $rCol1          = self::$repo->createResource(self::createMetadata([], $schema->classes->collection));
+        $rCol2Meta      = self::createMetadata([$schema->parent => $rCol1->getUri()], $schema->classes->collection);
         $rCol2          = self::$repo->createResource($rCol2Meta);
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$rCol1, $rCol2]);
@@ -52,10 +57,10 @@ class TransactionTest extends TestBase {
         $bin1Size       = filesize(__FILE__);
         $bin2Size       = filesize(__DIR__ . '/../config-sample.yaml');
         self::$repo->begin();
-        $meta1          = self::createMetadata([self::$config->schema->parent => $rCol1->getUri()]);
+        $meta1          = self::createMetadata([$schema->parent => $rCol1->getUri()]);
         $binary1        = new BinaryPayload(null, __FILE__);
         $rBin1          = self::$repo->createResource($meta1, $binary1);
-        $meta2          = self::createMetadata([self::$config->schema->parent => $rCol2->getUri()]);
+        $meta2          = self::createMetadata([$schema->parent => $rCol2->getUri()]);
         $binary2        = new BinaryPayload(null, __DIR__ . '/../config-sample.yaml');
         $rBin2          = self::$repo->createResource($meta2, $binary2);
         self::$repo->commit();
@@ -67,11 +72,11 @@ class TransactionTest extends TestBase {
         $rBin1Meta = $rBin1->getGraph();
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertNull($rBin1Meta->getLiteral($countProp));
-        $this->assertEquals($bin1Size + $bin2Size, $rCol1Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(3, $rCol1Meta->getLiteral($countProp)?->getValue());
-        $this->assertEquals($bin2Size, $rCol2Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(1, $rCol2Meta->getLiteral($countProp)?->getValue());
+        $this->assertNull($rBin1Meta->getObject($countProp));
+        $this->assertEquals($bin1Size + $bin2Size, $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(3, $rCol1Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertEquals($bin2Size, $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(1, $rCol2Meta->getObject(new PT($countProp))?->getValue());
 
         // update resources
         $bin1Size = filesize(__DIR__ . '/../config-sample.yaml');
@@ -85,10 +90,10 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals($bin1Size + $bin2Size, $rCol1Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(3, $rCol1Meta->getLiteral($countProp)?->getValue());
-        $this->assertEquals($bin2Size, $rCol2Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(1, $rCol2Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals($bin1Size + $bin2Size, $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(3, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertEquals($bin2Size, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(1, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
 
         // delete resources
         self::$repo->begin();
@@ -99,10 +104,10 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals($bin1Size, $rCol1Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(2, $rCol1Meta->getLiteral($countProp)?->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals($bin1Size, $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(2, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
 
         self::$repo->begin();
         $rBin1->delete(true);
@@ -112,14 +117,14 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals(0, $rCol1Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(1, $rCol1Meta->getLiteral($countProp)?->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals(0, (int) $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(1, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
 
         self::$repo->begin();
-        $rCol1Meta->deleteResource(RDF::RDF_TYPE);
-        $rCol1Meta->addResource(RDF::RDF_TYPE, 'https://foo');
+        $rCol1Meta->delete(new PT($rdfType));
+        $rCol1Meta->add(DF::quadNoSubject($rdfType, DF::namedNode('https://foo')));
         $rCol1->setMetadata($rCol1Meta);
         $rCol1->updateMetadata();
         self::$repo->commit();
@@ -127,16 +132,17 @@ class TransactionTest extends TestBase {
         // col1 is not a schema.classes.collection now so it shouldn't have collection-specific properties
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
-        $this->assertNull($rCol1Meta->getLiteral($sizeProp));
-        $this->assertNull($rCol1Meta->getLiteral($countProp));
+        $this->assertNull($rCol1Meta->getObject(new PT($sizeProp)));
+        $this->assertNull($rCol1Meta->getObject(new PT($countProp)));
     }
 
     public function testCollectionExtent2(): void {
         // move between two independent collections
-        $sizeProp   = self::$config->schema->binarySizeCumulative;
-        $countProp  = self::$config->schema->countCumulative;
-        $parentProp = self::$config->schema->parent;
-        $collClass  = self::$config->schema->classes->collection;
+        $schema     = self::$config->schema;
+        $sizeProp   = $schema->binarySizeCumulative;
+        $countProp  = $schema->countCumulative;
+        $parentProp = $schema->parent;
+        $collClass  = $schema->classes->collection;
 
         self::$repo->begin();
         $rCol1          = self::$repo->createResource(self::createMetadata([], $collClass));
@@ -157,14 +163,14 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals($binSize, $rCol1Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(1, $rCol1Meta->getLiteral($countProp)?->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(0, $rCol2Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals($binSize, (int) $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(1, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
 
         self::$repo->begin();
-        $meta->deleteResource($parentProp);
-        $meta->addResource($parentProp, $rCol2->getUri());
+        $meta->delete(new PT($parentProp));
+        $meta->add(DF::quadNoSubject($parentProp, DF::namedNode($rCol2->getUri())));
         $rBin->setMetadata($meta);
         $rBin->updateMetadata();
         self::$repo->commit();
@@ -173,19 +179,20 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals(0, $rCol1Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(0, $rCol1Meta->getLiteral($countProp)?->getValue());
-        $this->assertEquals($binSize, $rCol2Meta->getLiteral($sizeProp)?->getValue());
-        $this->assertEquals(1, $rCol2Meta->getLiteral($countProp)?->getValue());
+        $this->assertEquals(0, (int) $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(0, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertEquals($binSize, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(1, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
     }
 
     public function testCollectionAggregates(): void {
-        $accessProp     = self::$config->schema->accessRestriction;
-        $accessAggProp  = self::$config->schema->accessRestrictionAgg;
-        $licenseProp    = self::$config->schema->license;
-        $licenseAggProp = self::$config->schema->licenseAgg;
-        $parentProp     = self::$config->schema->parent;
-        $collClass      = self::$config->schema->classes->collection;
+        $schema         = self::$config->schema;
+        $accessProp     = $schema->accessRestriction;
+        $accessAggProp  = $schema->accessRestrictionAgg;
+        $licenseProp    = $schema->license;
+        $licenseAggProp = $schema->licenseAgg;
+        $parentProp     = $schema->parent;
+        $collClass      = $schema->classes->collection;
 
         self::$repo->begin();
         $rCol1          = self::$repo->createResource(self::createMetadata([], $collClass));
@@ -194,8 +201,8 @@ class TransactionTest extends TestBase {
 
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
-        $this->assertEquals('', $rCol1Meta->getLiteral($licenseAggProp)?->getValue());
-        $this->assertEquals('', $rCol1Meta->getLiteral($accessAggProp)?->getValue());
+        $this->assertEquals('', $rCol1Meta->getObject(new PT($licenseAggProp))?->getValue());
+        $this->assertEquals('', $rCol1Meta->getObject(new PT($accessAggProp))?->getValue());
 
         // add resources
         self::$repo->begin();
@@ -222,12 +229,14 @@ class TransactionTest extends TestBase {
 
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
-        $tmp       = $rCol1Meta->getLiteral($licenseAggProp);
-        $ref       = $tmp?->getLang() === 'en' ? "Attribution 4.0 International (CC BY 4.0) 1\nMIT license 1\nNo Copyright - Non-Commercial Use Only 1" : "Kein Urheberrechtsschutz - nur nicht kommerzielle Nutzung erlaubt 1\nMIT Lizenz 1\nNamensnennung 4.0 International (CC BY 4.0) 1";
-        $this->assertEquals($ref, $tmp?->getValue());
-        $tmp       = $rCol1Meta->getLiteral($accessAggProp);
-        $ref       = $tmp?->getLang() === 'en' ? "academic 2\nrestricted 1" : "akademisch 2\neingeschränkt 1";
-        $this->assertEquals($ref, $tmp?->getValue());
+        $tmp       = $rCol1Meta->getObject(new PT($licenseAggProp));
+        $this->assertInstanceOf(LiteralInterface::class, $tmp);
+        $ref       = $tmp->getLang() === 'en' ? "Attribution 4.0 International (CC BY 4.0) 1\nMIT license 1\nNo Copyright - Non-Commercial Use Only 1" : "Kein Urheberrechtsschutz - nur nicht kommerzielle Nutzung erlaubt 1\nMIT Lizenz 1\nNamensnennung 4.0 International (CC BY 4.0) 1";
+        $this->assertEquals($ref, $tmp->getValue());
+        $tmp       = $rCol1Meta->getObject(new PT($accessAggProp));
+        $this->assertInstanceOf(LiteralInterface::class, $tmp);
+        $ref       = $tmp->getLang() === 'en' ? "academic 2\nrestricted 1" : "akademisch 2\neingeschränkt 1";
+        $this->assertEquals($ref, $tmp->getValue());
     }
 
     public function testTopCollectionAggregates(): void {
@@ -242,19 +251,20 @@ class TransactionTest extends TestBase {
      * @return void
      */
     public function testAutoGenResource(): void {
-        $collClass      = self::$config->schema->classes->collection;
-        $notCheckedProp = self::$config->schema->parent;
-        $checkedProp    = 'https://vocabs.acdh.oeaw.ac.at/schema#hasDepositor';
-        $invalidRes     = 'https://bar/' . rand();
-        $validRes       = 'https://orcid.org/0000-0003-0065-8112'; //  random but existing ORCID
+        $schema         = self::$config->schema;
+        $collClass      = $schema->classes->collection;
+        $notCheckedProp = $schema->parent;
+        $checkedProp    = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasDepositor');
+        $invalidRes     = DF::namedNode('https://bar/' . rand());
+        $validRes       = DF::namedNode('https://orcid.org/0000-0003-0065-8112'); //  random but existing ORCID
 
         self::$repo->begin();
-        $r                = self::$repo->createResource(self::createMetadata([$checkedProp => $validRes], $collClass));
+        $r                = self::$repo->createResource(self::createMetadata([(string) $checkedProp => $validRes], $collClass));
         $this->toDelete[] = $r;
         self::$repo->commit();
 
         $m = $r->getMetadata();
-        $m->addResource($notCheckedProp, $invalidRes);
+        $m->add(DF::quadNoSubject($notCheckedProp, $invalidRes));
         $r->setMetadata($m);
         self::$repo->begin();
         $r->updateMetadata();
@@ -271,7 +281,8 @@ class TransactionTest extends TestBase {
     }
 
     public function testIsNewVersionOf(): void {
-        $verProp = self::$config->schema->isNewVersionOf;
+        $schema  = self::$config->schema;
+        $verProp = $schema->isNewVersionOf;
 
         $new1m = self::createMetadata();
         $new2m = self::createMetadata();
@@ -284,8 +295,8 @@ class TransactionTest extends TestBase {
         $new2r            = self::$repo->createResource($new2m);
         $this->toDelete[] = $new2r;
 
-        $old1m->addResource($verProp, $new1r->getUri());
-        $old1m->addResource($verProp, $new2r->getUri());
+        $old1m->add(DF::quadNoSubject($verProp, DF::namedNode($new1r->getUri())));
+        $old1m->add(DF::quadNoSubject($verProp, DF::namedNode($new2r->getUri())));
 
         $old1r            = self::$repo->createResource($old1m);
         $this->toDelete[] = $old1r;
@@ -293,7 +304,7 @@ class TransactionTest extends TestBase {
         // this should succeed
         self::$repo->commit();
 
-        $old2m->addResource($verProp, $new1r->getUri());
+        $old2m->add(DF::quadNoSubject($verProp, DF::namedNode($new1r->getUri())));
         self::$repo->begin();
         $old2r            = self::$repo->createResource($old2m);
         echo "old2: " . $old2r->getUri() . "\n";

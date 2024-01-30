@@ -26,13 +26,18 @@
 
 namespace acdhOeaw\arche\doorkeeper\tests;
 
-use EasyRdf\Graph;
-use EasyRdf\Literal;
+#use EasyRdf\Graph;
+#use EasyRdf\Literal;
+
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\RequestException;
 use zozlak\RdfConstants as RDF;
+use rdfInterface\LiteralInterface;
+use quickRdf\DataFactory as DF;
+use quickRdf\DatasetNode;
+use termTemplates\PredicateTemplate as PT;
 use acdhOeaw\arche\lib\RepoResource;
 use acdhOeaw\arche\lib\BinaryPayload;
 
@@ -44,7 +49,7 @@ use acdhOeaw\arche\lib\BinaryPayload;
 class ResourceTest extends TestBase {
 
     public function testIdCount(): void {
-        $im = (new Graph())->resource('.');
+        $im = new DatasetNode(DF::namedNode('.'));
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
@@ -61,19 +66,20 @@ class ResourceTest extends TestBase {
         $prop  = self::$config->schema->id;
         $label = self::$config->schema->label;
         $nmsp  = self::$config->schema->namespaces->ontology;
+        $id    = DF::namedNode('.');
 
-        $im = (new Graph())->resource('.');
-        $im->addResource($prop, $nmsp . '/foo');
-        $im->addLiteral($label, 'bar', 'en');
+        $im = new DatasetNode($id);
+        $im->add(DF::quad($id, $prop, DF::namedNode($nmsp . '/foo')));
+        $im->add(DF::quad($id, $label, DF::literal('bar', 'en')));
         self::$repo->begin();
         $r  = self::$repo->createResource($im);
         $this->assertIsObject($r);
         self::$repo->rollback();
 
-        $im = (new Graph())->resource('.');
-        $im->addResource($prop, $nmsp . '/foo');
-        $im->addResource($prop, $nmsp . '/bar');
-        $im->addLiteral($label, 'bar', 'en');
+        $im = new DatasetNode($id);
+        $im->add(DF::quad($id, $prop, DF::namedNode($nmsp . '/foo')));
+        $im->add(DF::quad($id, $prop, DF::namedNode($nmsp . '/bar')));
+        $im->add(DF::quad($id, $label, DF::literal('bar', 'en')));
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
@@ -85,10 +91,10 @@ class ResourceTest extends TestBase {
         }
         self::$repo->rollback();
 
-        $im = (new Graph())->resource('.');
-        $im->addResource($prop, $nmsp . '/foo');
-        $im->addResource($prop, 'https://my/id');
-        $im->addLiteral($label, 'bar', 'en');
+        $im = new DatasetNode($id);
+        $im->add(DF::quad($id, $prop, DF::namedNode($nmsp . '/foo')));
+        $im->add(DF::quad($id, $prop, DF::namedNode('https://my/id')));
+        $im->add(DF::quad($id, $label, DF::literal('bar', 'en')));
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
@@ -145,7 +151,7 @@ class ResourceTest extends TestBase {
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => '2017',
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate'   => '2017-03-08T20:45:17',
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'       => '300.54',
-                'https://other/property'                                    => new Literal('test value', 'en'),
+                'https://other/property'                                    => DF::literal('test value', 'en'),
                 'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'              => $pid,
         ]);
 
@@ -153,24 +159,29 @@ class ResourceTest extends TestBase {
         $r  = self::$repo->createResource($im);
         $om = $r->getGraph();
 
-        $date = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate');
-        $this->assertEquals(RDF::XSD_DATE, $date->getDatatypeUri());
+        $date = $om->getObject(DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate'));
+        $this->assertInstanceOf(LiteralInterface::class, $date);
+        $this->assertEquals(RDF::XSD_DATE, $date->getDatatype());
         $this->assertEquals('2017-01-01', (string) $date);
 
-        $date = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate');
-        $this->assertEquals(RDF::XSD_DATE, $date->getDatatypeUri());
+        $date = $om->getObject(DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate'));
+        $this->assertInstanceOf(LiteralInterface::class, $date);
+        $this->assertEquals(RDF::XSD_DATE, $date->getDatatype());
         $this->assertEquals('2017-03-08', (string) $date);
 
-        $int = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize');
-        $this->assertEquals(RDF::XSD_NON_NEGATIVE_INTEGER, $int->getDatatypeUri());
-        $this->assertEquals(300, $int->getValue());
+        $int = $om->getObject(DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'));
+        $this->assertInstanceOf(LiteralInterface::class, $int);
+        $this->assertEquals(RDF::XSD_NON_NEGATIVE_INTEGER, $int->getDatatype());
+        $this->assertEquals(300, (int) $int->getValue());
 
-        $str = $om->getLiteral('https://other/property');
-        $this->assertEquals(RDF::XSD_STRING, $str->getDatatypeUri() ?? RDF::XSD_STRING);
+        $str = $om->getObject(DF::namedNode('https://other/property'));
+        $this->assertInstanceOf(LiteralInterface::class, $str);
+        $this->assertEquals(RDF::XSD_STRING, $str->getDatatype());
         $this->assertEquals('en', $str->getLang());
 
-        $uri = $om->getLiteral('https://vocabs.acdh.oeaw.ac.at/schema#hasPid');
-        $this->assertEquals(RDF::XSD_ANY_URI, $uri->getDatatypeUri());
+        $uri = $om->getObject(DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasPid'));
+        $this->assertInstanceOf(LiteralInterface::class, $uri);
+        $this->assertEquals(RDF::XSD_ANY_URI, $uri->getDatatype());
         $this->assertEquals($pid, $uri->getValue());
     }
 
@@ -217,8 +228,8 @@ class ResourceTest extends TestBase {
 
         $class = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         foreach ($class->getProperties() as $i) {
-            if ($i->min > 0 && $im->get($i->uri) === null) {
-                $im->add($i->uri, self::createSampleProperty($i));
+            if ($i->min > 0 && $im->getObject($i->uri) === null) {
+                $im->add(DF::quadNoSubject(DF::namedNode($i->uri), self::createSampleProperty($i)));
             }
         }
         $r = self::$repo->createResource($im);
@@ -226,8 +237,9 @@ class ResourceTest extends TestBase {
     }
 
     public function testPropertyType(): void {
-        $im = self::createMetadata();
-        $im->addResource('https://vocabs.acdh.oeaw.ac.at/schema#hasUrl', 'http://foo.bar/' . rand());
+        $im   = self::createMetadata();
+        $prop = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasUrl');
+        $im->add(DF::quadNoSubject($prop, DF::namedNode('http://foo.bar/' . rand())));
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
@@ -241,16 +253,16 @@ class ResourceTest extends TestBase {
 
     public function testCardinalitiesMax(): void {
         $idProp = self::$config->schema->id;
-        $prop   = 'https://vocabs.acdh.oeaw.ac.at/schema#hasTransferDate';
+        $prop   = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasTransferDate');
         $im     = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
-        $im->addLiteral($prop, '2020-07-01');
+        $im->add(DF::quadNoSubject($prop, DF::literal('2020-07-01')));
         self::$repo->begin();
         $r      = self::$repo->createResource($im);
         $this->assertIsObject($r);
 
-        $im->deleteResource($idProp);
-        $im->addResource($idProp, 'https://id.acdh.oeaw.ac.at/test/' . microtime(true));
-        $im->addLiteral($prop, '2020-08-01');
+        $im->delete(new PT($idProp));
+        $im->add(DF::quadNoSubject($idProp, DF::namedNode('https://id.acdh.oeaw.ac.at/test/' . microtime(true))));
+        $im->add(DF::quadNoSubject($prop, DF::literal('2020-08-01')));
         try {
             self::$repo->createResource($im);
             $this->assertTrue(false);
@@ -273,26 +285,26 @@ class ResourceTest extends TestBase {
         ];
         $class            = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         foreach ($class->getProperties() as $i) {
-            if ($i->min > 0 && $im->get($i->uri) === null && !in_array($i->uri, $skip)) {
-                $im->add($i->property[0], self::createSampleProperty($i));
+            if ($i->min > 0 && $im->getObject($i->uri) === null && !in_array($i->uri, $skip)) {
+                $im->add(DF::quadNoSubject(DF::namedNode($i->property[0]), self::createSampleProperty($i)));
             }
         }
         self::$repo->begin();
         $r  = self::$repo->createResource($im);
         $rm = $r->getGraph();
-        $this->assertEquals(date('Y-m-d'), substr($rm->getLiteral($creationDateProp), 0, 10));
+        $this->assertEquals(date('Y-m-d'), substr($rm->getObject($creationDateProp), 0, 10));
         // accessRestriction is only on BinaryContent (Resource/Metadata) and not on RepoObject
-        $this->assertNull($rm->get($accessRestProp));
-        $this->assertNull($rm->get($mimeProp));
+        $this->assertNull($rm->getObject($accessRestProp));
+        $this->assertNull($rm->getObject($mimeProp));
 
-        $rh = new RepoResource((string) $rm->get(self::$config->schema->hosting), self::$repo);
+        $rh = new RepoResource((string) $rm->getObject(self::$config->schema->hosting), self::$repo);
         $this->assertContains(self::getPropertyDefault(self::$config->schema->hosting), $rh->getIds());
 
         $im  = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         $r   = self::$repo->createResource($im, new BinaryPayload('foo bar', null, 'text/plain'));
         $rm  = $r->getGraph();
-        $this->assertEquals('text/plain', (string) $rm->getLiteral($mimeProp));
-        $rar = new RepoResource((string) $r->getGraph()->get($accessRestProp), self::$repo);
+        $this->assertEquals('text/plain', (string) $rm->getObject($mimeProp));
+        $rar = new RepoResource((string) $r->getGraph()->getObject($accessRestProp), self::$repo);
         $this->assertContains(self::getPropertyDefault($accessRestProp), $rar->getIds());
     }
 
@@ -301,10 +313,10 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         $r  = self::$repo->createResource($im);
         $om = $r->getGraph();
-        $ar = new RepoResource((string) $om->getResource(self::$config->schema->accessRestriction), self::$repo);
+        $ar = new RepoResource((string) $om->getObject(self::$config->schema->accessRestriction), self::$repo);
         $this->assertContains(self::getPropertyDefault(self::$config->schema->accessRestriction), $ar->getIds());
-        $this->assertContains(self::$config->doorkeeper->rolePublic, self::toStr($om->all(self::$config->accessControl->schema->read)));
-        $this->assertNotContains(self::$config->doorkeeper->rolePublic, self::toStr($om->all(self::$config->accessControl->schema->write)));
+        $this->assertContains(self::$config->doorkeeper->rolePublic, $om->listObjects(self::$config->accessControl->schema->read)->getValues());
+        $this->assertNotContains(self::$config->doorkeeper->rolePublic, $om->listObjects(self::$config->accessControl->schema->write)->getValues());
     }
 
     public function testAccessRightsAcademic(): void {
@@ -316,10 +328,10 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         $r              = self::$repo->createResource($im, $bp);
         $om             = $r->getGraph();
-        $ar             = new RepoResource((string) $om->getResource($accessRestProp), self::$repo);
+        $ar             = new RepoResource((string) $om->getObject($accessRestProp), self::$repo);
         $this->assertContains('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic', $ar->getIds());
-        $this->assertContains(self::$config->doorkeeper->roleAcademic, self::toStr($om->all(self::$config->accessControl->schema->read)));
-        $this->assertNotContains(self::$config->doorkeeper->roleAcademic, self::toStr($om->all(self::$config->accessControl->schema->write)));
+        $this->assertContains(self::$config->doorkeeper->roleAcademic, $om->listObjects(self::$config->accessControl->schema->read)->getValues());
+        $this->assertNotContains(self::$config->doorkeeper->roleAcademic, $om->listObjects(self::$config->accessControl->schema->write)->getValues());
 
         $client = new Client(['http_errors' => false, 'allow_redirects' => false]);
         $resp   = $client->send(new Request('get', $r->getUri()));
@@ -338,11 +350,11 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         $r              = self::$repo->createResource($im, $bp);
         $om             = $r->getGraph();
-        $ar             = new RepoResource((string) $om->getResource($accessRestProp), self::$repo);
+        $ar             = new RepoResource((string) $om->getObject($accessRestProp), self::$repo);
         $this->assertContains('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted', $ar->getIds());
-        $this->assertNotContains(self::$config->doorkeeper->rolePublic, self::toStr($om->all(self::$config->accessControl->schema->read)));
-        $this->assertNotContains(self::$config->doorkeeper->roleAcademic, self::toStr($om->all(self::$config->accessControl->schema->write)));
-        $this->assertContains('foo', self::toStr($om->all(self::$config->schema->accessRole)));
+        $this->assertNotContains(self::$config->doorkeeper->rolePublic, $om->listObjects(self::$config->accessControl->schema->read)->getValues());
+        $this->assertNotContains(self::$config->doorkeeper->roleAcademic, $om->listObjects(self::$config->accessControl->schema->write)->getValues());
+        $this->assertContains('foo', $om->listObjects(self::$config->schema->accessRole)->getValues());
 
         $client = new Client(['http_errors' => false, 'allow_redirects' => false]);
         $resp   = $client->send(new Request('get', $r->getUri()));
@@ -363,15 +375,14 @@ class ResourceTest extends TestBase {
         $accessRestProp = self::$config->schema->accessRestriction;
         $client         = new Client(['http_errors' => false, 'allow_redirects' => false]);
 
-        $im = self::createMetadata([
-                $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
-                ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
-        $bp = new BinaryPayload('dummy content');
+        $meta = [(string) $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted'];
+        $im   = self::createMetadata($meta, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $bp   = new BinaryPayload('dummy content');
         self::$repo->begin();
-        $r  = self::$repo->createResource($im, $bp);
+        $r    = self::$repo->createResource($im, $bp);
 
-        $meta = (new Graph())->resource('.');
-        $meta->addResource($accessRestProp, 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic');
+        $meta = new DatasetNode(DF::namedNode('.'));
+        $meta->add(DF::quadNoSubject($accessRestProp, DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic')));
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
         $resp = $client->send(new Request('get', $r->getUri()));
@@ -379,8 +390,9 @@ class ResourceTest extends TestBase {
         $resp = $client->send(new Request('get', $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(200, $resp->getStatusCode());
 
-        $meta = (new Graph())->resource('.');
-        $meta->addResource($accessRestProp, 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public');
+        $id   = DF::namedNode('.');
+        $meta = new DatasetNode($id);
+        $meta->add(DF::quad($id, $accessRestProp, DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public')));
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
         $resp = $client->send(new Request('get', $r->getUri()));
@@ -396,16 +408,16 @@ class ResourceTest extends TestBase {
     public function testAccessRightsLower(): void {
         $accessRestrProp = self::$config->schema->accessRestriction;
         $client          = new Client(['http_errors' => false, 'allow_redirects' => false]);
+        $id              = DF::namedNode('.');
 
-        $im = self::createMetadata([
-                $accessRestrProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public',
-                ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
-        $bp = new BinaryPayload('dummy content');
+        $meta = [(string) $accessRestrProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public'];
+        $im   = self::createMetadata($meta, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $bp   = new BinaryPayload('dummy content');
         self::$repo->begin();
-        $r  = self::$repo->createResource($im, $bp);
+        $r    = self::$repo->createResource($im, $bp);
 
-        $meta = (new Graph())->resource('.');
-        $meta->addResource($accessRestrProp, 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic');
+        $meta = new DatasetNode($id);
+        $meta->add(DF::quad($id, $accessRestrProp, DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic')));
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
         $resp = $client->send(new Request('get', $r->getUri()));
@@ -413,9 +425,9 @@ class ResourceTest extends TestBase {
         $resp = $client->send(new Request('get', $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(200, $resp->getStatusCode());
 
-        $meta = (new Graph())->resource('.');
-        $meta->addResource($accessRestrProp, 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted');
-        $meta->addLiteral(self::$config->schema->accessRole, 'bar');
+        $meta = new DatasetNode($id);
+        $meta->add(DF::quad($id, $accessRestrProp, DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted')));
+        $meta->add(DF::quad($id, self::$config->schema->accessRole, DF::literal('bar')));
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
         $resp = $client->send(new Request('get', $r->getUri()));
@@ -431,10 +443,10 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
 
         // copied from other title-like property
-        $im = self::createMetadata(['http://purl.org/dc/elements/1.1/title' => new Literal('foo', 'en')]);
+        $im = self::createMetadata(['http://purl.org/dc/elements/1.1/title' => DF::literal('foo', 'en')]);
         $im->delete($titleProp);
         $r  = self::$repo->createResource($im);
-        $this->assertEquals('foo', (string) $r->getGraph()->getLiteral($titleProp));
+        $this->assertEquals('foo', (string) $r->getGraph()->getObject($titleProp));
 
         // combined from acdh:hasFirstName and acdh:hasLastName
         $im = self::createMetadata([
@@ -443,7 +455,7 @@ class ResourceTest extends TestBase {
         ]);
         $im->delete($titleProp);
         $r  = self::$repo->createResource($im);
-        $this->assertEquals('foo bar', (string) $r->getGraph()->getLiteral($titleProp));
+        $this->assertEquals('foo bar', (string) $r->getGraph()->getObject($titleProp));
 
         // combined from acdh:hasFirstName
         $im = self::createMetadata([
@@ -451,7 +463,7 @@ class ResourceTest extends TestBase {
         ]);
         $im->delete($titleProp);
         $r  = self::$repo->createResource($im);
-        $this->assertEquals('foo', (string) $r->getGraph()->getLiteral($titleProp));
+        $this->assertEquals('foo', (string) $r->getGraph()->getObject($titleProp));
 
         // combined from foaf:givenName and foaf:familyName
         $im = self::createMetadata([
@@ -460,15 +472,16 @@ class ResourceTest extends TestBase {
         ]);
         $im->delete($titleProp);
         $r  = self::$repo->createResource($im);
-        $this->assertEquals('foo bar', (string) $r->getGraph()->getLiteral($titleProp));
+        $this->assertEquals('foo bar', (string) $r->getGraph()->getObject($titleProp));
 
         // many titles
-        $im     = (new Graph())->resource('.');
-        $im->addResource(self::$config->schema->id, 'https://id/prop' . time() . rand());
-        $im->addLiteral($titleProp, new Literal('foo', 'en'));
-        $im->addLiteral($titleProp, new Literal('bar', 'de'));
+        $id     = DF::namedNode('.');
+        $im     = new DatasetNode($id);
+        $im->add(DF::quad($id, self::$config->schema->id, DF::namedNode('https://id/prop' . time() . rand())));
+        $im->add(DF::quad($id, $titleProp, DF::literal('foo', 'en')));
+        $im->add(DF::quad($id, $titleProp, DF::literal('bar', 'de')));
         $r      = self::$repo->createResource($im);
-        $titles = self::toStr($r->getGraph()->allLiterals($titleProp));
+        $titles = $r->getGraph()->listObjects($titleProp)->getValues();
         $this->assertEquals(2, count($titles));
         $this->assertContains('foo', $titles);
         $this->assertContains('bar', $titles);
@@ -478,16 +491,17 @@ class ResourceTest extends TestBase {
         $titleProp = self::$config->schema->label;
         self::$repo->begin();
 
-        $meta = self::createMetadata([$titleProp => new Literal('foo', 'en')]);
+        $meta = self::createMetadata([$titleProp => DF::literal('foo', 'en')]);
         $res  = self::$repo->createResource($meta);
         $meta->delete($titleProp);
-        $meta->addLiteral($titleProp, 'bar', 'de');
+        $meta->add(DF::quadNoSubject($titleProp, DF::literal('bar', 'de')));
 
         $res->setMetadata($meta);
         $res->updateMetadata(RepoResource::UPDATE_MERGE);
-        $tmp    = $res->getGraph()->allLiterals($titleProp);
+        $tmp    = $res->getGraph()->listObjects($titleProp);
         $titles = [];
         foreach ($tmp as $i) {
+            $this->assertInstanceOf(LiteralInterface::class, $i);
             $titles[$i->getLang()] = (string) $i;
         }
         $this->assertEquals(2, count($titles));
@@ -498,9 +512,10 @@ class ResourceTest extends TestBase {
 
         $res->setMetadata($meta);
         $res->updateMetadata(RepoResource::UPDATE_OVERWRITE);
-        $titles = $res->getGraph()->allLiterals($titleProp);
+        $titles = iterator_to_array($res->getGraph()->listObjects($titleProp));
         $this->assertEquals(1, count($titles));
         $this->assertEquals('bar', (string) $titles[0]);
+        $this->assertInstanceOf(LiteralInterface::class, $titles[0]);
         $this->assertEquals('de', $titles[0]->getLang());
 
         self::$repo->rollback();
@@ -511,13 +526,14 @@ class ResourceTest extends TestBase {
      * @depends testTitleAuto
      */
     public function testTitleErrors(): void {
+        $id        = DF::namedNode('.');
         $titleProp = self::$config->schema->label;
         self::$repo->begin();
 
         // empty title
-        $im = (new Graph())->resource('.');
-        $im->addResource(self::$config->schema->id, 'https://id/prop' . time() . rand());
-        $im->addLiteral($titleProp, '', 'en');
+        $im = new DatasetNode($id);
+        $im->add(DF::quad($id, self::$config->schema->id, DF::namedNode('https://id/prop' . time() . rand())));
+        $im->add(DF::quad($id, $titleProp, DF::literal('', 'en')));
         try {
             self::$repo->createResource($im);
             $this->assertTrue(false);
@@ -528,8 +544,8 @@ class ResourceTest extends TestBase {
         }
 
         // no title
-        $im = (new Graph())->resource('.');
-        $im->addResource(self::$config->schema->id, 'https://id/prop' . time() . rand());
+        $im = new DatasetNode($id);
+        $im->add(DF::quad($id, self::$config->schema->id, DF::namedNode('https://id/prop' . time() . rand())));
         try {
             self::$repo->createResource($im);
             $this->assertTrue(false);
@@ -540,10 +556,10 @@ class ResourceTest extends TestBase {
         }
 
         // no language
-        $im = (new Graph())->resource('.');
-        $im->addResource(self::$config->schema->id, 'https://id/prop' . time() . rand());
-        $im->addLiteral($titleProp, 'foo');
-        $im->addLiteral($titleProp, 'bar');
+        $im = new DatasetNode($id);
+        $im->add(DF::quad($id, self::$config->schema->id, DF::namedNode('https://id/prop' . time() . rand())));
+        $im->add(DF::quad($id, $titleProp, DF::literal('foo')));
+        $im->add(DF::quad($id, $titleProp, DF::literal('bar')));
         try {
             self::$repo->createResource($im);
             $this->assertTrue(false);
@@ -556,10 +572,10 @@ class ResourceTest extends TestBase {
         }
 
         // with language
-        $im = (new Graph())->resource('.');
-        $im->addResource(self::$config->schema->id, 'https://id/prop' . time() . rand());
-        $im->addLiteral($titleProp, new Literal('foo', 'en'));
-        $im->addLiteral($titleProp, new Literal('bar', 'en'));
+        $im = new DatasetNode($id);
+        $im->add(DF::quad($id, self::$config->schema->id, DF::namedNode('https://id/prop' . time() . rand())));
+        $im->add(DF::quad($id, $titleProp, DF::literal('foo', 'en')));
+        $im->add(DF::quad($id, $titleProp, DF::literal('bar', 'en')));
         try {
             self::$repo->createResource($im);
             $this->assertTrue(false);
@@ -576,6 +592,7 @@ class ResourceTest extends TestBase {
         $pidProp    = self::$config->schema->pid;
         $pidNmsp    = self::$config->doorkeeper->epicPid->resolver;
         $idNmsp     = self::$config->schema->namespaces->id;
+        $pidTmpl    = new PT($pidProp);
         $restricted = 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted';
         $academic   = 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic';
         $public     = 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public';
@@ -585,18 +602,18 @@ class ResourceTest extends TestBase {
         // no pid generated automatically
         $r  = self::$repo->createResource($im);
         $m1 = $r->getGraph();
-        $this->assertEquals(0, count($m1->all($pidProp)));
+        $this->assertTrue($m1->none(new PT($pidProp)));
 
         // pid generated automatically and promoted to an id
-        $m1->addLiteral($pidProp, self::$config->doorkeeper->epicPid->createValue);
+        $m1->add(DF::quadNoSubject($pidProp, DF::namedNode(self::$config->doorkeeper->epicPid->createValue)));
         $r->setGraph($m1);
         $r->updateMetadata();
         $m2   = $r->getGraph();
-        $this->assertEquals(0, count($m2->allResources($pidProp)));
-        $pids = $m2->allLiterals($pidProp);
+        $this->assertTrue($m2->none($pidTmpl));
+        $pids = $m2->listObjects($pidTmpl)->getValues();
         $this->assertEquals(1, count($pids));
         $this->assertStringStartsWith($pidNmsp, (string) $pids[0]);
-        $this->assertContains((string) $pids[0], $this->toStr($m2->allResources($idProp)));
+        $this->assertContains((string) $pids[0], $m2->listObjects($idProp)->getValues());
 
         // pid generated automatically and promoted to an id
         // for all resources of class TopCollection/Collection/Resource/Metadata with non-restricted access
@@ -608,15 +625,15 @@ class ResourceTest extends TestBase {
         foreach ($classes as $class) {
             $r = self::$repo->createResource(self::createMetadata([$accessProp => $restricted], $class));
             $m = $r->getGraph();
-            $this->assertEquals(0, count($m->all($pidProp)), $class);
+            $this->assertTrue($m->none($pidTmpl), $class);
 
             $r = self::$repo->createResource(self::createMetadata([$accessProp => $academic], $class));
             $m = $r->getGraph();
-            $this->assertEquals(1, count($m->all($pidProp)), $class);
+            $this->assertEquals(1, count($m->copy($pidTmpl)), $class);
 
             $r = self::$repo->createResource(self::createMetadata([$accessProp => $public], $class));
             $m = $r->getGraph();
-            $this->assertEquals(1, count($m->all($pidProp)), $class);
+            $this->assertEquals(1, count($m->copy($pidTmpl)), $class);
         }
         $classes = [
             self::$config->schema->classes->resource,
@@ -628,7 +645,7 @@ class ResourceTest extends TestBase {
         foreach ($classes as $class) {
             $r = self::$repo->createResource(self::createMetadata([], $class));
             $m = $r->getGraph();
-            $this->assertEquals(1, count($m->all($pidProp)), $class);
+            $this->assertEquals(1, count($m->copy($pidTmpl)), $class);
         }
         self::$repo->rollback();
     }
@@ -651,22 +668,22 @@ class ResourceTest extends TestBase {
         ]);
         $r    = self::$repo->createResource($im);
         $m1   = $r->getGraph();
-        $pids = $m1->allLiterals($pidProp);
+        $pids = $m1->listObjects($pidProp)->getValues();
         $this->assertEquals(1, count($pids));
-        $this->assertEquals($httpsPid, (string) $pids[0]);
-        $this->assertContains($httpsPid, $this->toStr($m1->allResources($idProp)));
+        $this->assertEquals($httpsPid, $pids[0]);
+        $this->assertContains($httpsPid, $m1->listObjects($idProp)->getValues());
 
         // pid refreshed from one stored as an id
         $m2   = $r->getGraph();
         $m2->delete($pidProp);
-        $m2->addLiteral($pidProp, self::$config->doorkeeper->epicPid->createValue);
+        $m2->add(DF::quadNoSubject($pidProp, DF::literal(self::$config->doorkeeper->epicPid->createValue)));
         $r->setGraph($m2);
         $r->updateMetadata();
         $m3   = $r->getGraph();
-        $pids = $m3->allLiterals($pidProp);
+        $pids = $m3->listObjects(new PT($pidProp))->getValues();
         $this->assertEquals(1, count($pids));
-        $this->assertEquals($httpsPid, (string) $pids[0]);
-        $this->assertContains($httpsPid, $this->toStr($m3->allResources($idProp)));
+        $this->assertEquals($httpsPid, $pids[0]);
+        $this->assertContains($httpsPid, $m3->listObjects($idProp)->getValues());
 
         self::$repo->rollback();
     }
@@ -699,8 +716,8 @@ class ResourceTest extends TestBase {
         }
 
         $idProp = self::$config->schema->id;
-        $im->delete($idProp);
-        $im->addResource($idProp, self::$config->schema->namespaces->ontology . 'test');
+        $im->delete(new PT($idProp));
+        $im->add(DF::quadNoSubject($idProp, DF::namedNode(self::$config->schema->namespaces->ontology . 'test')));
         $r      = self::$repo->createResource($im);
         $this->assertInstanceOf(RepoResource::class, $r);
         self::$repo->rollback();
@@ -729,13 +746,13 @@ class ResourceTest extends TestBase {
 
         $r      = self::$repo->createResource($im);
         $m      = $r->getGraph();
-        $pids   = self::toStr($m->all($pidProp));
-        $pids2  = self::toStr($m->all($pidProp2));
+        $pids   = $m->listObjects($pidProp)->getValues();
+        $pids2  = $m->listObjects($pidProp2)->getValues();
         $this->assertEquals(1, count($pids));
         $this->assertEquals(1, count($pids2));
         $this->assertStringStartsWith($cfg->resolver, $pids[0]);
         $this->assertStringStartsWith($cfg->resolver, $pids2[0]);
-        $ids    = self::toStr($m->all($idProp));
+        $ids    = $m->listObjects($idProp)->getValues();
         $this->assertEquals(4, count($ids)); // $rid, repo, cmdi, pid
         $cmdiId = null;
         foreach ($ids as $i) {
@@ -768,13 +785,13 @@ class ResourceTest extends TestBase {
         $r = self::$repo->createResource($meta);
 
         $meta = $r->getMetadata();
-        $meta->delete($biblatexProp);
-        $meta->addLiteral($biblatexProp, "author = {Baz, Bar}");
+        $meta->delete(new PT($biblatexProp));
+        $meta->add(DF::quadNoSubject($biblatexProp, DF::literal("author = {Baz, Bar}")));
         $r->setMetadata($meta);
         $r->updateMetadata();
 
-        $meta->delete($biblatexProp);
-        $meta->addLiteral($biblatexProp, "not a valid biblatex");
+        $meta->delete(new PT($biblatexProp));
+        $meta->add(DF::quadNoSubject($biblatexProp, DF::literal("not a valid biblatex")));
         $r->setMetadata($meta);
         try {
             $r->updateMetadata();
@@ -792,35 +809,39 @@ class ResourceTest extends TestBase {
         $class     = 'https://vocabs.acdh.oeaw.ac.at/schema#Collection';
         $meta1     = self::createMetadata([], $class);
         $classDesc = self::$ontology->getClass($class);
+        $propDesc  = null;
         foreach ($classDesc->getProperties() as $i) {
             if (!empty($i->vocabs)) {
                 $propDesc = $i;
                 break;
             }
         }
-        $values = $propDesc->vocabularyValues;
+        $this->assertIsObject($propDesc);
+        $values   = $propDesc->vocabularyValues;
+        $propUri  = DF::namedNode($propDesc->uri);
+        $propTmpl = new PT($propUri);
 
         self::$repo->begin();
 
         // full URI
-        $meta1->delete($propDesc->uri);
-        $meta1->addResource($propDesc->uri, current($values)->concept[0]);
+        $meta1->delete($propTmpl);
+        $meta1->add(DF::quadNoSubject($propUri, DF::namedNode(current($values)->concept[0])));
         $r     = self::$repo->createResource($meta1);
         $meta2 = $r->getMetadata();
-        $value = (string) $meta2->getResource($propDesc->uri);
+        $value = (string) $meta2->getObject($propDesc->uri);
 
         // label
-        $meta2->delete($propDesc->uri);
-        $meta2->addLiteral($propDesc->uri, current($values)->getLabel('de'));
+        $meta2->delete($propTmpl);
+        $meta2->add(DF::quadNoSubject($propUri, DF::literal(current($values)->getLabel('de'))));
         $r->setMetadata($meta2);
         $r->updateMetadata();
         $meta3 = $r->getMetadata();
-        $this->assertEquals($value, (string) $meta3->getResource($propDesc->uri));
+        $this->assertEquals($value, (string) $meta3->getObject($propDesc->uri));
 
         // wrong value
-        $value = 'foo';
-        $meta2->delete($propDesc->uri);
-        $meta2->addLiteral($propDesc->uri, $value);
+        $value = DF::literal('foo');
+        $meta2->delete($propTmpl);
+        $meta2->add(DF::quadNoSubject($propUri, $value));
         $r->setMetadata($meta2);
         try {
             $r->updateMetadata();
@@ -832,9 +853,9 @@ class ResourceTest extends TestBase {
         }
 
         // label as a resource
-        $value = current($values)->getLabel('de');
-        $meta2->delete($propDesc->uri);
-        $meta2->addResource($propDesc->uri, $value);
+        $value = DF::literal(current($values)->getLabel('de'));
+        $meta2->delete($propTmpl);
+        $meta2->add(DF::quadNoSubject($propUri, $value));
         $r->setMetadata($meta2);
         try {
             $r->updateMetadata();
@@ -849,16 +870,16 @@ class ResourceTest extends TestBase {
     }
 
     public function testRangeUri(): void {
-        $prop  = 'https://vocabs.acdh.oeaw.ac.at/schema#hasMetadataCreator';
-        $class = 'https://vocabs.acdh.oeaw.ac.at/schema#Collection';
+        $prop  = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasMetadataCreator');
+        $class = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         $meta  = self::createMetadata([], $class);
 
         self::$repo->begin();
         $r    = self::$repo->createResource($meta);
         $meta = $r->getMetadata();
 
-        $meta->delete($prop);
-        $meta->addResource($prop, 'https://unasccepted/namespace');
+        $meta->delete(new PT($prop));
+        $meta->add(DF::quadNoSubject($prop, DF::namedNode('https://unasccepted/namespace')));
         $r->setMetadata($meta);
         try {
             $r->updateMetadata();
@@ -875,9 +896,9 @@ class ResourceTest extends TestBase {
         $idProp = self::$config->schema->id;
 
         $meta1 = self::createMetadata();
-        $meta1->addResource($idProp, 'http://unable/to/normalize1');
+        $meta1->add(DF::quadNoSubject($idProp, DF::namedNode('http://unable/to/normalize1')));
         $meta2 = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
-        $meta2->addResource($idProp, 'http://unable/to/normalize2');
+        $meta2->add(DF::quadNoSubject($idProp, DF::namedNode('http://unable/to/normalize2')));
 
         self::$repo->begin();
         self::$repo->createResource($meta1);
@@ -901,18 +922,18 @@ class ResourceTest extends TestBase {
         // no pid generated automatically
         $r = self::$repo->createResource(self::createMetadata());
         $m = $r->getGraph();
-        $this->assertNull($m->get($latProp));
-        $this->assertNull($m->get($lonProp));
-        $this->assertNull($m->get($wktProp));
+        $this->assertNull($m->getObject($latProp));
+        $this->assertNull($m->getObject($lonProp));
+        $this->assertNull($m->getObject($wktProp));
 
-        $m->addLiteral($lonProp, 16.5);
-        $m->addLiteral($latProp, 48.1);
+        $m->add(DF::quadNoSubject($lonProp, DF::literal(16.5)));
+        $m->add(DF::quadNoSubject($latProp, DF::literal(48.1)));
         $r->setGraph($m);
         $r->updateMetadata();
         $m = $r->getGraph();
-        $this->assertEquals('48.1', (string) $m->get($latProp));
-        $this->assertEquals('16.5', (string) $m->get($lonProp));
-        $this->assertEquals('POINT(16.5 48.1)', (string) $m->get($wktProp));
+        $this->assertEquals('48.1', (string) $m->getObject($latProp));
+        $this->assertEquals('16.5', (string) $m->getObject($lonProp));
+        $this->assertEquals('POINT(16.5 48.1)', (string) $m->getObject($wktProp));
 
         self::$repo->rollback();
     }

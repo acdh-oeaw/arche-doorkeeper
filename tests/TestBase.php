@@ -28,12 +28,11 @@ namespace acdhOeaw\arche\doorkeeper\tests;
 
 use PDO;
 use Stringable;
-use EasyRdf\Graph;
-use EasyRdf\Literal;
-use EasyRdf\Literal\Decimal;
-use EasyRdf\Literal\Date;
-use EasyRdf\Resource;
 use zozlak\RdfConstants as RDF;
+use rdfInterface\TermInterface;
+use quickRdf\DataFactory as DF;
+use quickRdf\DatasetNode;
+use termTemplates\PredicateTemplate as PT;
 use acdhOeaw\arche\lib\Repo;
 use acdhOeaw\arche\lib\exception\NotFound;
 use acdhOeaw\arche\lib\schema\Ontology;
@@ -60,12 +59,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
 
         self::$config   = json_decode(json_encode(yaml_parse_file(__DIR__ . '/../config.yaml')));
         self::$repo     = Repo::factory(__DIR__ . '/../config.yaml');
-        $cfgObj         = (object) [
-                'ontologyNamespace' => self::$config->schema->namespaces->ontology,
-                'parent'            => self::$config->schema->parent,
-                'label'             => self::$config->schema->label,
-        ];
-        self::$ontology = new Ontology(new PDO(self::$config->dbConn->admin), $cfgObj);
+        self::$ontology = Ontology::factoryDb(new PDO(self::$config->dbConn->admin), self::$config->schema);
 
         self::$sampleResUri = 'https://orcid.org/0000-0001-5853-2534';
     }
@@ -116,20 +110,21 @@ class TestBase extends \PHPUnit\Framework\TestCase {
      * 
      * @param array<mixed> $props
      * @param string $class
-     * @return Resource
+     * @return DatasetNode
      */
     static protected function createMetadata(array $props = [],
-                                             string $class = null): Resource {
+                                             string $class = null): DatasetNode {
         $idProp    = self::$config->schema->id;
         $labelProp = self::$config->schema->label;
 
-        $r = (new Graph())->resource('.');
+        $r = DF::namedNode('https://id.acdh.oeaw.ac.at/test/' . microtime(true) . rand());
+        $d = new DatasetNode($r);
 
-        if (!isset($props[$idProp])) {
-            $r->addResource($idProp, 'https://id.acdh.oeaw.ac.at/test/' . microtime(true) . rand());
+        if (!isset($props[(string) $idProp])) {
+            $d->add(DF::quad($r, $idProp, $r));
         }
-        if (!isset($props[$labelProp])) {
-            $r->addLiteral($labelProp, 'Sample label', 'en');
+        if (!isset($props[(string) $labelProp])) {
+            $d->add(DF::quad($r, $labelProp, DF::literal('Sample label', 'en')));
         }
 
         foreach ($props as $p => $i) {
@@ -137,39 +132,41 @@ class TestBase extends \PHPUnit\Framework\TestCase {
             if (!is_array($i)) {
                 $i = [$i];
             }
+            $pn = DF::namedNode($p);
             foreach ($i as $v) {
                 if (is_object($v)) {
-                    $r->add($p, $v);
-                } elseif ($pDef !== null) {
-                    if ($pDef->type === RDF::OWL_OBJECT_PROPERTY) {
-                        $r->addResource($p, $v);
-                    } else {
-                        $r->addLiteral($p, $v, $pDef->langTag ? 'en' : null);
-                    }
-                } else {
-                    if (preg_match('|^https?://.|', $v)) {
-                        $r->addResource($p, $v);
-                    } else {
-                        $r->addLiteral($p, $v, 'en');
-                    }
+                    $d->add(DF::quad($r, $pn, $v));
+                    continue;
                 }
+                if ($pDef === null) {
+                    $pDef = (object)[
+                        'type' => preg_match('|^https?://.|', $v) ? RDF::OWL_OBJECT_PROPERTY : RDF::OWL_DATATYPE_PROPERTY,
+                        'langTag' => true,
+                    ];
+                }
+                if ($pDef->type === RDF::OWL_OBJECT_PROPERTY) {
+                    $v = DF::namedNode($v);
+                } else {
+                    $v = DF::literal($v, $pDef->langTag ? 'en' : null);
+                }
+                $d->add(DF::quad($r, $pn, $v));
             }
         }
 
         if (!empty($class)) {
-            $r->addResource(RDF::RDF_TYPE, $class);
+            $d->add(DF::quad($r, DF::namedNode(RDF::RDF_TYPE), DF::namedNode($class)));
             $class = self::$ontology->getClass($class);
             foreach ($class->getProperties() as $i) {
-                if ($i->min > 0 && $r->get($i->uri) === null && $i->automatedFill === false) {
-                    $r->add($i->uri, self::createSampleProperty($i));
+                if ($i->min > 0 && $d->none(new PT(DF::namedNode($i->uri))) && $i->automatedFill === false) {
+                    $d->add(DF::quad($r, DF::namedNode($i->uri), self::createSampleProperty($i)));
                 }
             }
         }
 
-        return $r;
+        return $d;
     }
 
-    static protected function createSampleProperty(PropertyDesc $i): Resource | Literal {
+    static protected function createSampleProperty(PropertyDesc $i): TermInterface {
         if ($i->type === RDF::OWL_DATATYPE_PROPERTY) {
             foreach ($i->range as $j) {
                 switch ($j) {
@@ -181,20 +178,21 @@ class TestBase extends \PHPUnit\Framework\TestCase {
                     case RDF::XSD_INTEGER;
                     case RDF::XSD_NON_NEGATIVE_INTEGER;
                     case RDF::XSD_POSITIVE_INTEGER;
-                        return new Decimal(123);
+                        return DF::literal(123, null, $j);
                     case RDF::XSD_NON_POSITIVE_INTEGER;
                     case RDF::XSD_NEGATIVE_INTEGER;
-                        return new Decimal(-321);
+                        return DF::literal(-321, null, $j);
                     case RDF::XSD_DATE:
+                        return DF::literal('2019-01-01', null, $j);
                     case RDF::XSD_DATE_TIME:
-                        return new Date('2019-01-01');
+                        return DF::literal('2019-01-01T12:00:00', null, $j);
                 }
             }
-            return new Literal('sample', 'en');
+            return DF::literal('sample', 'en');
         } elseif (!empty($i->vocabs)) {
-            return new Resource(current($i->vocabularyValues)->concept[0]);
+            return DF::namedNode(current($i->vocabularyValues)->concept[0]);
         } else {
-            return new Resource(self::$sampleResUri);
+            return DF::namedNode(self::$sampleResUri);
         }
     }
 

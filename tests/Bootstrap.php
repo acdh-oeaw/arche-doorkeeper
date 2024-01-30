@@ -39,7 +39,7 @@ use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Filter;
 use SebastianBergmann\CodeCoverage\Data\RawCodeCoverageData;
 use SebastianBergmann\CodeCoverage\Report\Clover;
-use SebastianBergmann\CodeCoverage\Report\Html\HtmlFacade;
+use SebastianBergmann\CodeCoverage\Report\Html\Facade as HtmlFacade;
 use SebastianBergmann\CodeCoverage\Driver\XdebugDriver;
 use acdhOeaw\arche\lib\Config;
 use function \GuzzleHttp\json_decode;

@@ -60,15 +60,15 @@ if (file_exists($argv[1])) {
     $client = new GuzzleHttp\Client();
     $source = $client->get($argv[1]);
 }
-$dt           = new quickRdf\Dataset();
+$dt         = new quickRdf\Dataset();
 $dt->add(quickRdfIo\Util::parse($source, $df));
-$persons      = iterator_to_array($dt->copy(new QT(predicate: $TYPE, object: $PERSON))->listSubjects());
-$personsMap   = [];
+$persons    = iterator_to_array($dt->copy(new QT(predicate: $TYPE, object: $PERSON))->listSubjects());
+$personsMap = [];
 foreach ($persons as $person) {
-    $ids = $dt->copy(new QT($person, $ID));
+    $ids     = $dt->copy(new QT($person, $ID));
     // prefer external ids but use internal if nothing else exists
     $archeId = $ids->delete($TMPL_ARCHE);
-    $acdhId = $ids->delete($TMPL_ACDH);
+    $acdhId  = $ids->delete($TMPL_ACDH);
     if (count($ids) == 0) {
         $ids->add($archeId);
         $ids->add($acdhId);
