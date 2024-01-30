@@ -53,6 +53,7 @@ use acdhOeaw\arche\core\Transaction;
 use acdhOeaw\arche\core\Metadata;
 use acdhOeaw\arche\core\Resource as Res;
 use acdhOeaw\arche\core\RestController as RC;
+use acdhOeaw\arche\lib\Schema;
 use acdhOeaw\arche\lib\schema\Ontology;
 use acdhOeaw\arche\lib\schema\PropertyDesc;
 use zozlak\RdfConstants as RDF;
@@ -75,19 +76,21 @@ class Doorkeeper {
         RDF::XSD_UNSIGNED_INT, RDF::XSD_UNSIGNED_SHORT, RDF::XSD_UNSIGNED_BYTE, RDF::XSD_BOOLEAN];
 
     static private Ontology $ontology;
+    static private Schema $schema;
     static private UriNormalizer $uriNorm;
 
     static public function onResEdit(int $id, DatasetNodeInterface $meta,
                                      ?string $path): DatasetNodeInterface {
+        self::$schema = new Schema(RC::$config->schema);
         self::loadOntology();
-        $pdo       = new PDO(RC::$config->dbConn->admin);
+        $pdo          = new PDO(RC::$config->dbConn->admin);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->query("SET application_name TO doorkeeper");
         $pdo->query("SET lock_timeout TO " . self::DB_LOCK_TIMEOUT);
         $pdo->beginTransaction();
-        $errors    = [];
+        $errors       = [];
         // checkTitleProp before checkCardinalities!
-        $functions = [
+        $functions    = [
             'maintainDefaultValues', 'maintainWkt', 'maintainAccessRights', 'maintainPropertyRange',
             'normalizeIds', 'checkTitleProp', 'checkPropertyTypes', 'checkCardinalities',
             'checkIdCount', 'checkLanguage', 'checkUnknownProperties', 'checkBiblatex',
@@ -118,9 +121,10 @@ class Doorkeeper {
      */
     static public function onTxCommit(string $method, int $txId,
                                       array $resourceIds): void {
+        self::$schema = new Schema(RC::$config->schema);
         self::loadOntology();
         // current state database handler
-        $pdo = new PDO(RC::$config->dbConn->admin);
+        $pdo          = new PDO(RC::$config->dbConn->admin);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->query("SET application_name TO doorkeeper");
         $pdo->query("SET lock_timeout TO " . self::DB_LOCK_TIMEOUT);
@@ -144,9 +148,9 @@ class Doorkeeper {
     }
 
     static private function maintainWkt(DatasetNodeInterface $meta): void {
-        $latProp = RC::$schema->latitude;
-        $lonProp = RC::$schema->longitude;
-        $wktProp = RC::$schema->wkt;
+        $latProp = self::$schema->latitude;
+        $lonProp = self::$schema->longitude;
+        $wktProp = self::$schema->wkt;
         if ($meta->any(new PT($wktProp))) {
             return;
         }
@@ -159,21 +163,21 @@ class Doorkeeper {
 
     static private function maintainPid(DatasetNodeInterface $meta): void {
         $cfg      = RC::$config->doorkeeper->epicPid;
-        $idProp   = RC::$schema->id;
-        $idNmsp   = RC::$schema->namespaces->id;
-        $pidProp  = RC::$schema->pid;
+        $idProp   = self::$schema->id;
+        $idNmsp   = self::$schema->namespaces->id;
+        $pidProp  = self::$schema->pid;
         $propRead = RC::$config->accessControl->schema->read;
         $pidTmpl  = new PT($pidProp);
         $res      = $meta->getNode();
         $ids      = $meta->listObjects(new PT($idProp))->getValues();
 
         $classesAlways        = [
-            RC::$schema->classes->topCollection,
-            RC::$schema->classes->collection,
+            self::$schema->classes->topCollection,
+            self::$schema->classes->collection,
         ];
         $classesNotRestricted = [
-            RC::$schema->classes->resource,
-            RC::$schema->classes->metadata,
+            self::$schema->classes->resource,
+            self::$schema->classes->metadata,
         ];
         $rolesNotRestricted   = [
             RC::$config->doorkeeper->rolePublic,
@@ -185,7 +189,7 @@ class Doorkeeper {
             count(array_intersect($class, $classesNotRestricted)) > 0 && count(array_intersect($roles, $rolesNotRestricted)) > 0;
 
         $idSubNmsps = [];
-        foreach ((array) RC::$schema->namespaces as $i) {
+        foreach (self::$schema->namespaces as $i) {
             $i = (string) $i;
             if (str_starts_with($i, $idNmsp) && $i !== $idNmsp) {
                 $idSubNmsps[] = $i;
@@ -273,11 +277,11 @@ class Doorkeeper {
      */
     static private function maintainCmdiPid(DatasetNodeInterface $meta, PDO $pdo): void {
         $cfg        = RC::$config->doorkeeper->epicPid;
-        $pidProp    = RC::$schema->cmdiPid;
-        $stdPidProp = RC::$schema->pid;
-        $pidNmsp    = RC::$schema->namespaces->cmdi;
+        $pidProp    = self::$schema->cmdiPid;
+        $stdPidProp = self::$schema->pid;
+        $pidNmsp    = self::$schema->namespaces->cmdi;
         $setProp    = $cfg->clarinSetProperty;
-        $idProp     = RC::$schema->id;
+        $idProp     = self::$schema->id;
         $idNmsp     = RC::getBaseUrl();
         if ($meta->any(new PT($pidProp)) || $meta->any(new PT($setProp))) {
             // CMDI PID exists or OAI-PMH set property doesn't exist - nothing to do
@@ -304,7 +308,7 @@ class Doorkeeper {
                 $pid = str_replace($cfg->url, $cfg->resolver, $pid);
                 RC::$log->info("\t\tregistered CMDI PID $pid pointing to " . $id);
                 $meta->add(DF::quad($res, $pidProp, DF::literal($pid, null, RDF::XSD_ANY_URI)));
-                $meta->add(DF::quad($res, RC::$schema->id, DF::literal($id)));
+                $meta->add(DF::quad($res, self::$schema->id, DF::literal($id)));
             }
             // if normal PID is missing, trigger its generation
             if ($meta->any(new PT($stdPidProp))) {
@@ -330,15 +334,15 @@ class Doorkeeper {
      */
     static public function maintainAccessRights(DatasetNodeInterface $meta,
                                                 PDO $pdo): void {
-        $accessRestr = (string) $meta->getObject(RC::$schema->accessRestriction);
+        $accessRestr = (string) $meta->getObject(new PT(self::$schema->accessRestriction));
         if (empty($accessRestr)) {
             return;
         }
 
-        $propRead     = RC::$config->accessControl->schema->read;
-        $propRoles    = RC::$schema->accessRole;
-        $rolePublic   = RC::$config->doorkeeper->rolePublic;
-        $roleAcademic = RC::$config->doorkeeper->roleAcademic;
+        $propRead     = DF::namedNode(RC::$config->accessControl->schema->read);
+        $propRoles    = self::$schema->accessRole;
+        $rolePublic   = DF::namedNode(RC::$config->doorkeeper->rolePublic);
+        $roleAcademic = DF::namedNode(RC::$config->doorkeeper->roleAcademic);
         $res          = $meta->getNode();
 
         $query          = $pdo->prepare("SELECT i1.ids FROM identifiers i1 JOIN identifiers i2 USING (id) WHERE i2.ids = ?");
@@ -395,7 +399,7 @@ class Doorkeeper {
 
     static private function maintainPropertyRangeVocabs(DatasetNodeInterface $meta,
                                                         PropertyDesc $propDesc,
-                                                        string $prop): void {
+                                                        NamedNodeInterface $prop): void {
         if (RC::$config->doorkeeper->checkVocabularyValues === false) {
             return;
         }
@@ -424,7 +428,7 @@ class Doorkeeper {
 
     static private function maintainPropertyRangeLiteral(DatasetNodeInterface $meta,
                                                          PropertyDesc $propDesc,
-                                                         string $prop): void {
+                                                         NamedNodeInterface $prop): void {
         $res   = $meta->getNode();
         $range = $propDesc->range;
         foreach ($meta->listObjects(new PT($prop)) as $l) {
@@ -531,7 +535,7 @@ class Doorkeeper {
             }
         }
 
-        $idProp = RC::$schema->id;
+        $idProp = self::$schema->id;
         foreach ($meta->listObjects(new PT($idProp)) as $id) {
             $ids = (string) $id;
             try {
@@ -590,7 +594,7 @@ class Doorkeeper {
      */
     static private function checkCardinalities(DatasetNodeInterface $meta): void {
         //TODO - rewrite so it just iterates each triple once gathering counts of all properties
-        $ontologyNmsp = RC::$schema->namespaces->ontology;
+        $ontologyNmsp = self::$schema->namespaces->ontology;
         $inDomain     = [RDF::RDF_TYPE];
         foreach ($meta->listObjects(new PT(RDF::RDF_TYPE)) as $class) {
             $classDef = self::$ontology->getClass((string) $class);
@@ -639,8 +643,8 @@ class Doorkeeper {
     }
 
     static private function checkBiblatex(DatasetNodeInterface $meta): void {
-        $biblatexProp = RC::$schema->biblatex ?? 'foo';
-        $biblatex     = trim((string) $meta->getObject((string) $biblatexProp));
+        $biblatexProp = self::$schema->biblatex ?? '';
+        $biblatex     = trim((string) $meta->getObject(new PT($biblatexProp)));
         if (!empty($biblatex)) {
             if (substr($biblatex, 0, 1) !== '@') {
                 $biblatex = "@dataset{foo,\n$biblatex\n}";
@@ -679,12 +683,12 @@ class Doorkeeper {
      * @throws DoorkeeperException
      */
     static private function checkIdCount(DatasetNodeInterface $meta): void {
-        $idProp       = RC::$schema->id;
+        $idProp       = self::$schema->id;
         $repoNmsp     = RC::getBaseUrl();
-        $ontologyNmsp = RC::$schema->namespaces->ontology;
+        $ontologyNmsp = self::$schema->namespaces->ontology;
 
         $ontologyIdCount = $repoIdCount     = $nonRepoIdCount  = 0;
-        $ids             = $meta->listObjects($idProp)->getValues();
+        $ids             = $meta->listObjects(new PT($idProp))->getValues();
         foreach ($ids as $id) {
             $id           = (string) $id;
             $ontologyFlag = str_starts_with($id, $ontologyNmsp);
@@ -713,11 +717,11 @@ class Doorkeeper {
      * @throws DoorkeeperException
      */
     static private function checkTitleProp(DatasetNodeInterface $meta): void {
-        $titleProp = RC::$schema->label;
+        $titleProp = self::$schema->label;
         $res       = $meta->getNode();
 
         // check existing titles
-        $titles = $meta->listObjects($titleProp);
+        $titles = iterator_to_array($meta->listObjects(new PT($titleProp)));
         $langs  = [];
         foreach ($titles as $i) {
             $lang = $i instanceof LiteralInterface ? $i->getLang() : '';
@@ -803,9 +807,9 @@ class Doorkeeper {
         if (RC::$config->doorkeeper->checkUnknownProperties === false) {
             return;
         }
-        $idProp = RC::$schema->id;
-        $nmsp   = RC::$schema->namespaces->ontology;
-        foreach ($meta->listObjects($idProp)->getValues() as $i) {
+        $idProp = self::$schema->id;
+        $nmsp   = self::$schema->namespaces->ontology;
+        foreach ($meta->listObjects(new PT($idProp))->getValues() as $i) {
             if (str_starts_with($i, $nmsp)) {
                 return; // apply on non-ontology resources only
             }
@@ -832,7 +836,7 @@ class Doorkeeper {
      */
     static public function checkIsNewVersionOf(PDO $pdo, int $txId,
                                                array $resourceIds): void {
-        $nvProp    = RC::$schema->isNewVersionOf;
+        $nvProp    = self::$schema->isNewVersionOf;
         $query     = "
             WITH err AS (
                 SELECT target_id, string_agg(id::text, ', ' ORDER BY id) AS old
@@ -936,7 +940,7 @@ class Doorkeeper {
         $param      = array_merge(
             [Transaction::STATE_ACTIVE, $txId],
             $validProps,
-            [Transaction::STATE_ACTIVE, $txId, RC::$schema->label]
+            [Transaction::STATE_ACTIVE, $txId, self::$schema->label]
         );
         $t          = microtime(true);
         $query      = $pdo->prepare($query);
@@ -985,7 +989,7 @@ class Doorkeeper {
         ";
             $query     = str_replace('%ids%', substr(str_repeat('(?::bigint, 0), ', count($resIds)), 0, -2), $query);
             $query     = $pdoOld->prepare($query);
-            $query->execute(array_merge($resIds, [RC::$schema->parent]));
+            $query->execute(array_merge($resIds, [self::$schema->parent]));
             $parentIds = $query->fetchAll(PDO::FETCH_COLUMN);
         } else {
             $parentIds = [];
@@ -1004,7 +1008,7 @@ class Doorkeeper {
         ";
         $query = str_replace('%ids%', substr(str_repeat('(?::bigint), ', count($parentIds)), 0, -2), $query);
         $param = array_merge(
-            [RC::$schema->parent, RC::$schema->parent, $txId],
+            [self::$schema->parent, self::$schema->parent, $txId],
             $parentIds,
         );
         $query = $pdo->prepare($query);
@@ -1046,11 +1050,11 @@ class Doorkeeper {
     }
 
     static private function updateCollectionSize(PDO $pdo): void {
-        $sizeProp      = RC::$schema->binarySize;
-        $acdhSizeProp  = RC::$schema->binarySizeCumulative;
-        $acdhCountProp = RC::$schema->countCumulative;
-        $collClass     = RC::$schema->classes->collection;
-        $topCollClass  = RC::$schema->classes->topCollection;
+        $sizeProp      = self::$schema->binarySize;
+        $acdhSizeProp  = self::$schema->binarySizeCumulative;
+        $acdhCountProp = self::$schema->countCumulative;
+        $collClass     = self::$schema->classes->collection;
+        $topCollClass  = self::$schema->classes->topCollection;
 
         // compute children size and count
         $query = "
@@ -1103,13 +1107,13 @@ class Doorkeeper {
     }
 
     static private function updateCollectionAggregates(PDO $pdo): void {
-        $accessProp     = RC::$schema->accessRestriction;
-        $accessAggProp  = RC::$schema->accessRestrictionAgg;
-        $licenseProp    = RC::$schema->license;
-        $licenseAggProp = RC::$schema->licenseAgg;
-        $labelProp      = RC::$schema->label;
-        $collClass      = RC::$schema->classes->collection;
-        $topCollClass   = RC::$schema->classes->topCollection;
+        $accessProp     = self::$schema->accessRestriction;
+        $accessAggProp  = self::$schema->accessRestrictionAgg;
+        $licenseProp    = self::$schema->license;
+        $licenseAggProp = self::$schema->licenseAgg;
+        $labelProp      = self::$schema->label;
+        $collClass      = self::$schema->classes->collection;
+        $topCollClass   = self::$schema->classes->topCollection;
 
         // compute aggregates
         $query = "
@@ -1202,7 +1206,7 @@ class Doorkeeper {
         if (!isset(self::$ontology)) {
             $cacheFile      = RC::$config->doorkeeper->ontologyCacheFile ?? '';
             $cacheTtl       = RC::$config->doorkeeper->ontologyCacheTtl ?? 600;
-            self::$ontology = Ontology::factoryDb(RC::$pdo, RC::$schema, $cacheFile, $cacheTtl);
+            self::$ontology = Ontology::factoryDb(RC::$pdo, self::$schema, $cacheFile, $cacheTtl);
         }
     }
 
