@@ -38,6 +38,7 @@ use rdfInterface\LiteralInterface;
 use quickRdf\DataFactory as DF;
 use quickRdf\DatasetNode;
 use termTemplates\PredicateTemplate as PT;
+use termTemplates\NamedNodeTemplate as NNT;
 use acdhOeaw\arche\lib\RepoResource;
 use acdhOeaw\arche\lib\BinaryPayload;
 
@@ -176,7 +177,7 @@ class ResourceTest extends TestBase {
 
         $str = $om->getObject(new PT(DF::namedNode('https://other/property')));
         $this->assertInstanceOf(LiteralInterface::class, $str);
-        $this->assertEquals(RDF::XSD_STRING, $str->getDatatype());
+        $this->assertEquals(RDF::RDF_LANG_STRING, $str->getDatatype());
         $this->assertEquals('en', $str->getLang());
 
         $uri = $om->getObject(new PT(DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasPid')));
@@ -223,13 +224,15 @@ class ResourceTest extends TestBase {
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
-            $this->assertMatchesRegularExpression('/^Min property count for .* but resource has 0$/', (string) $resp->getBody());
+            $this->assertMatchesRegularExpression('/^Min property count for .* is .* but resource has 0$/', (string) $resp->getBody());
         }
 
         $class = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         foreach ($class->getProperties() as $i) {
-            if ($i->min > 0 && $im->getObject($i->uri) === null) {
-                $im->add(DF::quadNoSubject(DF::namedNode($i->uri), self::createSampleProperty($i)));
+            $prop = DF::namedNode($i->uri);
+            if ($i->min > 0 && $im->none(new PT($prop))) {
+                $x = self::createSampleProperty($i);
+                $im->add(DF::quadNoSubject($prop, self::createSampleProperty($i)));
             }
         }
         $r = self::$repo->createResource($im);
@@ -285,7 +288,7 @@ class ResourceTest extends TestBase {
         ];
         $class            = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         foreach ($class->getProperties() as $i) {
-            if ($i->min > 0 && $im->getObject($i->uri) === null && !in_array($i->uri, $skip)) {
+            if ($i->min > 0 && $im->none(new PT($i->uri)) && !in_array($i->uri, $skip)) {
                 $im->add(DF::quadNoSubject(DF::namedNode($i->property[0]), self::createSampleProperty($i)));
             }
         }
@@ -299,7 +302,7 @@ class ResourceTest extends TestBase {
 
         $tmpl = new PT(self::$schema->hosting);
         $this->assertTrue($rm->any($tmpl));
-        $rh = new RepoResource((string) $rm->getObject($tmpl), self::$repo);
+        $rh   = new RepoResource((string) $rm->getObject($tmpl), self::$repo);
         $this->assertContains(self::getPropertyDefault((string) self::$schema->hosting), $rh->getIds());
 
         $im  = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
@@ -599,9 +602,9 @@ class ResourceTest extends TestBase {
         $pidNmsp    = self::$config->doorkeeper->epicPid->resolver;
         $idNmsp     = self::$schema->namespaces->id;
         $pidTmpl    = new PT($pidProp);
-        $restricted = 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted';
-        $academic   = 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic';
-        $public     = 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public';
+        $restricted = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted');
+        $academic   = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic');
+        $public     = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public');
         $im         = self::createMetadata([(string) $idProp => $idNmsp . rand()]);
         self::$repo->begin();
 
@@ -615,7 +618,7 @@ class ResourceTest extends TestBase {
         $r->setGraph($m1);
         $r->updateMetadata();
         $m2   = $r->getGraph();
-        $this->assertTrue($m2->none($pidTmpl));
+        $this->assertTrue($m2->none($pidTmpl->withObject(new NNT(null, NNT::ANY))));
         $pids = $m2->listObjects($pidTmpl)->getValues();
         $this->assertEquals(1, count($pids));
         $this->assertStringStartsWith($pidNmsp, (string) $pids[0]);
@@ -738,13 +741,13 @@ class ResourceTest extends TestBase {
         $ycfg['doorkeeper']['checkUnknownProperties'] = false;
         yaml_emit_file($ycfgFile, $ycfg);
 
-        $cfg        = self::$config->doorkeeper->epicPid;
-        $idNmsp     = self::$schema->namespaces->id;
-        $cmdiIdNmsp = self::$schema->namespaces->cmdi;
-        $pidProp    = self::$schema->cmdiPid;
-        $pidProp2   = self::$schema->pid;
-        $idProp     = self::$schema->id;
-        $rid        = $idNmsp . rand();
+        $cfg         = self::$config->doorkeeper->epicPid;
+        $idNmsp      = self::$schema->namespaces->id;
+        $cmdiIdNmsp  = self::$schema->namespaces->cmdi;
+        $cmdiPidProp = self::$schema->cmdiPid;
+        $pidProp     = self::$schema->pid;
+        $idProp      = self::$schema->id;
+        $rid         = $idNmsp . rand();
 
         $im = self::createMetadata([
                 (string) $idProp                 => $rid,
@@ -752,17 +755,17 @@ class ResourceTest extends TestBase {
         ]);
         self::$repo->begin();
 
-        $r      = self::$repo->createResource($im);
-        $m      = $r->getGraph();
-        $pids   = $m->listObjects(new PT($pidProp))->getValues();
-        $pids2  = $m->listObjects(new PT($pidProp2))->getValues();
+        $r        = self::$repo->createResource($im);
+        $m        = $r->getGraph();
+        $cmdiPids = $m->listObjects(new PT($cmdiPidProp))->getValues();
+        $pids     = $m->listObjects(new PT($pidProp))->getValues();
+        $this->assertEquals(1, count($cmdiPids));
         $this->assertEquals(1, count($pids));
-        $this->assertEquals(1, count($pids2));
+        $this->assertStringStartsWith($cfg->resolver, $cmdiPids[0]);
         $this->assertStringStartsWith($cfg->resolver, $pids[0]);
-        $this->assertStringStartsWith($cfg->resolver, $pids2[0]);
-        $ids    = $m->listObjects(new PT($idProp))->getValues();
+        $ids      = $m->listObjects(new PT($idProp))->getValues();
         $this->assertEquals(4, count($ids)); // $rid, repo, cmdi, pid
-        $cmdiId = null;
+        $cmdiId   = null;
         foreach ($ids as $i) {
             if (strpos($i, 'http://127.0.0.1/api/') === 0) {
                 $cmdiId = str_replace('http://127.0.0.1/api/', $cmdiIdNmsp, $i);
@@ -861,7 +864,7 @@ class ResourceTest extends TestBase {
         }
 
         // label as a resource
-        $value = DF::literal(current($values)->getLabel('de'));
+        $value = DF::namedNode(current($values)->getLabel('de'));
         $meta2->delete($propTmpl);
         $meta2->add(DF::quadNoSubject($propUri, $value));
         $r->setMetadata($meta2);

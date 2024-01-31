@@ -164,7 +164,7 @@ class Doorkeeper {
     static private function maintainPid(DatasetNodeInterface $meta): void {
         $cfg      = RC::$config->doorkeeper->epicPid;
         $idProp   = self::$schema->id;
-        $idNmsp   = self::$schema->namespaces->id;
+        $idNmsp   = (string) self::$schema->namespaces->id;
         $pidProp  = self::$schema->pid;
         $propRead = RC::$config->accessControl->schema->read;
         $pidTmpl  = new PT($pidProp);
@@ -276,14 +276,14 @@ class Doorkeeper {
      * @throws DoorkeeperException
      */
     static private function maintainCmdiPid(DatasetNodeInterface $meta, PDO $pdo): void {
-        $cfg        = RC::$config->doorkeeper->epicPid;
-        $pidProp    = self::$schema->cmdiPid;
-        $stdPidProp = self::$schema->pid;
-        $pidNmsp    = self::$schema->namespaces->cmdi;
-        $setProp    = $cfg->clarinSetProperty;
-        $idProp     = self::$schema->id;
-        $idNmsp     = RC::getBaseUrl();
-        if ($meta->any(new PT($pidProp)) || $meta->any(new PT($setProp))) {
+        $cfg         = RC::$config->doorkeeper->epicPid;
+        $cmdiPidProp = self::$schema->cmdiPid;
+        $pidProp     = self::$schema->pid;
+        $pidNmsp     = (string) self::$schema->namespaces->cmdi;
+        $setProp     = $cfg->clarinSetProperty;
+        $idProp      = self::$schema->id;
+        $idNmsp      = RC::getBaseUrl();
+        if ($meta->any(new PT($cmdiPidProp)) || $meta->none(new PT($setProp))) {
             // CMDI PID exists or OAI-PMH set property doesn't exist - nothing to do
             return;
         }
@@ -302,17 +302,17 @@ class Doorkeeper {
             $id  = null;
             $id  = (string) $meta->getObject(new PT($idProp, new VT($idNmsp, VT::STARTS)));
             if (!empty($id)) {
-                $id  = $pidNmsp . substr((string) $id, strlen($idNmsp));
-                $ps  = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
-                $pid = $ps->create($id);
-                $pid = str_replace($cfg->url, $cfg->resolver, $pid);
-                RC::$log->info("\t\tregistered CMDI PID $pid pointing to " . $id);
-                $meta->add(DF::quad($res, $pidProp, DF::literal($pid, null, RDF::XSD_ANY_URI)));
+                $id      = $pidNmsp . substr((string) $id, strlen($idNmsp));
+                $ps      = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
+                $cmdiPid = $ps->create($id);
+                $cmdiPid = str_replace($cfg->url, $cfg->resolver, $cmdiPid);
+                RC::$log->info("\t\tregistered CMDI PID $cmdiPid pointing to " . $id);
+                $meta->add(DF::quad($res, $cmdiPidProp, DF::literal($cmdiPid, null, RDF::XSD_ANY_URI)));
                 $meta->add(DF::quad($res, self::$schema->id, DF::literal($id)));
             }
             // if normal PID is missing, trigger its generation
-            if ($meta->any(new PT($stdPidProp))) {
-                $meta->add(DF::quad($res, $stdPidProp, DF::literal("create")));
+            if ($meta->none(new PT($pidProp))) {
+                $meta->add(DF::quad($res, $pidProp, DF::literal("create")));
             }
         }
     }
@@ -555,9 +555,9 @@ class Doorkeeper {
     static private function checkLanguage(DatasetNodeInterface $meta): void {
         foreach ($meta->listPredicates() as $prop) {
             $p = self::$ontology->getProperty([], $prop);
-            if (is_object($p) && $p->langTag) {
+            if (is_object($p) && ($p->langTag || in_array(RDF::RDF_LANG_STRING, $p->range))) {
                 $value = $meta->getObject(new PT($prop, new NOT(new LT(null, VT::ANY, ''))));
-                if (!$value !== null) {
+                if ($value !== null) {
                     throw new DoorkeeperException("Property $prop with value " . (string) $value . " is not tagged with a language");
                 }
             }
@@ -725,7 +725,6 @@ class Doorkeeper {
         $titles = iterator_to_array($meta->listObjects(new PT($titleProp)));
         $langs  = [];
         foreach ($titles as $i) {
-            RC::$log->critical($i->getValue() . '@' . $i->getLang() . '^' . $i->getDatatype());
             $lang = $i instanceof LiteralInterface ? $i->getLang() : '';
             if (isset($langs[$lang])) {
                 throw new DoorkeeperException("more than one $titleProp property");
@@ -965,7 +964,7 @@ class Doorkeeper {
      */
     static private function updateCollections(PDO $pdo, int $txId,
                                               array $resourceIds): void {
-        RC::$log->info("\t\tUpdating collections affected by the transaction");
+        RC::$log->info("\t\tupdating collections affected by the transaction");
 
         $t0     = microtime(true);
         $query  = $pdo->prepare("

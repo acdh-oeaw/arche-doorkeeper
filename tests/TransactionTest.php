@@ -308,7 +308,6 @@ class TransactionTest extends TestBase {
         $old2m->add(DF::quadNoSubject($verProp, DF::namedNode($new1r->getUri())));
         self::$repo->begin();
         $old2r            = self::$repo->createResource($old2m);
-        echo "old2: " . $old2r->getUri() . "\n";
         $this->toDelete[] = $old2r;
         try {
             self::$repo->commit();
