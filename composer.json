@@ -12,18 +12,13 @@
     ],
     "require": {
         "php": ">=8 <8.3",
-        "acdh-oeaw/arche-core": "^5.0.0-RC1",
-        "acdh-oeaw/arche-lib": "^6.0.0-RC1",
+        "acdh-oeaw/arche-core": "^5",
         "acdh-oeaw/epic-handle": "^1",
-        "acdh-oeaw/uri-normalizer": "^3.0.0-RC1",
-        "acdh-oeaw/arche-lib-schema": "^7.0.0-RC5",
+        "acdh-oeaw/uri-normalizer": "^3",
+        "acdh-oeaw/arche-lib-schema": "^7",
         "acdh-oeaw/arche-assets": "^3.14",
         "zozlak/rdf-constants": "^1",
-        "renanbr/bibtex-parser": "^2.1",
-        "sweetrdf/quick-rdf": "^2.0.0-RC7",
-        "sweetrdf/simple-rdf": "^2.0.0-RC7",
-        "sweetrdf/rdf-interface": "^2.0.0-RC7",
-        "sweetrdf/rdf-helpers": "^2.0.0-RC1"
+        "renanbr/bibtex-parser": "^2.1"
     },
     "autoload": {
         "psr-4": {
