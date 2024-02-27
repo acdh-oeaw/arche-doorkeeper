@@ -948,6 +948,22 @@ class ResourceTest extends TestBase {
 
         self::$repo->rollback();
     }
+
+    public function testTechnicalProperty(): void {
+        $prop  = 'https://vocabs.acdh.oeaw.ac.at/schema#hasLiteralIdentifier';
+        $class = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $meta  = self::createMetadata([$prop => 'some id'], $class);
+        self::$repo->begin();
+        try {
+            self::$repo->createResource($meta);
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $resp = $e->getResponse();
+            $this->assertEquals(400, $resp->getStatusCode());
+            $this->assertStringContainsString("Properties with a wrong domain: $prop", (string) $resp->getBody());
+        }
+        self::$repo->rollback();
+    }
 //    public function testRangeUri(): void {
 //        \acdhOeaw\arche\lib\ingest\MetadataCollection::$debug = true;
 //        $graph = new \acdhOeaw\arche\lib\ingest\MetadataCollection(self::$repo, __DIR__ . '/kraus_processed.nt');
