@@ -904,15 +904,16 @@ class Doorkeeper {
         // all resources pointed with this properties are excluded from
         // the no metadata check
         $validRanges = array_keys((array) RC::$config->doorkeeper->checkRanges);
-        $validProps  = [];
+        $validProps  = [Transaction::STATE_ACTIVE, $txId];
         foreach (self::$ontology->getProperties() as $prop) {
             if (count(array_intersect($prop->range, $validRanges))) {
                 $validProps = array_merge($validProps, $prop->property);
             }
         }
-        $plh = substr(str_repeat(', ?', count($validProps)), 2);
+        $plh = substr(str_repeat(', ?', count($validProps) - 2), 2);
         if ($plh === '') {
             $validQuery = "SELECT 1::bigint AS id WHERE false";
+            $validProps = [];
         } else {
             $validQuery = "
                 SELECT DISTINCT target_id AS id
@@ -939,7 +940,6 @@ class Doorkeeper {
                 AND NOT EXISTS (SELECT 1 FROM valid WHERE id = r.id)
         ";
         $param      = array_merge(
-            [Transaction::STATE_ACTIVE, $txId],
             $validProps,
             [Transaction::STATE_ACTIVE, $txId, self::$schema->label]
         );
