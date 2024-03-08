@@ -894,7 +894,7 @@ class Doorkeeper {
         // find all properties which range has been checked
         // all resources pointed with this properties are excluded from
         // the no metadata check
-        $validRanges = array_keys(get_object_vars(RC::$config->doorkeeper->checkRanges));
+        $validRanges = array_keys((array) RC::$config->doorkeeper->checkRanges);
         $validProps  = [];
         foreach (self::$ontology->getProperties() as $prop) {
             if (count(array_intersect($prop->range, $validRanges))) {
