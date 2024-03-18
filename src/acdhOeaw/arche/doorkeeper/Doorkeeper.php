@@ -433,8 +433,7 @@ class Doorkeeper {
         $range = $propDesc->range;
         foreach ($meta->listObjects(new PT($prop, new LT(null, LT::ANY))) as $l) {
             $type = $l instanceof LiteralInterface ? $l->getDatatype() : null;
-            // at some point we should fix ranges in the ontology
-            if (in_array($type, $range) || $type === RDF::RDF_LANG_STRING && in_array(RDF::XSD_STRING, $range)) {
+            if (in_array($type, $range)) {
                 continue;
             }
             if (in_array(RDF::XSD_STRING, $range)) {
@@ -555,7 +554,7 @@ class Doorkeeper {
     static private function checkLanguage(DatasetNodeInterface $meta): void {
         foreach ($meta->listPredicates() as $prop) {
             $p = self::$ontology->getProperty([], $prop);
-            if (is_object($p) && ($p->langTag || in_array(RDF::RDF_LANG_STRING, $p->range))) {
+            if (is_object($p) && $p->langTag) {
                 $value = $meta->getObject(new PT($prop, new NOT(new LT(null, VT::ANY, ''))));
                 if ($value !== null) {
                     throw new DoorkeeperException("Property $prop with value " . (string) $value . " is not tagged with a language");
