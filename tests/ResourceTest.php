@@ -342,7 +342,7 @@ class ResourceTest extends TestBase {
 
         $client = new Client(['http_errors' => false, 'allow_redirects' => false]);
         $resp   = $client->send(new Request('get', (string) $r->getUri()));
-        $this->assertEquals(403, $resp->getStatusCode());
+        $this->assertEquals(401, $resp->getStatusCode());
         $resp   = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(200, $resp->getStatusCode());
     }
@@ -365,7 +365,7 @@ class ResourceTest extends TestBase {
 
         $client = new Client(['http_errors' => false, 'allow_redirects' => false]);
         $resp   = $client->send(new Request('get', (string) $r->getUri()));
-        $this->assertEquals(403, $resp->getStatusCode());
+        $this->assertEquals(401, $resp->getStatusCode());
         $resp   = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(403, $resp->getStatusCode());
         $resp   = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => 'foo']));
@@ -393,7 +393,7 @@ class ResourceTest extends TestBase {
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
         $resp = $client->send(new Request('get', (string) $r->getUri()));
-        $this->assertEquals(403, $resp->getStatusCode());
+        $this->assertEquals(401, $resp->getStatusCode());
         $resp = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(200, $resp->getStatusCode());
 
@@ -428,7 +428,7 @@ class ResourceTest extends TestBase {
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
         $resp = $client->send(new Request('get', (string) $r->getUri()));
-        $this->assertEquals(403, $resp->getStatusCode());
+        $this->assertEquals(401, $resp->getStatusCode());
         $resp = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(200, $resp->getStatusCode());
 
@@ -438,7 +438,7 @@ class ResourceTest extends TestBase {
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
         $resp = $client->send(new Request('get', (string) $r->getUri()));
-        $this->assertEquals(403, $resp->getStatusCode());
+        $this->assertEquals(401, $resp->getStatusCode());
         $resp = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(403, $resp->getStatusCode());
         $resp = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => 'bar']));

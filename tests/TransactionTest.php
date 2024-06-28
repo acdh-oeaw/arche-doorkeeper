@@ -231,7 +231,7 @@ class TransactionTest extends TestBase {
         $rCol1Meta = $rCol1->getGraph();
         $tmp       = $rCol1Meta->getObject(new PT($licenseAggProp));
         $this->assertInstanceOf(LiteralInterface::class, $tmp);
-        $ref       = $tmp->getLang() === 'en' ? "Attribution 4.0 International (CC BY 4.0) 1\nMIT license 1\nNo Copyright - Non-Commercial Use Only 1" : "Kein Urheberrechtsschutz - nur nicht kommerzielle Nutzung erlaubt 1\nMIT Lizenz 1\nNamensnennung 4.0 International (CC BY 4.0) 1";
+        $ref       = $tmp->getLang() === 'en' ? "CC BY 4.0 1\nMIT 1\nNoC-NC 1" : "CC BY 4.0 1\nMIT 1\nNoC-NC 1";
         $this->assertEquals($ref, $tmp->getValue());
         $tmp       = $rCol1Meta->getObject(new PT($accessAggProp));
         $this->assertInstanceOf(LiteralInterface::class, $tmp);

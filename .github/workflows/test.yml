@@ -9,7 +9,7 @@ jobs:
     - uses: actions/checkout@v3
     - name: clone repo config
       run: |
-        git clone --depth 1 --branch rdfInterface https://github.com/acdh-oeaw/arche-docker-config.git config
+        git clone --depth 1 --branch arche https://github.com/acdh-oeaw/arche-docker-config.git config
         chmod +x config/run.d/xdebug.sh
         rm -f config/run.d/gui.sh config/run.d/oaipmh.sh config/run.d/resolver.sh config/run.d/fcs.sh config/run.d/openrefine.sh config/run.d/refsources.sh config/initScripts/30-dissServices.php
         cp .github/workflows/test-postgresql_config.sh config/run.d/
