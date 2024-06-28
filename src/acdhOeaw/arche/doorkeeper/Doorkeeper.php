@@ -486,6 +486,12 @@ class Doorkeeper {
             try {
                 $norm->resolve((string) $obj);
                 RC::$log->debug("\t\t$prop value $obj resolved successfully");
+
+                $objNorm = $norm->normalize((string) $obj);
+                if ($objNorm !== (string) $obj) {
+                    $objNorm = DF::namedNode($objNorm);
+                    $meta->forEach(fn($q) => $q->withObject($objNorm), new PT($prop, $obj));
+                }
             } catch (UriNormalizerException $ex) {
                 throw new DoorkeeperException($ex->getMessage(), $ex->getCode(), $ex);
             }

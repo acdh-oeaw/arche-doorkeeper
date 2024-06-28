@@ -41,6 +41,7 @@ use termTemplates\PredicateTemplate as PT;
 use termTemplates\NamedNodeTemplate as NNT;
 use acdhOeaw\arche\lib\RepoResource;
 use acdhOeaw\arche\lib\BinaryPayload;
+use acdhOeaw\arche\lib\exception\NotFound;
 
 /**
  * Description of DoorkeeperTest
@@ -961,6 +962,23 @@ class ResourceTest extends TestBase {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
             $this->assertStringContainsString("Properties with a wrong domain: $prop", (string) $resp->getBody());
+        }
+        self::$repo->rollback();
+    }
+
+    public function testNormalizeObjectValue(): void {
+        $prop  = 'https://vocabs.acdh.oeaw.ac.at/schema#hasActor';
+        $value = 'https://orcid.org/0000-0001-5853-2534/';
+        $class = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $meta  = self::createMetadata([$prop => $value], $class);
+        self::$repo->begin();
+        $res   = self::$repo->createResource($meta);
+        $ref   = self::$repo->getResourceById(substr($value, 0, -1)); // normalized form
+        try {
+            self::$repo->getResourceById($value);
+            $this->assertTrue(false);
+        } catch (NotFound $ex) {
+            $this->assertTrue(true);
         }
         self::$repo->rollback();
     }
