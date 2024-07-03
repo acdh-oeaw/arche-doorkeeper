@@ -97,7 +97,7 @@ class Resource {
             try {
                 $doorkeeper->runTests($checkType);
             } catch (DoorkeeperException $ex) {
-                $errors[] = $ex;
+                $errors[] = $ex->getMessage();
             }
         }
         if (count($errors) > 0) {
