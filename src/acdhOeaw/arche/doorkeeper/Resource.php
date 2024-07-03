@@ -294,19 +294,21 @@ class Resource {
         }
 
         // preserve old titles when needed
-        $mode = RC::getRequestParameter('metadataWriteMode');
-        if ($mode === Metadata::SAVE_MERGE) {
-            $query = RC::$pdo->prepare("
-                SELECT value, lang 
-                FROM metadata 
-                WHERE property = ? AND id = ?
-            ");
-            $id    = preg_replace('|^.*/|', '', (string) $res);
-            $query->execute([$titleProp, $id]);
-            while ($i     = $query->fetchObject()) {
-                if (!isset($langs[$i->lang])) {
-                    $titles[] = '';
-                    $this->meta->add(DF::quad($res, $titleProp, DF::literal($i->value, $i->lang)));
+        if ($this->inArcheCoreContext()) {
+            $mode = RC::getRequestParameter('metadataWriteMode');
+            if ($mode === Metadata::SAVE_MERGE) {
+                $query = RC::$pdo->prepare("
+                    SELECT value, lang 
+                    FROM metadata 
+                    WHERE property = ? AND id = ?
+                ");
+                $id    = preg_replace('|^.*/|', '', (string) $res);
+                $query->execute([$titleProp, $id]);
+                while ($i     = $query->fetchObject()) {
+                    if (!isset($langs[$i->lang])) {
+                        $titles[] = '';
+                        $this->meta->add(DF::quad($res, $titleProp, DF::literal($i->value, $i->lang)));
+                    }
                 }
             }
         }
@@ -452,7 +454,7 @@ class Resource {
     #[CheckAttribute]
     public function check04IdCount(): void {
         $idProp       = $this->schema->id;
-        $repoNmsp     = RC::getBaseUrl();
+        $repoNmsp     = $this->inArcheCoreContext() ? RC::getBaseUrl() : '~';
         $ontologyNmsp = $this->schema->namespaces->ontology;
 
         $ontologyIdCount = $repoIdCount     = $nonRepoIdCount  = 0;
@@ -496,7 +498,7 @@ class Resource {
      */
     #[CheckAttribute]
     public function check06UnknownProperties(): void {
-        if (RC::$config->doorkeeper->checkUnknownProperties === false) {
+        if ($this->inArcheCoreContext() && RC::$config->doorkeeper->checkUnknownProperties === false) {
             return;
         }
         $idProp = $this->schema->id;
@@ -863,5 +865,9 @@ class Resource {
             }
         }
         return $value;
+    }
+
+    private function inArcheCoreContext(): bool {
+        return class_exists(RC::class);
     }
 }
