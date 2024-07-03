@@ -17,7 +17,7 @@ rest:
                   function: \acdhOeaw\arche\doorkeeper\Doorkeeper::onResEdit
             txCommit:
                 - type: function
-                  function: \acdhOeaw\arche\doorkeeper\Doorkeeper::onTxCommit
+                  function: \acdhOeaw\arche\doorkeeper\Transaction::onTxCommit
 schema:
     id: https://vocabs.acdh.oeaw.ac.at/schema#hasIdentifier
     label: https://vocabs.acdh.oeaw.ac.at/schema#hasTitle

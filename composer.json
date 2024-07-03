@@ -12,8 +12,6 @@
     ],
     "require": {
         "php": "^8.1",
-        "acdh-oeaw/arche-core": "^5",
-        "acdh-oeaw/epic-handle": "^1",
         "acdh-oeaw/uri-normalizer": "^3",
         "acdh-oeaw/arche-lib-schema": "^7.1",
         "acdh-oeaw/arche-assets": "^3.14",
@@ -26,13 +24,19 @@
         }
     },
     "require-dev": {
+        "acdh-oeaw/arche-core": "^5",
+        "acdh-oeaw/epic-handle": "^1",
+        "acdh-oeaw/arche-lib-ingest": "^4",
         "phpunit/phpunit": "^10",
-        "phpstan/phpstan": "*",
-        "acdh-oeaw/arche-lib-ingest": "^4"
+        "phpstan/phpstan": "*"
     },
     "autoload-dev": {
         "psr-4": {
             "acdhOeaw\\arche\\doorkeeper\\tests\\": "tests"
         }
+    },
+    "suggest": {
+        "acdh-oeaw/arche-core": "^5",
+        "acdh-oeaw/epic-handle": "^1"
     }
 }
