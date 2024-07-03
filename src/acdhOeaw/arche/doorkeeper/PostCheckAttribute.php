@@ -27,7 +27,7 @@
 namespace acdhOeaw\arche\doorkeeper;
 
 /**
- * Description of PostCheckAttribute
+ * Attribute used to mark post-check methods
  *
  * @author zozlak
  */

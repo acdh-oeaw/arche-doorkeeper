@@ -62,7 +62,7 @@ use zozlak\RdfConstants as RDF;
  *
  * @author zozlak
  */
-class Doorkeeper {
+class Resource {
 
     const DB_LOCK_TIMEOUT      = 1000;
     const NON_NEGATIVE_NUMBERS = [RDF::XSD_NON_NEGATIVE_INTEGER, RDF::XSD_UNSIGNED_LONG,
@@ -87,7 +87,7 @@ class Doorkeeper {
         $cacheFile  = RC::$config->doorkeeper->ontologyCacheFile ?? '';
         $cacheTtl   = RC::$config->doorkeeper->ontologyCacheTtl ?? 600;
         $ontology   = Ontology::factoryDb(RC::$pdo, $schema, $cacheFile, $cacheTtl);
-        $doorkeeper = new Doorkeeper($meta, $schema, $ontology, $pdo, RC::$log);
+        $doorkeeper = new Resource($meta, $schema, $ontology, $pdo, RC::$log);
 
         $errors = [];
         foreach ([PreCheckAttribute::class, CheckAttribute::class, PostCheckAttribute::class] as $checkType) {
@@ -598,7 +598,7 @@ class Doorkeeper {
 
     #[PostCheckAttribute]
     public function post02MaintainPid(): void {
-        $cfg      = RC::$config->doorkeeper->config->epicPid;
+        $cfg      = RC::$config->doorkeeper->epicPid;
         $idProp   = $this->schema->id;
         $idNmsp   = (string) $this->schema->namespaces->id;
         $pidProp  = $this->schema->pid;

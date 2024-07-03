@@ -27,7 +27,8 @@
 namespace acdhOeaw\arche\doorkeeper;
 
 /**
- * Description of SanitizeAttribute
+ * Attribute used to mark pre-check methods
+ * (ones which sanitize metadata before checks)
  *
  * @author zozlak
  */

@@ -27,7 +27,7 @@
 namespace acdhOeaw\arche\doorkeeper;
 
 /**
- * Description of TestAttribute
+ * Attribute used to mark check methods
  *
  * @author zozlak
  */
