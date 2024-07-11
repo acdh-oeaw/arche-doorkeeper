@@ -389,6 +389,7 @@ class Resource {
     #[CheckAttribute]
     public function check03Cardinalities(): void {
         //TODO - rewrite so it just iterates each triple once gathering counts of all properties
+        $errors       = [];
         $ontologyNmsp = $this->schema->namespaces->ontology;
         $inDomain     = [RDF::RDF_TYPE];
         foreach ($this->meta->listObjects(new PT(RDF::RDF_TYPE)) as $class) {
@@ -418,10 +419,10 @@ class Resource {
                         }
                     }
                     if ($p->min > 0 && $co + $cd < $p->min) {
-                        throw new DoorkeeperException('Min property count for ' . $p->uri . ' is ' . $p->min . ' but resource has ' . ($co + $cd));
+                        $errors[] = 'Min property count for ' . $p->uri . ' is ' . $p->min . ' but resource has ' . ($co + $cd);
                     }
                     if ($p->max > 0 && $co + max($cdl) > $p->max) {
-                        throw new DoorkeeperException('Max property count for ' . $p->uri . ' is ' . $p->max . ' but resource has ' . ($co + max($cdl)));
+                        $errors[] = 'Max property count for ' . $p->uri . ' is ' . $p->max . ' but resource has ' . ($co + max($cdl));
                     }
                 }
             }
@@ -432,8 +433,12 @@ class Resource {
             $owlThing  = $this->ontology->getClass(RDF::OWL_THING);
             $outDomain = array_diff($outDomain, array_keys($owlThing->properties)); // properties allowed on all resources
             if (count($outDomain) > 0) {
-                throw new DoorkeeperException("Properties with a wrong domain: " . implode(', ', $outDomain));
+                $errors[] = "Properties with a wrong domain: " . implode(', ', $outDomain);
             }
+        }
+
+        if (count($errors) > 0) {
+            throw new DoorkeeperException(implode("\n", array_unique($errors)));
         }
     }
 

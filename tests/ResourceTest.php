@@ -225,7 +225,7 @@ class ResourceTest extends TestBase {
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
-            $this->assertMatchesRegularExpression('/^Min property count for .* is .* but resource has 0$/', (string) $resp->getBody());
+            $this->assertMatchesRegularExpression('/^Min property count for .* is .* but resource has 0$/m', (string) $resp->getBody());
         }
 
         $class = self::$ontology->getClass('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
