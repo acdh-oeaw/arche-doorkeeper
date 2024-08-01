@@ -873,6 +873,6 @@ class Resource {
     }
 
     private function inArcheCoreContext(): bool {
-        return class_exists(RC::class);
+        return class_exists(RC::class) && isset(RC::$auth);
     }
 }
