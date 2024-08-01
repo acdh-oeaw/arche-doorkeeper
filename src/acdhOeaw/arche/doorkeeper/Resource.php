@@ -73,6 +73,7 @@ class Resource {
         RDF::XSD_NON_NEGATIVE_INTEGER, RDF::XSD_NON_POSITIVE_INTEGER, RDF::XSD_POSITIVE_INTEGER,
         RDF::XSD_LONG, RDF::XSD_INT, RDF::XSD_SHORT, RDF::XSD_BYTE, RDF::XSD_UNSIGNED_LONG,
         RDF::XSD_UNSIGNED_INT, RDF::XSD_UNSIGNED_SHORT, RDF::XSD_UNSIGNED_BYTE, RDF::XSD_BOOLEAN];
+    const OPENAIRE_OAIPMH_SET  = 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/openaire_data';
     use RunTestsTrait;
 
     static public function onResEdit(int $id, DatasetNodeInterface $meta,
@@ -147,7 +148,14 @@ class Resource {
     }
 
     #[PreCheckAttribute]
-    public function pre02MaintainWkt(): void {
+    public function pre02MaintainOpenAire(): void {
+        if ($this->meta->any(new PT(RDF::RDF_TYPE, $this->schema->classes->topCollection))) {
+            $this->meta->add(DF::quadNoSubject($this->schema->oaipmhSet, DF::namedNode(self::OPENAIRE_OAIPMH_SET)));
+        }
+    }
+
+    #[PreCheckAttribute]
+    public function pre03MaintainWkt(): void {
         $latProp = $this->schema->latitude;
         $lonProp = $this->schema->longitude;
         $wktProp = $this->schema->wkt;
@@ -174,7 +182,7 @@ class Resource {
      *   in `cfg.schema.accessRole`
      */
     #[PreCheckAttribute]
-    public function pre03MaintainAccessRights(): void {
+    public function pre04MaintainAccessRights(): void {
         $accessRestr = (string) $this->meta->getObject(new PT($this->schema->accessRestriction));
         if (empty($accessRestr)) {
             return;
@@ -211,7 +219,7 @@ class Resource {
     }
 
     #[PreCheckAttribute]
-    public function pre04MaintainPropertyRange(): void {
+    public function pre05MaintainPropertyRange(): void {
         static $checkRangeUris = null;
         if ($checkRangeUris === null) {
             $checkRangeUris = array_keys((array) RC::$config->doorkeeper->checkRanges);
@@ -240,7 +248,7 @@ class Resource {
     }
 
     #[PreCheckAttribute]
-    public function pre05NormalizeIds(): void {
+    public function pre06NormalizeIds(): void {
         $res = $this->meta->getNode();
 
         // enforce IDs to be in known namespaces for known classes

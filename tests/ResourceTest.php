@@ -982,6 +982,16 @@ class ResourceTest extends TestBase {
         }
         self::$repo->rollback();
     }
+
+    public function testOpenAireOaipmhSet(): void {
+        $class = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#TopCollection');
+        $meta  = self::createMetadata([], $class);
+        self::$repo->begin();
+        $res   = self::$repo->createResource($meta);
+        $set   = $res->getMetadata()->getObject(new PT(self::$schema->oaipmhSet));
+        $this->assertEquals(\acdhOeaw\arche\doorkeeper\Resource::OPENAIRE_OAIPMH_SET, (string) $set));
+        self::$repo->rollback();
+    }
 //    public function testRangeUri(): void {
 //        \acdhOeaw\arche\lib\ingest\MetadataCollection::$debug = true;
 //        $graph = new \acdhOeaw\arche\lib\ingest\MetadataCollection(self::$repo, __DIR__ . '/kraus_processed.nt');
