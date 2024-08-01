@@ -989,7 +989,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         $res   = self::$repo->createResource($meta);
         $set   = $res->getMetadata()->getObject(new PT(self::$schema->oaipmhSet));
-        $this->assertEquals(\acdhOeaw\arche\doorkeeper\Resource::OPENAIRE_OAIPMH_SET, (string) $set));
+        $this->assertEquals(\acdhOeaw\arche\doorkeeper\Resource::OPENAIRE_OAIPMH_SET, (string) $set);
         self::$repo->rollback();
     }
 //    public function testRangeUri(): void {
