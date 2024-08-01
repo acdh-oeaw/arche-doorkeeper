@@ -375,7 +375,7 @@ class Transaction {
             )
                 SELECT 
                     id, ?::text AS property, lang, 
-                    string_agg(value || ' ' || count, E'\\n' ORDER BY count DESC, value) AS value
+                    string_agg(value || ': ' || count, ' / ' ORDER BY count DESC, value) AS value
                 FROM (
                     SELECT cid AS id, rl.property, lang, value, count(*) AS count
                     FROM
@@ -390,7 +390,7 @@ class Transaction {
               UNION
                 SELECT 
                     id, ?::text AS property, lang, 
-                    string_agg(value || ' ' || count, E'\\n' ORDER BY count DESC, value) AS value
+                    string_agg(value || ': ' || count, ' / ' ORDER BY count DESC, value) AS value
                 FROM (
                     SELECT cid AS id, rl.property, lang, value, count(*) AS count
                     FROM
