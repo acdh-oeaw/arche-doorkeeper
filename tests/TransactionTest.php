@@ -241,7 +241,7 @@ class TransactionTest extends TestBase {
 
     public function testTopCollectionAggregates(): void {
         self::$config->schema->classes->collection = 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection';
-        self::$schema = new \acdhOeaw\arche\lib\Schema(self::$config->schema);
+        self::$schema                              = new \acdhOeaw\arche\lib\Schema(self::$config->schema);
         $this->testCollectionAggregates();
     }
 
@@ -316,7 +316,30 @@ class TransactionTest extends TestBase {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
             $this->assertStringContainsString("More than one $verProp pointing to some resources:", (string) $resp->getBody());
-            sleep(1); // to avoid removing resources between the transaction is fully rolled back
+            sleep(1); // to avoid removing resources before the transaction is fully rolled back
+        }
+    }
+
+    public function testEmptyCollection(): void {
+        $tcm = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection');
+        $cm  = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+
+        self::$repo->begin();
+        $tcr              = self::$repo->createResource($tcm);
+        $this->toDelete[] = $tcr;
+        $cr               = self::$repo->createResource($cm);
+        $this->toDelete[] = $cr;
+        try {
+            self::$repo->commit();
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $msg  = (string) $e->getResponse()->getBody();
+            $tcid = preg_replace('|^.*/|', '', $tcr->getUri());
+            $cid  = preg_replace('|^.*/|', '', $cr->getUri());
+            $this->assertStringStartsWith("Transaction created empty collections: ", $msg);
+            $this->assertStringContainsString($tcid, $msg);
+            $this->assertStringContainsString($cid, $msg);
+            sleep(1); // to avoid removing resources before the transaction is fully rolled back
         }
     }
 }

@@ -206,6 +206,43 @@ class Transaction {
 
     /**
      * 
+     * @throws DoorkeeperException
+     */
+    #[CheckAttribute]
+    public function checkEmptyCollections(): void {
+        $query      = "
+            SELECT string_agg(DISTINCT ids, ', ')
+            FROM
+                resources r
+                JOIN metadata c USING (id)
+                JOIN identifiers USING (id)
+            WHERE
+                r.state = ?
+                AND r.transaction_id = ?
+                AND c.property = ?
+                AND c.value IN (?, ?)
+                AND NOT EXISTS (SELECT 1 FROM relations ch WHERE ch.property = ? AND ch.target_id = r.id)
+        ";
+        $param      = [
+            ArcheTransaction::STATE_ACTIVE,
+            $this->txId,
+            RDF::RDF_TYPE,
+            $this->schema->classes->topCollection, $this->schema->classes->collection,
+            $this->schema->parent
+        ];
+        $t          = microtime(true);
+        $query      = $this->pdo->prepare($query);
+        $query->execute($param);
+        $invalidRes = $query->fetchColumn();
+        $t          = microtime(true) - $t;
+        $this->log?->debug("\t\checkEmptyCollections performed in $t s");
+        if (!empty($invalidRes)) {
+            throw new DoorkeeperException("Transaction created empty collections: $invalidRes");
+        }
+    }
+
+    /**
+     * 
      * @return void
      * @throws DoorkeeperException
      */
