@@ -32,6 +32,7 @@ jobs:
           sleep 10
         done
         cat log/initScripts.log
+    - uses: mxschmitt/action-tmate@v3
     - name: test
       run: |
         XDEBUG_MODE=coverage ./vendor/bin/phpunit
