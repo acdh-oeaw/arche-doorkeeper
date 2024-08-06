@@ -1017,7 +1017,8 @@ class ResourceTest extends TestBase {
             $res = self::$repo->createResource($meta);
             $this->assertTrue(false);
         } catch (ClientException $e) {
-            $this->assertStringContainsString("Start date after the end date", $e->getMessage());
+            $msg = (string) $e->getResponse()->getBody();
+            $this->assertEquals("Start date after the end date for $startProp/$endProp (1345-01-01 > 1234-01-01)", $msg);
         }
 
         self::$repo->rollback();
