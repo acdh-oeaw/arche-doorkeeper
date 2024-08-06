@@ -148,14 +148,30 @@ class Resource {
     }
 
     #[PreCheckAttribute]
-    public function pre02MaintainOpenAire(): void {
+    public function pre02MaintainEndDates(): void {
+        $this->log->warning('FOO');
+        foreach ($this->meta->listPredicates() as $prop) {
+            if (!str_contains((string) $prop, 'Start')) {
+                continue;
+            }
+            // if the end property is missing, copy values from the start property
+            $endProp = DF::namedNode(str_replace('Start', 'End', (string) $prop));
+            if ($this->meta->none(new PT($endProp))) {
+                $this->meta->add($this->meta->map(fn($x) => $x->withPredicate($endProp), new PT($prop)));
+                $this->log?->info("\t\tadding missing $endProp");
+            }
+        }
+    }
+
+    #[PreCheckAttribute]
+    public function pre03MaintainOpenAire(): void {
         if ($this->meta->any(new PT(RDF::RDF_TYPE, $this->schema->classes->topCollection))) {
             $this->meta->add(DF::quadNoSubject($this->schema->oaipmhSet, DF::namedNode(self::OPENAIRE_OAIPMH_SET)));
         }
     }
 
     #[PreCheckAttribute]
-    public function pre03MaintainWkt(): void {
+    public function pre04MaintainWkt(): void {
         $latProp = $this->schema->latitude;
         $lonProp = $this->schema->longitude;
         $wktProp = $this->schema->wkt;
@@ -182,7 +198,7 @@ class Resource {
      *   in `cfg.schema.accessRole`
      */
     #[PreCheckAttribute]
-    public function pre04MaintainAccessRights(): void {
+    public function pre05MaintainAccessRights(): void {
         $accessRestr = (string) $this->meta->getObject(new PT($this->schema->accessRestriction));
         if (empty($accessRestr)) {
             return;
@@ -219,7 +235,7 @@ class Resource {
     }
 
     #[PreCheckAttribute]
-    public function pre05MaintainPropertyRange(): void {
+    public function pre06MaintainPropertyRange(): void {
         static $checkRangeUris = null;
         if ($checkRangeUris === null) {
             $checkRangeUris = array_keys((array) RC::$config->doorkeeper->checkRanges);
@@ -248,7 +264,7 @@ class Resource {
     }
 
     #[PreCheckAttribute]
-    public function pre06NormalizeIds(): void {
+    public function pre07NormalizeIds(): void {
         $res = $this->meta->getNode();
 
         // enforce IDs to be in known namespaces for known classes
@@ -550,6 +566,30 @@ class Resource {
             }
             if (count($listener->export()) === 0) {
                 throw new DoorkeeperException("Invalid BibLaTeX entry: $biblatex");
+            }
+        }
+    }
+
+    #[CheckAttribute]
+    public function check08DateRanges(): void {
+        foreach ($this->meta->listPredicates() as $prop) {
+            if (!str_contains((string) $prop, 'Start')) {
+                continue;
+            }
+            $endProp = DF::namedNode(str_replace('Start', 'End', (string) $prop));
+            $startValues = $this->meta->listObjects(new PT($prop))->getValues();
+            $endValues = $this->meta->listObjects(new PT($endProp))->getValues();
+            sort($startValues);
+            sort($endValues);
+            if (count($startValues) !== count($endValues)) {
+                throw new DoorkeeperException("Different number of values for $prop and $endProp");
+            }
+            while(count($startValues) > 0) {
+                $start = array_pop($startValues);
+                $end = array_pop($endValues);
+                if ($start > $end) {
+                    throw new DoorkeeperException("Start date after the end date for $prop/$endProp ($start > $end)");
+                }
             }
         }
     }

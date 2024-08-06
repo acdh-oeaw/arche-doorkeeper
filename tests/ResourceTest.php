@@ -984,15 +984,42 @@ class ResourceTest extends TestBase {
     }
 
     public function testOpenAireOaipmhSet(): void {
-        $class = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#TopCollection');
-        $meta  = self::createMetadata([], $class);
+        $class  = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#TopCollection');
+        $meta   = self::createMetadata([], $class);
         self::$repo->begin();
-        $res   = self::$repo->createResource($meta);
-        $set   = $res->getMetadata()->getObject(new PT(self::$schema->oaipmhSet));
+        $res    = self::$repo->createResource($meta);
+        $set    = $res->getMetadata()->getObject(new PT(self::$schema->oaipmhSet));
         $this->assertNotNull($set);
-        $setRes = self::$repo->getResourceById((string)$set);
+        $setRes = self::$repo->getResourceById((string) $set);
         $setIds = $setRes->getMetadata()->listObjects(new PT(self::$schema->id))->getValues();
         $this->assertContains(\acdhOeaw\arche\doorkeeper\Resource::OPENAIRE_OAIPMH_SET, $setIds);
+        self::$repo->rollback();
+    }
+
+    public function testEndDates(): void {
+        $startProp = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate');
+        $endProp   = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate');
+
+        self::$repo->begin();
+
+        $meta = self::createMetadata([(string) $startProp => '2000-05-07']);
+        $res  = self::$repo->createResource($meta);
+        $this->assertEquals('2000-05-07', $res->getMetadata()->getObjectValue(new PT($endProp)));
+
+        $meta    = self::createMetadata([(string) $startProp => '1345']);
+        $res     = self::$repo->createResource($meta);
+        $resMeta = $res->getMetadata();
+        $this->assertEquals('1345-01-01', $resMeta->getObjectValue(new PT($startProp)));
+        $this->assertEquals('1345-01-01', $resMeta->getObjectValue(new PT($endProp)));
+
+        $meta = self::createMetadata([(string) $startProp => '1345', (string) $endProp => '1234']);
+        try {
+            $res = self::$repo->createResource($meta);
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $this->assertStringContainsString("Start date after the end date", $e->getMessage());
+        }
+
         self::$repo->rollback();
     }
 //    public function testRangeUri(): void {
