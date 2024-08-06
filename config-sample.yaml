@@ -36,7 +36,7 @@ schema:
         sharedObject: https://vocabs.acdh.oeaw.ac.at/schema#AgentOrPlaceOrPublication
         container: https://vocabs.acdh.oeaw.ac.at/schema#Container
         topCollection: https://vocabs.acdh.oeaw.ac.at/schema#TopCollection
-        collection: https://vocabs.acdh.oeaw.ac.at/schema#collection
+        collection: https://vocabs.acdh.oeaw.ac.at/schema#Collection
     namespaces:
         ontology: https://vocabs.acdh.oeaw.ac.at/schema#
     ontology:

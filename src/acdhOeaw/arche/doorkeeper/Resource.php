@@ -149,7 +149,6 @@ class Resource {
 
     #[PreCheckAttribute]
     public function pre02MaintainEndDates(): void {
-        $this->log->warning('FOO');
         foreach ($this->meta->listPredicates() as $prop) {
             if (!str_contains((string) $prop, 'Start')) {
                 continue;
