@@ -47,16 +47,13 @@ class TransactionTest extends TestBase {
         $rdfType   = DF::namedNode(RDF::RDF_TYPE);
 
         self::$repo->begin();
-        $rCol1          = self::$repo->createResource(self::createMetadata([], $schema->classes->collection));
-        $rCol2Meta      = self::createMetadata([(string) $schema->parent => $rCol1->getUri()], $schema->classes->collection);
-        $rCol2          = self::$repo->createResource($rCol2Meta);
-        self::$repo->commit();
-        $this->toDelete = array_merge($this->toDelete, [$rCol1, $rCol2]);
+        $rCol1     = self::$repo->createResource(self::createMetadata([], $schema->classes->collection));
+        $rCol2Meta = self::createMetadata([(string) $schema->parent => $rCol1->getUri()], $schema->classes->collection);
+        $rCol2     = self::$repo->createResource($rCol2Meta);
 
         // add resources
         $bin1Size       = filesize(__FILE__);
         $bin2Size       = filesize(__DIR__ . '/../config-sample.yaml');
-        self::$repo->begin();
         $meta1          = self::createMetadata([(string) $schema->parent => $rCol1->getUri()]);
         $binary1        = new BinaryPayload(null, __FILE__);
         $rBin1          = self::$repo->createResource($meta1, $binary1);
@@ -64,7 +61,7 @@ class TransactionTest extends TestBase {
         $binary2        = new BinaryPayload(null, __DIR__ . '/../config-sample.yaml');
         $rBin2          = self::$repo->createResource($meta2, $binary2);
         self::$repo->commit();
-        $this->toDelete = array_merge($this->toDelete, [$rBin1, $rBin2]);
+        $this->toDelete = array_merge($this->toDelete, [$rCol1, $rCol2, $rBin1, $rBin2]);
 
         $rBin1->loadMetadata(true);
         $rCol1->loadMetadata(true);
@@ -97,19 +94,6 @@ class TransactionTest extends TestBase {
 
         // delete resources
         self::$repo->begin();
-        $rBin2->delete(true);
-        self::$repo->commit();
-
-        $rCol1->loadMetadata(true);
-        $rCol2->loadMetadata(true);
-        $rCol1Meta = $rCol1->getGraph();
-        $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals($bin1Size, $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
-        $this->assertEquals(2, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
-        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
-        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
-
-        self::$repo->begin();
         $rBin1->delete(true);
         self::$repo->commit();
 
@@ -117,23 +101,29 @@ class TransactionTest extends TestBase {
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals(0, (int) $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
-        $this->assertEquals(1, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
-        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
-        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertEquals($bin2Size, $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(2, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertEquals($bin2Size, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(1, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
 
+        // to remove the $rBin2 we need to change col2 type to a non-collection one
         self::$repo->begin();
-        $rCol1Meta->delete(new PT($rdfType));
-        $rCol1Meta->add(DF::quadNoSubject($rdfType, DF::namedNode('https://foo')));
-        $rCol1->setMetadata($rCol1Meta);
-        $rCol1->updateMetadata();
+        $rCol2Meta->delete(new PT($rdfType));
+        $rCol2Meta->add(DF::quadNoSubject($rdfType, DF::namedNode('https://foo')));
+        $rCol2->setMetadata($rCol2Meta);
+        $rCol2->updateMetadata();
+        $rBin2->delete(true);
         self::$repo->commit();
 
-        // col1 is not a schema.classes.collection now so it shouldn't have collection-specific properties
+        // col2 is not a collection now so it shouldn't have collection-specific properties
         $rCol1->loadMetadata(true);
+        $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
-        $this->assertNull($rCol1Meta->getObject(new PT($sizeProp)));
-        $this->assertNull($rCol1Meta->getObject(new PT($countProp)));
+        $rCol2Meta = $rCol2->getGraph();
+        $this->assertEquals(0, $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(1, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertNull($rCol2Meta->getObject(new PT($sizeProp)));
+        $this->assertNull($rCol2Meta->getObject(new PT($countProp)));
     }
 
     public function testCollectionExtent2(): void {
@@ -143,45 +133,51 @@ class TransactionTest extends TestBase {
         $countProp  = $schema->countCumulative;
         $parentProp = $schema->parent;
         $collClass  = $schema->classes->collection;
+        $binPath1   = __FILE__;
+        $binSize1   = filesize($binPath1);
+        $binary1    = new BinaryPayload(null, $binPath1);
+        $binPath2   = dirname(__FILE__) . '/ResourceTest.php';
+        $binSize2   = filesize($binPath2);
+        $binary2    = new BinaryPayload(null, $binPath2);
 
         self::$repo->begin();
         $rCol1          = self::$repo->createResource(self::createMetadata([], $collClass));
         $rCol2          = self::$repo->createResource(self::createMetadata([], $collClass));
+        $meta1          = self::createMetadata([(string) $parentProp => $rCol1->getUri()]);
+        $rBin1          = self::$repo->createResource($meta1, $binary1);
+        $meta2          = self::createMetadata([(string) $parentProp => $rCol2->getUri()]);
+        $rBin2          = self::$repo->createResource($meta2, $binary2);
+        $meta3          = self::createMetadata([(string) $parentProp => $rCol2->getUri()]);
+        $rBin3          = self::$repo->createResource($meta3, $binary1);
         self::$repo->commit();
-        $this->toDelete = array_merge($this->toDelete, [$rCol1, $rCol2]);
-
-        // add resources
-        $binSize        = filesize(__FILE__);
-        self::$repo->begin();
-        $meta           = self::createMetadata([(string) $parentProp => $rCol1->getUri()]);
-        $binary         = new BinaryPayload(null, __FILE__);
-        $rBin           = self::$repo->createResource($meta, $binary);
-        self::$repo->commit();
-        $this->toDelete = array_merge($this->toDelete, [$rBin]);
+        $this->toDelete = array_merge(
+            $this->toDelete,
+            [$rCol1, $rCol2, $rBin1, $rBin2, $rBin3]
+        );
 
         $rCol1->loadMetadata(true);
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals($binSize, (int) $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals($binSize1, (int) $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals($binSize1 + $binSize2, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
         $this->assertEquals(1, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
-        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
-        $this->assertEquals(0, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertEquals(2, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
 
         self::$repo->begin();
-        $meta->delete(new PT($parentProp));
-        $meta->add(DF::quadNoSubject($parentProp, DF::namedNode($rCol2->getUri())));
-        $rBin->setMetadata($meta);
-        $rBin->updateMetadata();
+        $meta2->delete(new PT($parentProp));
+        $meta2->add(DF::quadNoSubject($parentProp, DF::namedNode($rCol1->getUri())));
+        $rBin2->setMetadata($meta2);
+        $rBin2->updateMetadata();
         self::$repo->commit();
 
         $rCol1->loadMetadata(true);
         $rCol2->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $rCol2Meta = $rCol2->getGraph();
-        $this->assertEquals(0, (int) $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
-        $this->assertEquals(0, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
-        $this->assertEquals($binSize, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals($binSize1 + $binSize2, (int) $rCol1Meta->getObject(new PT($sizeProp))?->getValue());
+        $this->assertEquals(2, (int) $rCol1Meta->getObject(new PT($countProp))?->getValue());
+        $this->assertEquals($binSize1, (int) $rCol2Meta->getObject(new PT($sizeProp))?->getValue());
         $this->assertEquals(1, (int) $rCol2Meta->getObject(new PT($countProp))?->getValue());
     }
 
@@ -195,9 +191,7 @@ class TransactionTest extends TestBase {
         $collClass      = $schema->classes->collection;
 
         self::$repo->begin();
-        $rCol1          = self::$repo->createResource(self::createMetadata([], $collClass));
-        self::$repo->commit();
-        $this->toDelete = array_merge($this->toDelete, [$rCol1]);
+        $rCol1 = self::$repo->createResource(self::createMetadata([], $collClass));
 
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
@@ -205,7 +199,6 @@ class TransactionTest extends TestBase {
         $this->assertEquals('', $rCol1Meta->getObject(new PT($accessAggProp))?->getValue());
 
         // add resources
-        self::$repo->begin();
         $meta           = self::createMetadata([
                 (string) $parentProp  => $rCol1->getUri(),
                 (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
@@ -225,7 +218,7 @@ class TransactionTest extends TestBase {
         ]);
         $rBin3          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
         self::$repo->commit();
-        $this->toDelete = array_merge($this->toDelete, [$rBin1, $rBin2, $rBin3]);
+        $this->toDelete = array_merge($this->toDelete, [$rCol1, $rBin1, $rBin2, $rBin3]);
 
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
@@ -253,14 +246,14 @@ class TransactionTest extends TestBase {
      */
     public function testAutoGenResource(): void {
         $schema         = self::$schema;
-        $collClass      = $schema->classes->collection;
+        $class          = $schema->classes->resource;
         $notCheckedProp = $schema->parent;
         $checkedProp    = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasDepositor');
         $invalidRes     = DF::namedNode('https://bar/' . rand());
         $validRes       = DF::namedNode('https://orcid.org/0000-0003-0065-8112'); //  random but existing ORCID
 
         self::$repo->begin();
-        $r                = self::$repo->createResource(self::createMetadata([(string) $checkedProp => $validRes], $collClass));
+        $r                = self::$repo->createResource(self::createMetadata([(string) $checkedProp => $validRes], $class));
         $this->toDelete[] = $r;
         self::$repo->commit();
 
@@ -321,14 +314,14 @@ class TransactionTest extends TestBase {
     }
 
     public function testEmptyCollection(): void {
-        $tcm = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection');
-        $cm  = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $parentProp = (string) self::$schema->parent;
+        $tcm        = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection');
+        $cm         = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
 
         self::$repo->begin();
-        $tcr              = self::$repo->createResource($tcm);
-        $this->toDelete[] = $tcr;
-        $cr               = self::$repo->createResource($cm);
-        $this->toDelete[] = $cr;
+        $tcr            = self::$repo->createResource($tcm);
+        $cr             = self::$repo->createResource($cm);
+        $this->toDelete = array_merge($this->toDelete, [$tcr, $cr]);
         try {
             self::$repo->commit();
             $this->assertTrue(false);
@@ -340,6 +333,36 @@ class TransactionTest extends TestBase {
             $this->assertStringContainsString($tcid, $msg);
             $this->assertStringContainsString($cid, $msg);
             sleep(1); // to avoid removing resources before the transaction is fully rolled back
+        }
+
+        // creating an empty collection by moving a resource to another collection
+        self::$repo->begin();
+        $tcm            = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection');
+        $cm             = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $tcr            = self::$repo->createResource($tcm);
+        $cr             = self::$repo->createResource($cm);
+        $rtcm           = self::createMetadata([$parentProp => (string) $tcr->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $rcm            = self::createMetadata([$parentProp => (string) $cr->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $rtcr           = self::$repo->createResource($rtcm);
+        $rcr            = self::$repo->createResource($rcm);
+        $this->toDelete = array_merge($this->toDelete, [$tcr, $cr, $rtcr, $rcr]);
+        self::$repo->commit();
+
+        $rcm = $rcr->getMetadata();
+        $rcm->forEach(fn($q) => $q->withObject($rcr->getUri()), new PT($parentProp));
+        $rcr->setMetadata($rcm);
+        self::$repo->begin();
+        $rcr->updateMetadata();
+        try {
+            self::$repo->commit();
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $msg  = (string) $e->getResponse()->getBody();
+            $tcid = preg_replace('|^.*/|', '', $tcr->getUri());
+            $cid  = preg_replace('|^.*/|', '', $cr->getUri());
+            $this->assertStringStartsWith("Transaction created empty collections: ", $msg);
+            $this->assertStringNotContainsString($tcid, $msg);
+            $this->assertStringContainsString($cid, $msg);
         }
     }
 }

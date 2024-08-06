@@ -73,6 +73,12 @@ class Transaction {
         $pdo->commit();
     }
 
+    /**
+     * Stores ids of all pre-transaction parents of resources affected by the current transaction
+     * @var array<int>
+     */
+    private array $parentIds;
+
     public function __construct(private int $txId, private PDO $pdo,
                                 private Schema $schema,
                                 private Ontology $ontology,
@@ -210,6 +216,11 @@ class Transaction {
      */
     #[CheckAttribute]
     public function checkEmptyCollections(): void {
+        $parentIds  = $this->fetchParentIds();
+        $idsReplace = '';
+        if (count($parentIds) > 0) {
+            $idsReplace = 'OR r.id IN (' . substr(str_repeat('?::bigint, ', count($parentIds)), 0, -2) . ')';
+        }
         $query      = "
             SELECT string_agg(DISTINCT ids, ', ')
             FROM
@@ -218,18 +229,21 @@ class Transaction {
                 JOIN identifiers USING (id)
             WHERE
                 r.state = ?
-                AND r.transaction_id = ?
+                AND (r.transaction_id = ? %ids%)
                 AND c.property = ?
                 AND c.value IN (?, ?)
                 AND NOT EXISTS (SELECT 1 FROM relations ch WHERE ch.property = ? AND ch.target_id = r.id)
         ";
-        $param      = [
-            ArcheTransaction::STATE_ACTIVE,
-            $this->txId,
-            RDF::RDF_TYPE,
-            $this->schema->classes->topCollection, $this->schema->classes->collection,
-            $this->schema->parent
-        ];
+        $query      = str_replace('%ids%', $idsReplace, $query);
+        $param      = array_merge(
+            [ArcheTransaction::STATE_ACTIVE, $this->txId],
+            $parentIds,
+            [
+                RDF::RDF_TYPE,
+                $this->schema->classes->topCollection, $this->schema->classes->collection,
+                $this->schema->parent,
+            ]
+        );
         $t          = microtime(true);
         $query      = $this->pdo->prepare($query);
         $query->execute($param);
@@ -247,40 +261,11 @@ class Transaction {
      * @throws DoorkeeperException
      */
     public function updateCollections(): void {
+        $parentIds = $this->fetchParentIds();
         $this->log?->info("\t\tupdating collections affected by the transaction");
-
-        $t0     = microtime(true);
-        $query  = $this->pdo->prepare("
-            SELECT id 
-            FROM resources 
-            WHERE transaction_id = ?
-        ");
-        $query->execute([$this->txId]);
-        $resIds = $query->fetchAll(PDO::FETCH_COLUMN);
-
-        // find all pre-transaction parents of resources affected by the current transaction
-        if (count($resIds) > 0) {
-            $pdoOld    = RC::$transaction->getPreTransactionDbHandle();
-            $query     = "
-            WITH RECURSIVE t(id, n) AS (
-                SELECT * FROM (VALUES %ids%) t1
-              UNION
-                SELECT target_id, 1
-                FROM t JOIN relations USING (id)
-                WHERE property = ?
-            )
-            SELECT DISTINCT id FROM t WHERE n > 0
-        ";
-            $query     = str_replace('%ids%', substr(str_repeat('(?::bigint, 0), ', count($resIds)), 0, -2), $query);
-            $query     = $pdoOld->prepare($query);
-            $query->execute(array_merge($resIds, [$this->schema->parent]));
-            $parentIds = $query->fetchAll(PDO::FETCH_COLUMN);
-        } else {
-            $parentIds = [];
-        }
-
+        $t0        = microtime(true);
         // find all affected parents (gr, pp) and their children
-        $query = "
+        $query     = "
             CREATE TEMPORARY TABLE _resources AS
             SELECT p.id AS cid, (get_relatives(p.id, ?, 999999, 0)).*
             FROM (
@@ -290,14 +275,14 @@ class Transaction {
               " . (count($parentIds) > 0 ? "UNION SELECT * FROM (VALUES %ids%) pp" : "") . "
             ) p
         ";
-        $query = str_replace('%ids%', substr(str_repeat('(?::bigint), ', count($parentIds)), 0, -2), $query);
-        $param = array_merge(
+        $query     = str_replace('%ids%', substr(str_repeat('(?::bigint), ', count($parentIds)), 0, -2), $query);
+        $param     = array_merge(
             [$this->schema->parent, $this->schema->parent, $this->txId],
             $parentIds,
         );
-        $query = $this->pdo->prepare($query);
+        $query     = $this->pdo->prepare($query);
         $query->execute($param);
-        $t1    = microtime(true);
+        $t1        = microtime(true);
 
         // try to lock resources to be updated
         // TODO - how to lock them in a way which doesn't cause a deadlock
@@ -484,5 +469,48 @@ class Transaction {
             SELECT id, property, ?::text, lang, value FROM _aggupdate
         ");
         $query->execute([RDF::XSD_STRING]);
+    }
+
+    /**
+     * Returns ids of all pre-transaction parents of resources affected by the current transaction
+     * 
+     * @return array<int>
+     */
+    private function fetchParentIds(): array {
+        if (!isset($this->parentIds)) {
+            $this->log?->info("\t\tfinding collections affected by the transaction");
+            $t0     = microtime(true);
+            $query  = $this->pdo->prepare("
+                SELECT id 
+                FROM resources 
+                WHERE transaction_id = ?
+            ");
+            $query->execute([$this->txId]);
+            $resIds = $query->fetchAll(PDO::FETCH_COLUMN);
+
+            // find all pre-transaction parents of resources affected by the current transaction
+            if (count($resIds) === 0) {
+                $this->parentIds = [];
+            } else {
+                $pdoOld          = RC::$transaction->getPreTransactionDbHandle();
+                $query           = "
+                    WITH RECURSIVE t(id, n) AS (
+                        SELECT * FROM (VALUES %ids%) t1
+                      UNION
+                        SELECT target_id, 1
+                        FROM t JOIN relations USING (id)
+                        WHERE property = ?
+                    )
+                    SELECT DISTINCT id FROM t WHERE n > 0
+                ";
+                $query           = str_replace('%ids%', substr(str_repeat('(?::bigint, 0), ', count($resIds)), 0, -2), $query);
+                $query           = $pdoOld->prepare($query);
+                $query->execute(array_merge($resIds, [$this->schema->parent]));
+                $this->parentIds = $query->fetchAll(PDO::FETCH_COLUMN);
+            }
+            $t1 = microtime(true);
+            $this->log?->debug("\t\t\ttiming: " . ($t1 - $t0));
+        }
+        return $this->parentIds;
     }
 }
