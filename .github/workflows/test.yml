@@ -10,9 +10,9 @@ jobs:
     - name: clone repo config
       run: |
         git clone --depth 1 --branch arche https://github.com/acdh-oeaw/arche-docker-config.git config
-        chmod +x config/run.d/xdebug.sh
-        rm -f config/run.d/gui.sh config/run.d/oaipmh.sh config/run.d/resolver.sh config/run.d/fcs.sh config/run.d/openrefine.sh config/run.d/refsources.sh config/initScripts/30-dissServices.php
-        cp .github/workflows/test-postgresql_config.sh config/run.d/
+        chmod -x config/run.d/* config/initScripts/30-dissServices.php
+        chmod +x config/run.d/98-xdebug.sh config/run.d/10-postgresql.sh config/run.d/15-config-yaml.sh
+        cp .github/workflows/test-postgresql_config.sh config/run.d/99-postgresql.sh
         cp .github/workflows/*-testSetup.sh config/initScripts/
         cp config-sample.yaml config/yaml/doorkeeper.yaml
         sed -e 's/pswd:/pswd: foobar/g' config/yaml/local.yaml.sample > config/yaml/local.yaml
