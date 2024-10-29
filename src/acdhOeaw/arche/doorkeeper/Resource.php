@@ -586,7 +586,7 @@ class Resource {
             while (count($startValues) > 0) {
                 $start  = array_pop($startValues);
                 $end    = array_pop($endValues);
-                $negate = str_starts_with($start, '-') && str_starts_with('-', $end);
+                $negate = str_starts_with($start, '-') && str_starts_with($end, '-');
                 if ($negate ? $start > $end : $start < $end) {
                     throw new DoorkeeperException("Start date after the end date for $prop/$endProp ($start > $end)");
                 }
