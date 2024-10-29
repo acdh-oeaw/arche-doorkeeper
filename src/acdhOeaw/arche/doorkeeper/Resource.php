@@ -575,18 +575,19 @@ class Resource {
             if (!str_contains((string) $prop, 'Start')) {
                 continue;
             }
-            $endProp = DF::namedNode(str_replace('Start', 'End', (string) $prop));
+            $endProp     = DF::namedNode(str_replace('Start', 'End', (string) $prop));
             $startValues = $this->meta->listObjects(new PT($prop))->getValues();
-            $endValues = $this->meta->listObjects(new PT($endProp))->getValues();
+            $endValues   = $this->meta->listObjects(new PT($endProp))->getValues();
             sort($startValues);
             sort($endValues);
             if (count($startValues) !== count($endValues)) {
                 throw new DoorkeeperException("Different number of values for $prop and $endProp");
             }
-            while(count($startValues) > 0) {
-                $start = array_pop($startValues);
-                $end = array_pop($endValues);
-                if ($start > $end) {
+            while (count($startValues) > 0) {
+                $start  = array_pop($startValues);
+                $end    = array_pop($endValues);
+                $negate = str_starts_with($start, '-') && str_starts_with('-', $end);
+                if ($negate ? $start > $end : $start < $end) {
                     throw new DoorkeeperException("Start date after the end date for $prop/$endProp ($start > $end)");
                 }
             }

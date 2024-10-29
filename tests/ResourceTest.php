@@ -1021,6 +1021,24 @@ class ResourceTest extends TestBase {
             $this->assertEquals("Start date after the end date for $startProp/$endProp (1345-01-01 > 1234-01-01)", $msg);
         }
 
+        $meta = self::createMetadata([(string) $startProp => '1345', (string) $endProp => '-1456']);
+        try {
+            $res = self::$repo->createResource($meta);
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $msg = (string) $e->getResponse()->getBody();
+            $this->assertEquals("Start date after the end date for $startProp/$endProp (1345-01-01 > -1456-01-01)", $msg);
+        }
+
+        $meta = self::createMetadata([(string) $startProp => '-1345', (string) $endProp => '-1456']);
+        try {
+            $res = self::$repo->createResource($meta);
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $msg = (string) $e->getResponse()->getBody();
+            $this->assertEquals("Start date after the end date for $startProp/$endProp (-1345-01-01 > -1456-01-01)", $msg);
+        }
+        
         self::$repo->rollback();
     }
 //    public function testRangeUri(): void {

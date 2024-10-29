@@ -249,7 +249,7 @@ class Transaction {
         $query->execute($param);
         $invalidRes = $query->fetchColumn();
         $t          = microtime(true) - $t;
-        $this->log?->debug("\t\checkEmptyCollections performed in $t s");
+        $this->log?->debug("\t\tcheckEmptyCollections performed in $t s");
         if (!empty($invalidRes)) {
             throw new DoorkeeperException("Transaction created empty collections: $invalidRes");
         }
