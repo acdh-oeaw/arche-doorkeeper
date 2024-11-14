@@ -468,7 +468,7 @@ class Transaction {
             INSERT INTO metadata (id, property, type, lang, value)
             SELECT id, property, ?::text, lang, value FROM _aggupdate
         ");
-        $query->execute([RDF::XSD_STRING]);
+        $query->execute([RDF::RDF_LANG_STRING]);
     }
 
     /**

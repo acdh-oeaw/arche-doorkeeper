@@ -1038,7 +1038,7 @@ class ResourceTest extends TestBase {
             $msg = (string) $e->getResponse()->getBody();
             $this->assertEquals("Start date after the end date for $startProp/$endProp (-1345-01-01 > -1456-01-01)", $msg);
         }
-        
+
         self::$repo->rollback();
     }
 //    public function testRangeUri(): void {

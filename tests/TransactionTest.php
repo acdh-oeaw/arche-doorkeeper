@@ -200,36 +200,43 @@ class TransactionTest extends TestBase {
 
         // add resources
         $meta           = self::createMetadata([
-                (string) $parentProp  => $rCol1->getUri(),
-                (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
-                (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/mit',
+            (string) $parentProp  => $rCol1->getUri(),
+            (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
+            (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/mit',
         ]);
         $rBin1          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
         $meta           = self::createMetadata([
-                (string) $parentProp  => $rCol1->getUri(),
-                (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
-                (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-4-0',
+            (string) $parentProp  => $rCol1->getUri(),
+            (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
+            (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-4-0',
         ]);
         $rBin2          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
         $meta           = self::createMetadata([
-                (string) $parentProp  => $rCol1->getUri(),
-                (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
-                (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/noc-nc',
+            (string) $parentProp  => $rCol1->getUri(),
+            (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
+            (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/noc-nc',
         ]);
         $rBin3          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$rCol1, $rBin1, $rBin2, $rBin3]);
 
         $rCol1->loadMetadata(true);
-        $rCol1Meta = $rCol1->getGraph();
-        $tmp       = $rCol1Meta->getObject(new PT($licenseAggProp));
-        $this->assertInstanceOf(LiteralInterface::class, $tmp);
-        $ref       = $tmp->getLang() === 'en' ? "CC BY 4.0: 1 / MIT: 1 / NoC-NC: 1" : "CC BY 4.0: 1 / MIT: 1 / NoC-NC: 1";
-        $this->assertEquals($ref, $tmp->getValue());
-        $tmp       = $rCol1Meta->getObject(new PT($accessAggProp));
-        $this->assertInstanceOf(LiteralInterface::class, $tmp);
-        $ref       = $tmp->getLang() === 'en' ? "academic: 2 / restricted: 1" : "akademisch: 2 / eingeschränkt: 1";
-        $this->assertEquals($ref, $tmp->getValue());
+        $rCol1Meta   = $rCol1->getGraph();
+        $licenseVals = iterator_to_array($rCol1Meta->listObjects(new PT($licenseAggProp)));
+        $ref         = ["CC BY 4.0: 1 / MIT: 1 / NoC-NC: 1", "CC BY 4.0: 1 / MIT: 1 / NoC-NC: 1"];
+        $this->assertEquals($ref, array_map(fn($x) => (string) $x, $licenseVals));
+        $ref         = [RDF::RDF_LANG_STRING, RDF::RDF_LANG_STRING];
+        $this->assertEquals($ref, array_map(fn(LiteralInterface $x) => $x->getDatatype(), $licenseVals));
+        $this->assertContains('en', array_map(fn(LiteralInterface $x) => $x->getLang(), $licenseVals));
+        $this->assertContains('de', array_map(fn(LiteralInterface $x) => $x->getLang(), $licenseVals));
+        $accessVals  = iterator_to_array($rCol1Meta->listObjects(new PT($accessAggProp)));
+        $ref         = [RDF::RDF_LANG_STRING, RDF::RDF_LANG_STRING];
+        $this->assertEquals($ref, array_map(fn(LiteralInterface $x) => $x->getDatatype(), $accessVals));
+        $accessVals  = array_combine(array_map(fn(LiteralInterface $x) => $x->getLang(), $accessVals), array_map(fn($x) => (string) $x, $accessVals));
+        $ref         = [
+            'en' => 'academic: 2 / restricted: 1',
+            'de' => 'akademisch: 2 / eingeschränkt: 1',
+        ];
     }
 
     public function testTopCollectionAggregates(): void {
