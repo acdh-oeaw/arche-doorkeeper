@@ -113,7 +113,7 @@ class ResourceTest extends TestBase {
         $id1              = 'https://foo/bar/' . time() . rand();
         $id2              = 'https://bar/foo/' . time() . rand();
         $im               = self::createMetadata([
-                (string) self::$schema->id => $id1,
+            (string) self::$schema->id => $id1,
         ]);
         self::$repo->begin();
         $r                = self::$repo->createResource($im);
@@ -122,7 +122,7 @@ class ResourceTest extends TestBase {
 
         self::$repo->begin();
         $im  = self::createMetadata([
-                (string) self::$schema->id => $id2,
+            (string) self::$schema->id => $id2,
         ]);
         $r->setMetadata($im);
         $r->updateMetadata(RepoResource::UPDATE_OVERWRITE);
@@ -138,7 +138,7 @@ class ResourceTest extends TestBase {
 
     public function testIdNormalization(): void {
         $im  = self::createMetadata([
-                (string) self::$schema->id => 'http://x.geonames.org/123/vienna.html',
+            (string) self::$schema->id => 'http://x.geonames.org/123/vienna.html',
         ]);
         self::$repo->begin();
         $r   = self::$repo->createResource($im);
@@ -150,11 +150,12 @@ class ResourceTest extends TestBase {
     public function testMaintainRange(): void {
         $pid = 'https://foo.bar/' . rand();
         $im  = self::createMetadata([
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => '2017',
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate'   => '2017-03-08T20:45:17',
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'       => '300.54',
-                'https://other/property'                                    => DF::literal('test value', 'en'),
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'              => $pid,
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => '2017',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate'   => '2017-03-08T20:45:17',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasStartDate'        => DF::literal('2018', null, RDF::XSD_DATE),
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'       => '300.54',
+            'https://other/property'                                    => DF::literal('test value', 'en'),
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'              => $pid,
         ]);
 
         self::$repo->begin();
@@ -170,6 +171,11 @@ class ResourceTest extends TestBase {
         $this->assertInstanceOf(LiteralInterface::class, $date);
         $this->assertEquals(RDF::XSD_DATE, $date->getDatatype());
         $this->assertEquals('2017-03-08', (string) $date);
+
+        $date = $om->getObject(new PT(DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasStartDate')));
+        $this->assertInstanceOf(LiteralInterface::class, $date);
+        $this->assertEquals(RDF::XSD_DATE, $date->getDatatype());
+        $this->assertEquals('2018-01-01', (string) $date);
 
         $int = $om->getObject(new PT(DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize')));
         $this->assertInstanceOf(LiteralInterface::class, $int);
@@ -192,7 +198,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
 
         $im = self::createMetadata([
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => 'foo',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => 'foo',
         ]);
         try {
             self::$repo->createResource($im);
@@ -202,7 +208,27 @@ class ResourceTest extends TestBase {
         }
 
         $im = self::createMetadata([
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize' => 'bar',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => DF::literal('foo', null, RDF::XSD_DATE),
+        ]);
+        try {
+            self::$repo->createResource($im);
+            $this->assertTrue(false);
+        } catch (RequestException $e) {
+            $this->assertMatchesRegularExpression('/value does not match data type/', $e->getMessage());
+        }
+
+        $im = self::createMetadata([
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize' => 'bar',
+        ]);
+        try {
+            self::$repo->createResource($im);
+            $this->assertTrue(false);
+        } catch (RequestException $e) {
+            $this->assertMatchesRegularExpression('/value does not match data type/', $e->getMessage());
+        }
+
+        $im = self::createMetadata([
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize' => DF::literal('bar', null, RDF::XSD_NON_NEGATIVE_INTEGER),
         ]);
         try {
             self::$repo->createResource($im);
@@ -216,7 +242,7 @@ class ResourceTest extends TestBase {
 
     public function testCardinalitiesMin(): void {
         $im = self::createMetadata([
-                RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#Collection',
+            RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#Collection',
         ]);
         self::$repo->begin();
         try {
@@ -282,7 +308,7 @@ class ResourceTest extends TestBase {
         $accessRestProp   = self::$schema->accessRestriction;
         $creationDateProp = self::$schema->creationDate;
         $im               = self::createMetadata([
-                RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#Collection',
+            RDF::RDF_TYPE => 'https://vocabs.acdh.oeaw.ac.at/schema#Collection',
         ]);
         $skip             = [
             self::$schema->hosting, $accessRestProp, $creationDateProp
@@ -330,8 +356,8 @@ class ResourceTest extends TestBase {
     public function testAccessRightsAcademic(): void {
         $accessRestProp = self::$schema->accessRestriction;
         $im             = self::createMetadata([
-                (string) $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
-                ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+            (string) $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
+            ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         $bp             = new BinaryPayload('dummy content');
         self::$repo->begin();
         $r              = self::$repo->createResource($im, $bp);
@@ -351,9 +377,9 @@ class ResourceTest extends TestBase {
     public function testAccessRightsRestricted(): void {
         $accessRestProp = self::$schema->accessRestriction;
         $im             = self::createMetadata([
-                (string) $accessRestProp           => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
-                (string) self::$schema->accessRole => 'foo',
-                ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+            (string) $accessRestProp           => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
+            (string) self::$schema->accessRole => 'foo',
+            ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         $bp             = new BinaryPayload('dummy content');
         self::$repo->begin();
         $r              = self::$repo->createResource($im, $bp);
@@ -459,8 +485,8 @@ class ResourceTest extends TestBase {
 
         // combined from acdh:hasFirstName and acdh:hasLastName
         $im = self::createMetadata([
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName' => 'foo',
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasLastName'  => 'bar',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName' => 'foo',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasLastName'  => 'bar',
         ]);
         $im->delete($titleTmpl);
         $r  = self::$repo->createResource($im);
@@ -468,7 +494,7 @@ class ResourceTest extends TestBase {
 
         // combined from acdh:hasFirstName
         $im = self::createMetadata([
-                'https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName' => 'foo'
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName' => 'foo'
         ]);
         $im->delete($titleTmpl);
         $r  = self::$repo->createResource($im);
@@ -476,8 +502,8 @@ class ResourceTest extends TestBase {
 
         // combined from foaf:givenName and foaf:familyName
         $im = self::createMetadata([
-                'http://xmlns.com/foaf/0.1/givenName'  => 'foo',
-                'http://xmlns.com/foaf/0.1/familyName' => 'bar',
+            'http://xmlns.com/foaf/0.1/givenName'  => 'foo',
+            'http://xmlns.com/foaf/0.1/familyName' => 'bar',
         ]);
         $im->delete($titleTmpl);
         $r  = self::$repo->createResource($im);
@@ -675,8 +701,8 @@ class ResourceTest extends TestBase {
         // existing pid not overwritten but promoted to an id
         $idn  = rand();
         $im   = self::createMetadata([
-                (string) $idProp  => $idNmsp . $idn,
-                (string) $pidProp => $httpPid,
+            (string) $idProp  => $idNmsp . $idn,
+            (string) $pidProp => $httpPid,
         ]);
         $r    = self::$repo->createResource($im);
         $m1   = $r->getGraph();
@@ -751,8 +777,8 @@ class ResourceTest extends TestBase {
         $rid         = $idNmsp . rand();
 
         $im = self::createMetadata([
-                (string) $idProp                 => $rid,
-                (string) $cfg->clarinSetProperty => $cfg->clarinSet,
+            (string) $idProp                 => $rid,
+            (string) $cfg->clarinSetProperty => $cfg->clarinSet,
         ]);
         self::$repo->begin();
 
@@ -789,8 +815,8 @@ class ResourceTest extends TestBase {
         $rid          = $idNmsp . rand();
 
         $meta = self::createMetadata([
-                (string) $idProp       => $rid,
-                (string) $biblatexProp => " @dataset{foo,\nauthor = {Baz, Bar}\n}",
+            (string) $idProp       => $rid,
+            (string) $biblatexProp => " @dataset{foo,\nauthor = {Baz, Bar}\n}",
         ]);
         self::$repo->begin();
 

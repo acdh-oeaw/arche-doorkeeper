@@ -73,6 +73,7 @@ class Resource {
         RDF::XSD_NON_NEGATIVE_INTEGER, RDF::XSD_NON_POSITIVE_INTEGER, RDF::XSD_POSITIVE_INTEGER,
         RDF::XSD_LONG, RDF::XSD_INT, RDF::XSD_SHORT, RDF::XSD_BYTE, RDF::XSD_UNSIGNED_LONG,
         RDF::XSD_UNSIGNED_INT, RDF::XSD_UNSIGNED_SHORT, RDF::XSD_UNSIGNED_BYTE, RDF::XSD_BOOLEAN];
+    const SAFE_TYPES           = [RDF::XSD_STRING, RDF::RDF_LANG_STRING];
     const OPENAIRE_OAIPMH_SET  = 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/openaire_data';
     use RunTestsTrait;
 
@@ -784,7 +785,7 @@ class Resource {
         $range = $propDesc->range;
         foreach ($this->meta->listObjects(new PT($prop, new LT(null, LT::ANY))) as $l) {
             $type = $l instanceof LiteralInterface ? $l->getDatatype() : null;
-            if (in_array($type, $range)) {
+            if (in_array($type, self::SAFE_TYPES) && in_array($type, $range)) {
                 continue;
             }
             if (in_array(RDF::XSD_STRING, $range)) {
