@@ -904,7 +904,7 @@ class Resource {
                 $value    = DF::literal($numValue, null, $range);
                 break;
             case RDF::XSD_BOOLEAN:
-                $value    = DF::literal((string) ((bool) $l), null, $range);
+                $value    = DF::literal(in_array((string) $l, ['', '0', 'false']) ? 'false' : 'true', null, $range);
                 break;
             default:
                 throw new RuntimeException('unknown range data type: ' . $range);
