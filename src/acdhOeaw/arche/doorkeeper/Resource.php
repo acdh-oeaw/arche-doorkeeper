@@ -809,8 +809,7 @@ class Resource {
         }
     }
 
-    private function verifyPropertyRangeUri(
-        string $rangeUri, string $prop): void {
+    private function verifyPropertyRangeUri(string $rangeUri, string $prop): void {
         static $rangeDefs = null;
         if ($rangeDefs === null) {
             $rangeDefs = RC::$config->doorkeeper->checkRanges;
@@ -842,6 +841,7 @@ class Resource {
                 $objNorm = $norm->normalize((string) $obj);
                 if ($objNorm !== (string) $obj) {
                     $objNorm = DF::namedNode($objNorm);
+                    $this->log?->debug("\t\tupdating object value $obj with $objNorm");
                     $this->meta->forEach(fn($q) => $q->withObject($objNorm), new PT($prop, $obj));
                 }
             } catch (UriNormalizerException $ex) {

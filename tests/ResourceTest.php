@@ -39,6 +39,7 @@ use quickRdf\DataFactory as DF;
 use quickRdf\DatasetNode;
 use termTemplates\PredicateTemplate as PT;
 use termTemplates\NamedNodeTemplate as NNT;
+use acdhOeaw\UriNormalizer;
 use acdhOeaw\arche\lib\RepoResource;
 use acdhOeaw\arche\lib\BinaryPayload;
 use acdhOeaw\arche\lib\exception\NotFound;
@@ -993,20 +994,35 @@ class ResourceTest extends TestBase {
     }
 
     public function testNormalizeObjectValue(): void {
-        $prop  = 'https://vocabs.acdh.oeaw.ac.at/schema#hasActor';
-        $value = 'https://orcid.org/0000-0001-5853-2534/';
-        $class = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
-        $meta  = self::createMetadata([$prop => $value], $class);
+        $norm = new UriNormalizer();
+
+        $prop1  = 'https://vocabs.acdh.oeaw.ac.at/schema#hasActor';
+        $value1 = 'https://orcid.org/0000-0001-5853-2534/';
+        $prop2  = 'https://vocabs.acdh.oeaw.ac.at/schema#hasSpatialCoverage';
+        $value2 = 'http://www.wikidata.org/wiki/Q932005';
+        $vals   = [
+            $prop1 => $value1,
+            $prop2 => $value2,
+        ];
+        $class  = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $meta   = self::createMetadata($vals, $class);
         self::$repo->begin();
-        $res   = self::$repo->createResource($meta);
-        $ref   = self::$repo->getResourceById(substr($value, 0, -1)); // normalized form
+        $res    = self::$repo->createResource($meta);
+        $ref1   = self::$repo->getResourceById($norm->normalize($value1));
+        $ref2   = self::$repo->getResourceById($norm->normalize($value2));
         try {
-            self::$repo->getResourceById($value);
+            self::$repo->getResourceById($value1);
             $this->assertTrue(false);
         } catch (NotFound $ex) {
             $this->assertTrue(true);
         }
         self::$repo->rollback();
+        try {
+            self::$repo->getResourceById($value2);
+            $this->assertTrue(false);
+        } catch (NotFound $ex) {
+            $this->assertTrue(true);
+        }
     }
 
     public function testOpenAireOaipmhSet(): void {
