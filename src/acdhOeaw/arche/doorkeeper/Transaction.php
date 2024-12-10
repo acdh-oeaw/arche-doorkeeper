@@ -216,7 +216,7 @@ class Transaction {
      */
     #[CheckAttribute]
     public function checkEmptyCollections(): void {
-        $parentIds  = $this->fetchParentIds();
+        $parentIds  = $this->fetchPreTransactionParentIds();
         $idsReplace = '';
         if (count($parentIds) > 0) {
             $idsReplace = 'OR r.id IN (' . substr(str_repeat('?::bigint, ', count($parentIds)), 0, -2) . ')';
@@ -257,11 +257,78 @@ class Transaction {
 
     /**
      * 
+     * @throws DoorkeeperException
+     */
+    #[CheckAttribute]
+    public function checkHasNextItem(): void {
+        $nextProp   = (string) $this->schema->nextItem;
+        $parentProp = (string) $this->schema->parent;
+        // the current implementation is really dumb and does not handle a lot
+        // of corener cases, still it should be enough to prevent most errors
+        $query      = "
+            WITH
+            src AS (
+                SELECT DISTINCT gr.id
+                FROM
+                    resources r1, 
+                    LATERAL get_relatives(r1.id, ?, 0, -1) gr
+                    JOIN resources r2 USING (id)
+                    JOIN metadata m USING (id)
+                WHERE
+                    r1.transaction_id = ?
+                    AND r1.state = ?
+                    AND r2.state = ?
+                    AND m.property = ?
+                    AND m.value IN (?, ?)
+            ),
+            colres AS (
+                SELECT src.id AS cid, res.id AS id
+                FROM
+                    src
+                    JOIN relations rel ON rel.target_id = src.id AND property = ?
+                    JOIN resources res ON rel.id = res.id AND res.state = ?
+              UNION
+                SELECT id AS cid, id AS id FROM src
+            ),
+            invalid AS (
+                SELECT cid AS id, count(*) - 1 AS total, count(r.target_id) AS nextitem
+                FROM
+                    colres
+                    LEFT JOIN relations r ON colres.id = r.id AND property = ?
+                GROUP BY 1
+                HAVING count(r.target_id) > 0 AND count(r.target_id) < count(*) - 1
+            )
+            SELECT string_agg(ids, ', ')||' ('||nextitem::text||' < '||total::text||')'
+            FROM 
+                invalid 
+                JOIN identifiers USING (id)
+            GROUP BY id, total, nextitem
+        ";
+        $param      = [
+            $parentProp, $this->txId, ArcheTransaction::STATE_ACTIVE, ArcheTransaction::STATE_ACTIVE,
+            RDF::RDF_TYPE, $this->schema->classes->topCollection, $this->schema->classes->collection,
+            $parentProp, ArcheTransaction::STATE_ACTIVE,
+            $nextProp
+        ];
+        //$this->log->info(new \zozlak\queryPart\QueryPart($query, $param));
+        $query      = $this->pdo->prepare($query);
+        $t          = microtime(true);
+        $query->execute($param);
+        $t          = microtime(true) - $t;
+        $this->log?->debug("\t\checkHasNextItem performed in $t s");
+        $invalid    = $query->fetchAll(PDO::FETCH_COLUMN);
+        if (count($invalid) > 0) {
+            throw new DoorkeeperException("Collections containing incomplete $nextProp sequence: " . implode(', ', $invalid));
+        }
+    }
+
+    /**
+     * 
      * @return void
      * @throws DoorkeeperException
      */
     public function updateCollections(): void {
-        $parentIds = $this->fetchParentIds();
+        $parentIds = $this->fetchPreTransactionParentIds();
         $this->log?->info("\t\tupdating collections affected by the transaction");
         $t0        = microtime(true);
         // find all affected parents (gr, pp) and their children
@@ -476,7 +543,7 @@ class Transaction {
      * 
      * @return array<int>
      */
-    private function fetchParentIds(): array {
+    private function fetchPreTransactionParentIds(): array {
         if (!isset($this->parentIds)) {
             $this->log?->info("\t\tfinding collections affected by the transaction");
             $t0     = microtime(true);
@@ -509,6 +576,7 @@ class Transaction {
                 $this->parentIds = $query->fetchAll(PDO::FETCH_COLUMN);
             }
             $t1 = microtime(true);
+            $this->log->debug("\t\t\t" . count($this->parentIds) . " collections found");
             $this->log?->debug("\t\t\ttiming: " . ($t1 - $t0));
         }
         return $this->parentIds;

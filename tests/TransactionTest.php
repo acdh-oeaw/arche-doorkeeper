@@ -372,4 +372,63 @@ class TransactionTest extends TestBase {
             $this->assertStringContainsString($cid, $msg);
         }
     }
+
+    public function testNotAllChildrenHasNextItem(): void {
+        $parentProp = (string) self::$schema->parent;
+        $nextProp   = (string) self::$schema->nextItem;
+
+        // without hasNextItem
+        self::$repo->begin();
+        $m[] = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $r[] = self::$repo->createResource(end($m));
+        for ($i = 0; $i < 3; $i++) {
+            $m[] = self::createMetadata([$parentProp => $r[0]->getUri()]);
+            $r[] = self::$repo->createResource(end($m));
+        }
+        self::$repo->commit();
+        $this->assertTrue(true);
+        $this->toDelete = array_merge($this->toDelete, [$cr, $rr1, $rr2, $rr3]);
+
+        // correct hasNextItem
+        self::$repo->begin();
+        for ($i = 0; $i < 3; $i++) {
+            $m[$i]->add(DF::quad($r[$i]->getUri(), self::$schema->nextItem, $r[$i + 1]->getUri()));
+            $r[$i]->setMetadata($m[$i]);
+            $r[$i]->updateMetadata();
+        }
+        self::$repo->commit();
+        $this->assertTrue(true);
+
+        // drop one hasNextItem to create a broken chain
+        self::$repo->begin();
+        $m[2]->delete(new PT(self::$schema->nextItem));
+        $m[2]->add(DF::quad($r[2]->getUri(), self::$schema->delete, self::$schema->nextItem));
+        $r[2]->setMetadata($m[2]);
+        $r[2]->updateMetadata();
+        try {
+            self::$repo->commit();
+            $this->assertTrue(false);
+        } catch (ClientException $ex) {
+            $msg = (string) $ex->getResponse()->getBody();
+            $this->assertEquals(400, $ex->getCode());
+            $this->assertStringStartsWith("Collections containing incomplete $nextProp sequence: ", $msg);
+            $this->assertStringEndsWith(" (2 < 3)", $msg);
+        }
+
+        // same should go if removed from a collection
+        self::$repo->begin();
+        $m[0]->delete(new PT(self::$schema->nextItem));
+        $m[0]->add(DF::quad($r[0]->getUri(), self::$schema->delete, self::$schema->nextItem));
+        $r[0]->setMetadata($m[0]);
+        $r[0]->updateMetadata();
+        try {
+            self::$repo->commit();
+            $this->assertTrue(false);
+        } catch (ClientException $ex) {
+            $msg = (string) $ex->getResponse()->getBody();
+            $this->assertEquals(400, $ex->getCode());
+            $this->assertStringStartsWith("Collections containing incomplete $nextProp sequence: ", $msg);
+            $this->assertStringEndsWith(" (2 < 3)", $msg);
+        }
+    }
 }
