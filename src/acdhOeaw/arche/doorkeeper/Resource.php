@@ -64,17 +64,19 @@ use zozlak\RdfConstants as RDF;
  */
 class Resource {
 
-    const DB_LOCK_TIMEOUT      = 1000;
-    const NON_NEGATIVE_NUMBERS = [RDF::XSD_NON_NEGATIVE_INTEGER, RDF::XSD_UNSIGNED_LONG,
+    const DB_LOCK_TIMEOUT       = 1000;
+    const NON_NEGATIVE_NUMBERS  = [RDF::XSD_NON_NEGATIVE_INTEGER, RDF::XSD_UNSIGNED_LONG,
         RDF::XSD_UNSIGNED_INT, RDF::XSD_UNSIGNED_SHORT, RDF::XSD_UNSIGNED_BYTE];
-    const LITERAL_TYPES        = [RDF::XSD_ANY_URI,
+    const LITERAL_TYPES         = [RDF::XSD_ANY_URI,
         RDF::XSD_DATE, RDF::XSD_DATE_TIME, RDF::XSD_DECIMAL,
         RDF::XSD_FLOAT, RDF::XSD_DOUBLE, RDF::XSD_INTEGER, RDF::XSD_NEGATIVE_INTEGER,
         RDF::XSD_NON_NEGATIVE_INTEGER, RDF::XSD_NON_POSITIVE_INTEGER, RDF::XSD_POSITIVE_INTEGER,
         RDF::XSD_LONG, RDF::XSD_INT, RDF::XSD_SHORT, RDF::XSD_BYTE, RDF::XSD_UNSIGNED_LONG,
         RDF::XSD_UNSIGNED_INT, RDF::XSD_UNSIGNED_SHORT, RDF::XSD_UNSIGNED_BYTE, RDF::XSD_BOOLEAN];
-    const SAFE_TYPES           = [RDF::XSD_STRING, RDF::RDF_LANG_STRING];
-    const OPENAIRE_OAIPMH_SET  = 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/openaire_data';
+    const SAFE_TYPES            = [RDF::XSD_STRING, RDF::RDF_LANG_STRING];
+    const OPENAIRE_OAIPMH_SET   = 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/openaire_data';
+    const KULTURPOOL_OAIPMH_SET = 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool';
+    const PROP_TAG              = 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag';
     use RunTestsTrait;
 
     static public function onResEdit(int $id, DatasetNodeInterface $meta,
@@ -592,6 +594,34 @@ class Resource {
                     throw new DoorkeeperException("Start date after the end date for $prop/$endProp ($start > $end)");
                 }
             }
+        }
+    }
+
+    #[CheckAttribute]
+    public function check09Kulturpool(): void {
+        if ($this->meta->none(new PT($this->schema->oaipmhSet, DF::namedNode(self::KULTURPOOL_OAIPMH_SET)))) {
+            return;
+        }
+        $errors = [];
+
+        if ($this->meta->none(new PT($this->schema->license))) {
+            $errors[] = $this->schema->license . " is required for a Kulturpool resource";
+        }
+
+        $tags = $this->meta->listObjects(new PT(DF::namedNode(self::PROP_TAG)))->getValues();
+        $tags = array_intersect($tags, ['TEXT', 'VIDEO', 'SOUND', 'IMAGE', '3D']);
+        if (count($tags) !== 1) {
+            $errors[] = "exactly one " . self::PROP_TAG . " with value being one of TEXT, VIDEO, SOUND, IMAGE, 3D is rquired for a Kulturpool resource";
+        }
+
+        $isCollection = $this->meta->any(new PT(DF::namedNode(RDF::RDF_TYPE), $this->schema->classes->collection));
+        $hasNextItem  = $this->meta->any(new PT($this->schema->nextItem));
+        if ($isCollection && !$hasNextItem) {
+            $errors[] = $this->schema->nextItem . " is required for a Kulturpool resource of class " . $this->schema->classes->collection;
+        }
+
+        if (count($errors) > 0) {
+            throw new DoorkeeperException(implode("\n", $errors));
         }
     }
 

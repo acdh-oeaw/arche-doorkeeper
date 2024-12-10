@@ -1083,6 +1083,45 @@ class ResourceTest extends TestBase {
 
         self::$repo->rollback();
     }
+
+    public function testKulturpool(): void {
+        $idTmpl = new PT(self::$schema->id);
+
+        // fail
+        self::$repo->begin();
+        $cm = ['https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool'];
+        $cm = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        try {
+            $cr = self::$repo->createResource($cm);
+            $this->assertTrue(false);
+        } catch (ClientException $ex) {
+            $msg    = (string) $ex->getResponse()->getBody();
+            $this->assertEquals(400, $ex->getCode());
+            $refMsg = "https://vocabs.acdh.oeaw.ac.at/schema#hasLicense is required for a Kulturpool resource
+exactly one https://vocabs.acdh.oeaw.ac.at/schema#hasTag with value being one of TEXT, VIDEO, SOUND, IMAGE, 3D is rquired for a Kulturpool resource
+https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool resource of class https://vocabs.acdh.oeaw.ac.at/schema#Collection";
+            $this->assertEquals($refMsg, $msg);
+        }
+
+        // pass
+        $cid            = $cm->getObjectValue($idTmpl);
+        $rm             = [(string) self::$schema->parent => $cid];
+        $rm             = self::createMetadata($rm, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $cm             = [
+            (string) self::$schema->id                                 => $cid,
+            (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
+            (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag'    => 'VIDEO',
+            (string) self::$schema->license                            => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-sa-4-0',
+            (string) self::$schema->nextItem                           => (string) $rm->getObjectValue($idTmpl),
+        ];
+        $cm             = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $rr             = self::$repo->createResource($rm);
+        $cr             = self::$repo->getResourceById($cid);
+        $cr->setMetadata($cm);
+        $cr->updateMetadata();
+        self::$repo->commit();
+        $this->toDelete = array_merge($this->toDelete, [$cr, $rr]);
+    }
 //    public function testRangeUri(): void {
 //        \acdhOeaw\arche\lib\ingest\MetadataCollection::$debug = true;
 //        $graph = new \acdhOeaw\arche\lib\ingest\MetadataCollection(self::$repo, __DIR__ . '/kraus_processed.nt');
