@@ -387,7 +387,7 @@ class TransactionTest extends TestBase {
         }
         self::$repo->commit();
         $this->assertTrue(true);
-        $this->toDelete = array_merge($this->toDelete, [$cr, $rr1, $rr2, $rr3]);
+        $this->toDelete = array_merge($this->toDelete, $r);
 
         // correct hasNextItem
         self::$repo->begin();
@@ -430,5 +430,7 @@ class TransactionTest extends TestBase {
             $this->assertStringStartsWith("Collections containing incomplete $nextProp sequence: ", $msg);
             $this->assertStringEndsWith(" (2 < 3)", $msg);
         }
+        // give transaction controller a little time
+        sleep(1);
     }
 }
