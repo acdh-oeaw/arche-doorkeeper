@@ -263,17 +263,16 @@ class Transaction {
     public function checkHasNextItem(): void {
         $nextProp   = (string) $this->schema->nextItem;
         $parentProp = (string) $this->schema->parent;
-        // the current implementation is really dumb and does not handle a lot
-        // of corener cases, still it should be enough to prevent most errors
         $query      = "
             WITH
-            src AS (
-                SELECT DISTINCT gr.id
+            col AS (
+                SELECT DISTINCT gr.id AS cid, gr.id AS id, r3.target_id AS next
                 FROM
                     resources r1, 
                     LATERAL get_relatives(r1.id, ?, 0, -1) gr
-                    JOIN resources r2 USING (id)
-                    JOIN metadata m USING (id)
+                    JOIN resources r2 ON gr.id = r2.id
+                    JOIN metadata m ON gr.id = m.id
+                    LEFT JOIN relations r3 ON gr.id = r3.id AND r3.property = ?
                 WHERE
                     r1.transaction_id = ?
                     AND r1.state = ?
@@ -281,22 +280,31 @@ class Transaction {
                     AND m.property = ?
                     AND m.value IN (?, ?)
             ),
-            colres AS (
-                SELECT src.id AS cid, res.id AS id
+            children AS (
+                SELECT col.id AS cid, r2.id AS id, r3.target_id AS next
                 FROM
-                    src
-                    JOIN relations rel ON rel.target_id = src.id AND property = ?
-                    JOIN resources res ON rel.id = res.id AND res.state = ?
+                    col
+                    JOIN relations r1 ON col.id = r1.target_id AND r1.property = ?
+                    JOIN resources r2 ON r1.id = r2.id AND r2.state = ?
+                    LEFT JOIN relations r3 ON r1.id = r3.id AND r3.property = ?
+            ),
+            validchildren AS (
+                SELECT ch.*
+                FROM 
+                    children ch
+                    LEFT JOIN relations r ON ch.next = r.id AND r.property = ? AND r.target_id = ch.cid
+                WHERE ch.next IS NULL OR r.target_id IS NOT NULL
+            ),
+            together AS (
+                SELECT * FROM col
               UNION
-                SELECT id AS cid, id AS id FROM src
+                SELECT * FROM validchildren
             ),
             invalid AS (
-                SELECT cid AS id, count(*) - 1 AS total, count(r.target_id) AS nextitem
-                FROM
-                    colres
-                    LEFT JOIN relations r ON colres.id = r.id AND property = ?
+                SELECT cid AS id, count(*) - 1 AS total, count(next) AS nextitem
+                FROM together
                 GROUP BY 1
-                HAVING count(r.target_id) > 0 AND count(r.target_id) < count(*) - 1
+                HAVING count(next) > 0 AND count(next) < count(*) - 1
             )
             SELECT string_agg(ids, ', ')||' ('||nextitem::text||' < '||total::text||')'
             FROM 
@@ -305,17 +313,18 @@ class Transaction {
             GROUP BY id, total, nextitem
         ";
         $param      = [
-            $parentProp, $this->txId, ArcheTransaction::STATE_ACTIVE, ArcheTransaction::STATE_ACTIVE,
-            RDF::RDF_TYPE, $this->schema->classes->topCollection, $this->schema->classes->collection,
-            $parentProp, ArcheTransaction::STATE_ACTIVE,
-            $nextProp
+            $parentProp, $nextProp,
+            $this->txId, ArcheTransaction::STATE_ACTIVE, ArcheTransaction::STATE_ACTIVE, // col
+            RDF::RDF_TYPE, $this->schema->classes->topCollection, $this->schema->classes->collection, // col
+            $parentProp, ArcheTransaction::STATE_ACTIVE, $nextProp, // children
+            $parentProp, // validchildren
         ];
         //$this->log->info(new \zozlak\queryPart\QueryPart($query, $param));
         $query      = $this->pdo->prepare($query);
         $t          = microtime(true);
         $query->execute($param);
         $t          = microtime(true) - $t;
-        $this->log?->debug("\t\checkHasNextItem performed in $t s");
+        $this->log?->debug("\t\tcheckHasNextItem performed in $t s");
         $invalid    = $query->fetchAll(PDO::FETCH_COLUMN);
         if (count($invalid) > 0) {
             throw new DoorkeeperException("Collections containing incomplete $nextProp sequence: " . implode(', ', $invalid));

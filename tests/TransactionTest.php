@@ -379,7 +379,10 @@ class TransactionTest extends TestBase {
 
         // without hasNextItem
         self::$repo->begin();
-        $m[] = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $tcr = self::$repo->createResource(self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection'));
+        $cr  = self::$repo->createResource(self::createMetadata([$parentProp => $tcr->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
+        $rr  = self::$repo->createResource(self::createMetadata([$parentProp => $cr->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $m[] = self::createMetadata([$parentProp => $tcr->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         $r[] = self::$repo->createResource(end($m));
         for ($i = 0; $i < 3; $i++) {
             $m[] = self::createMetadata([$parentProp => $r[0]->getUri()]);
@@ -387,7 +390,7 @@ class TransactionTest extends TestBase {
         }
         self::$repo->commit();
         $this->assertTrue(true);
-        $this->toDelete = array_merge($this->toDelete, $r);
+        $this->toDelete = array_merge($this->toDelete, $r, [$tcr, $cr]);
 
         // correct hasNextItem
         self::$repo->begin();
