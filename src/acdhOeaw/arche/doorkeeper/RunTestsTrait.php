@@ -36,8 +36,16 @@ use ReflectionMethod;
  */
 trait RunTestsTrait {
 
+    /**
+     * 
+     * @param bool $throwException if `true`, the method throws a DoorkeeperException
+     *   on errors or null otherwise. If `false`, method returns a (possibly empty)
+     *   array of DoorkeeperExceptions.
+     * @return array<DoorkeeperException>|null
+     */
     public function runTests(string $attribute = CheckAttribute::class,
-                             int $filter = ReflectionMethod::IS_PUBLIC): void {
+                             int $filter = ReflectionMethod::IS_PUBLIC,
+                             bool $throwException = true): array | null {
         $rc       = new ReflectionClass(static::class);
         $closures = [];
         foreach ($rc->getMethods($filter) as $method) {
@@ -52,11 +60,12 @@ trait RunTestsTrait {
             try {
                 $i();
             } catch (DoorkeeperException $ex) {
-                $errors[] = $ex->getMessage();
+                $errors[] = $ex;
             }
         }
-        if (count($errors) > 0) {
-            throw new DoorkeeperException(implode("\n", $errors));
+        if (count($errors) > 0 && $throwException) {
+            throw new DoorkeeperException(implode("\n", array_map(fn($x) => $x->getMessage(), $errors)));
         }
+        return $throwException ? null : $errors;
     }
 }
