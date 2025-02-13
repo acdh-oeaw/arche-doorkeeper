@@ -689,9 +689,11 @@ class Resource {
         $idNmsp   = (string) $this->schema->namespaces->id;
         $pidProp  = $this->schema->pid;
         $propRead = RC::$config->accessControl->schema->read;
+        $idTmpl   = new PT($idProp);
         $pidTmpl  = new PT($pidProp);
         $res      = $this->meta->getNode();
-        $ids      = $this->meta->listObjects(new PT($idProp))->getValues();
+        $ids      = $this->meta->listObjects($idTmpl)->getValues();
+        sort($ids);
 
         $classesAlways        = [
             $this->schema->classes->topCollection,
@@ -718,65 +720,71 @@ class Resource {
             }
         }
 
-        $curPid = null;
-        $id     = null;
+        if (empty($cfg->pswd)) {
+            $this->log?->info("\t\tskipping PID (re)generation - no EPIC password provided");
+        } else {
+            $ps = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
+        }
+
+        // obtain the current PID, PIDs stored as ids and an URI pids should resolve to
+        $curPids = $this->meta->listObjects($pidTmpl)->getValues();
+        $acdhId  = $idPid   = null;
         foreach ($ids as $i) {
             if (str_starts_with($i, $cfg->resolver)) {
-                $curPid = $i;
+                $curPids[] = $i;
             }
             if (str_starts_with($i, $idNmsp)) {
+                // skip nested namespaces
                 $flag = true;
                 foreach ($idSubNmsps as $j) {
                     $flag &= !str_starts_with($i, $j);
                 }
                 if ($flag) {
-                    $id = $i;
+                    $acdhId = $i;
                 }
             }
         }
-        $pidLit = $this->meta->getObject($pidTmpl);
-        $pidLit = $pidLit !== null ? (string) $pidLit : null;
-        if (($pidLit === $cfg->createValue || $public) && $id !== null) {
-            if (empty($cfg->pswd)) {
-                $this->log?->info("\t\tskipping PID (re)generation - no EPIC password provided");
-                return;
-            }
-            $ps = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
-            if ($curPid === null) {
-                $this->meta->delete($pidTmpl);
-                $pid = $ps->create($id);
-                $pid = str_replace($cfg->url, $cfg->resolver, $pid);
-                $this->log?->info("\t\tregistered PID $pid pointing to " . $id);
-                $this->meta->add(DF::Quad($res, $pidProp, DF::literal($pid, null, RDF::XSD_ANY_URI)));
-            } else {
-                $this->meta->delete($pidTmpl);
-                $this->meta->add(DF::quad($res, $pidProp, DF::literal($curPid, null, RDF::XSD_ANY_URI)));
-                $pid = str_replace($cfg->resolver, $cfg->url, $curPid);
-                $ret = $ps->update($pid, $id);
-                $this->log?->info("\t\trecreated PID $curPid pointing to " . $id . " with return code " . $ret);
+
+        // check if new PID should be minted and remove the create value form the $curPids
+        $create = $public;
+        if (in_array($cfg->createValue, $curPids)) {
+            $create  = true;
+            $curPids = array_filter($curPids, fn($x) => $x !== $cfg->createValue);
+        }
+        $create = $create && count($curPids) === 0; // do not mint if pid exists
+        // standardize pids
+        if (!isset($this->uriNorm)) {
+            $this->uriNorm = new UriNormalizer();
+        }
+        $curPids = array_map(fn($x) => $this->uriNorm->normalize($x, false), $curPids);
+
+        // make sure existing pids point to the right location
+        if (isset($ps) && !empty($acdhId)) {
+            foreach ($curPids as $pid) {
+                $pid = str_replace($cfg->resolver, $cfg->url, $pid);
+                $ret = $ps->update($pid, $acdhId);
+                $this->log?->info("\t\trecreated PID $pid pointing to " . $acdhId . " with return code " . $ret);
             }
         }
-        // standardize PID if needed
-        if ($pidLit !== null) {
-            if (!isset($this->uriNorm)) {
-                $this->uriNorm = new UriNormalizer();
-            }
-            $stdPid = $this->uriNorm->normalize($pidLit, false);
-            if ($stdPid !== $pidLit) {
-                $this->meta->delete($pidTmpl);
-                $this->meta->add(DF::quad($res, $pidProp, DF::literal($stdPid, null, RDF::XSD_ANY_URI)));
-                $this->log?->info("\t\tPID $pidLit standardized to $stdPid");
-            }
+
+        // mint new pid if needed
+        if (isset($ps) && !empty($acdhId) && $create) {
+            $pid = $ps->create($acdhId);
+            $pid = str_replace($cfg->url, $cfg->resolver, $pid);
+            $this->log?->info("\t\tregistered PID $pid pointing to " . $acdhId);
+            array_unshift($curPids, $pid);
         }
-        // promote PIDs to IDs
-        foreach ($this->meta->getIterator($pidTmpl) as $i) {
-            $i = (string) $i->getObject();
-            if ($i === '') {
-                throw new DoorkeeperException("Empty PID");
-            }
-            if ($i !== $cfg->createValue && !in_array($i, $ids)) {
-                $this->log?->info("\t\tpromoting PID $i to an id");
-                $this->meta->add(DF::quad($res, $idProp, DF::literal($i)));
+
+
+        // promote pids to ids and set first as the pid
+        foreach (array_values($curPids) as $n => $pid) {
+            $this->log?->debug("\t\tcopied PID $pid to an id");
+            $this->meta->add(DF::quad($res, $idProp, DF::namedNode($pid)));
+            if ($n === 0) {
+                $this->log?->debug("\t\tsetting PID $pid as " . $pidProp);
+                // set first pid as the pid property
+                $this->meta->delete($pidTmpl);
+                $this->meta->add(DF::quad($res, $pidProp, DF::literal($pid, null, RDF::XSD_ANY_URI)));
             }
         }
     }

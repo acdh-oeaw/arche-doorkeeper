@@ -149,7 +149,8 @@ class ResourceTest extends TestBase {
     }
 
     public function testMaintainRange(): void {
-        $pid = 'https://foo.bar/' . rand();
+        $cfg = self::$config->doorkeeper->epicPid;
+        $pid = $cfg->resolver . $cfg->prefix . '/' . rand();
         $im  = self::createMetadata([
             'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => '2017',
             'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate'   => '2017-03-08T20:45:17',
@@ -688,28 +689,25 @@ class ResourceTest extends TestBase {
     }
 
     public function testPidPreserving(): void {
-        $idProp      = self::$schema->id;
-        $idTmpl      = new PT($idProp);
-        $pidProp     = self::$schema->pid;
-        $pidTmpl     = new PT($pidProp);
-        $cmdiPidProp = self::$schema->cmdiPid;
-        $pidNmsp     = self::$config->doorkeeper->epicPid->resolver;
-        $idNmsp      = self::$schema->namespaces->id;
-        $httpsPid    = $pidNmsp . self::$config->doorkeeper->epicPid->prefix . '/123';
-        $httpPid     = str_replace('https://', 'http://', $httpsPid);
+        $idProp   = self::$schema->id;
+        $idTmpl   = new PT($idProp);
+        $pidProp  = self::$schema->pid;
+        $pidTmpl  = new PT($pidProp);
+        $pidNmsp  = self::$config->doorkeeper->epicPid->resolver;
+        $idNmsp   = self::$schema->namespaces->id;
+        $httpsPid = $pidNmsp . self::$config->doorkeeper->epicPid->prefix . '/123';
+        $httpPid  = str_replace('https://', 'http://', $httpsPid);
         self::$repo->begin();
 
         // existing pid not overwritten but promoted to an id
-        $idn  = rand();
-        $im   = self::createMetadata([
+        $idn = rand();
+        $im  = self::createMetadata([
             (string) $idProp  => $idNmsp . $idn,
             (string) $pidProp => $httpPid,
         ]);
-        $r    = self::$repo->createResource($im);
-        $m1   = $r->getGraph();
-        $pids = $m1->listObjects($pidTmpl)->getValues();
-        $this->assertEquals(1, count($pids));
-        $this->assertEquals($httpsPid, $pids[0]);
+        $r   = self::$repo->createResource($im);
+        $m1  = $r->getGraph();
+        $this->assertEquals([$httpsPid], $m1->listObjects($pidTmpl)->getValues());
         $this->assertContains($httpsPid, $m1->listObjects($idTmpl)->getValues());
 
         // pid refreshed from one stored as an id
@@ -720,9 +718,38 @@ class ResourceTest extends TestBase {
         $r->updateMetadata();
         $m3   = $r->getGraph();
         $pids = $m3->listObjects($pidTmpl)->getValues();
-        $this->assertEquals(1, count($pids));
-        $this->assertEquals($httpsPid, $pids[0]);
+        $this->assertEquals([$httpsPid], $pids);
         $this->assertContains($httpsPid, $m3->listObjects($idTmpl)->getValues());
+
+        self::$repo->rollback();
+    }
+
+    /**
+     * Pid exists only as a pid property but no as an id
+     */
+    public function testOnlyPid(): void {
+        $cfg     = self::$config->doorkeeper->epicPid;
+        $idProp  = self::$schema->id;
+        $idTmpl  = new PT($idProp);
+        $pidProp = self::$schema->pid;
+        $pidTmpl = new PT($pidProp);
+        $idNmsp  = self::$schema->namespaces->id;
+        $id      = $pid     = $cfg->resolver . $cfg->prefix . '/123';
+        self::$repo->begin();
+
+        $id       = $idNmsp . rand();
+        $im       = self::createMetadata([
+            (string) $idProp  => $id,
+            (string) $pidProp => $pid,
+        ]);
+        $r        = self::$repo->createResource($im);
+        $m        = $r->getGraph();
+        $this->assertEquals([$pid], $m->listObjects($pidTmpl)->getValues());
+        $ids      = $m->listObjects($idTmpl)->getValues();
+        sort($ids);
+        $expected = [(string) $r->getUri(), $id, $pid];
+        sort($expected);
+        $this->assertEquals($expected, $ids);
 
         self::$repo->rollback();
     }
