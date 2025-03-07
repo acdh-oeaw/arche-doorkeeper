@@ -239,6 +239,16 @@ class ResourceTest extends TestBase {
             $this->assertMatchesRegularExpression('/value does not match data type/', $e->getMessage());
         }
 
+        $im = self::createMetadata([
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasUrl' => DF::literal('http://bad/url'),
+        ]);
+        try {
+            self::$repo->createResource($im);
+            $this->assertTrue(false);
+        } catch (RequestException $e) {
+            $this->assertMatchesRegularExpression('/unresolvable URI/', $e->getMessage());
+        }
+        
         self::$repo->rollback();
     }
 

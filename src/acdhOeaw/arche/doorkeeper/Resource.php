@@ -32,6 +32,8 @@ use PDO;
 use RuntimeException;
 use Psr\Log\LoggerInterface;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Psr7\Request;
 use rdfInterface\DatasetNodeInterface;
 use rdfInterface\LiteralInterface;
 use rdfInterface\NamedNodeInterface;
@@ -769,7 +771,12 @@ class Resource {
 
         // mint new pid if needed
         if (isset($ps) && !empty($acdhId) && $create) {
-            $pid = $ps->create($acdhId);
+            try {
+                $pid = $ps->create($acdhId);
+            } catch (\Exception $e) {
+                $this->log?->error(print_r($e, true));
+                throw $e;
+            }
             $pid = str_replace($cfg->url, $cfg->resolver, $pid);
             $this->log?->info("\t\tregistered PID $pid pointing to " . $acdhId);
             array_unshift($curPids, $pid);
@@ -817,8 +824,8 @@ class Resource {
         }
     }
 
-    private function maintainPropertyRangeLiteral(
-        PropertyDesc $propDesc, NamedNodeInterface $prop): void {
+    private function maintainPropertyRangeLiteral(PropertyDesc $propDesc,
+                                                  NamedNodeInterface $prop): void {
         $res   = $this->meta->getNode();
         $range = $propDesc->range;
         foreach ($this->meta->listObjects(new PT($prop, new LT(null, LT::ANY))) as $l) {
@@ -830,6 +837,20 @@ class Resource {
                 $this->meta->delete(new PT($prop, $l));
                 $this->meta->add(DF::quad($res, $prop, DF::literal((string) $l)));
                 $this->log?->debug("\t\tcasting $prop value from $type to string");
+            } elseif (in_array(RDF::XSD_ANY_URI, $range)) {
+                static $client = null;
+                if ($client === null) {
+                    $client = new Client();
+                }
+                try {
+                    $client->send(new Request('HEAD', $l->getValue()));
+                    $value = $value->withDatatype(RDF::XSD_ANY_URI);
+                    $this->meta->delete(new PT($prop, $l));
+                    $this->meta->add(DF::quad($res, $prop, $value));
+                    $this->log?->debug("\t\tcasting $prop value from $type to " . RDF::XSD_ANY_URI);
+                } catch (GuzzleException $ex) {
+                    throw new DoorkeeperException("property $prop: unresolvable URI $l");
+                }
             } else {
                 try {
                     $rangeTmp = array_intersect($range, self::LITERAL_TYPES);
