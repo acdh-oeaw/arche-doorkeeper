@@ -837,16 +837,15 @@ class Resource {
                 $this->meta->delete(new PT($prop, $l));
                 $this->meta->add(DF::quad($res, $prop, DF::literal((string) $l)));
                 $this->log?->debug("\t\tcasting $prop value from $type to string");
-            } elseif (in_array(RDF::XSD_ANY_URI, $range)) {
+            } elseif (in_array(RDF::XSD_ANY_URI, $range) && !$prop->equals($this->schema->pid)) {
                 static $client = null;
                 if ($client === null) {
                     $client = new Client();
                 }
                 try {
                     $client->send(new Request('HEAD', $l->getValue()));
-                    $value = $value->withDatatype(RDF::XSD_ANY_URI);
                     $this->meta->delete(new PT($prop, $l));
-                    $this->meta->add(DF::quad($res, $prop, $value));
+                    $this->meta->add(DF::quad($res, $prop, $l->withDatatype(RDF::XSD_ANY_URI)));
                     $this->log?->debug("\t\tcasting $prop value from $type to " . RDF::XSD_ANY_URI);
                 } catch (GuzzleException $ex) {
                     throw new DoorkeeperException("property $prop: unresolvable URI $l");
