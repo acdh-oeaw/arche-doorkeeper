@@ -446,8 +446,8 @@ class Transaction {
                 WHERE state = ? AND (collection)
         ");
         $query->execute([
-            $acdhSizeProp, RDF::XSD_DECIMAL, Resource::STATE_ACTIVE,
-            $acdhCountProp, RDF::XSD_DECIMAL, Resource::STATE_ACTIVE
+            $acdhSizeProp, $this->getPropertyType($acdhSizeProp), Resource::STATE_ACTIVE,
+            $acdhCountProp, $this->getPropertyType($acdhCountProp), Resource::STATE_ACTIVE
         ]);
     }
 
@@ -589,5 +589,11 @@ class Transaction {
             $this->log?->debug("\t\t\ttiming: " . ($t1 - $t0));
         }
         return $this->parentIds;
+    }
+
+    private function getPropertyType(string $prop): string | false {
+        $propDesc = $this->ontology->getProperty(null, $prop);
+        $range    = array_filter($propDesc->range, fn($x) => str_starts_with($x, RDF::NMSP_XSD));
+        return reset($range);
     }
 }
