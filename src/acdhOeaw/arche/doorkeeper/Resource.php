@@ -826,6 +826,9 @@ class Resource {
 
     private function maintainPropertyRangeLiteral(PropertyDesc $propDesc,
                                                   NamedNodeInterface $prop): void {
+        static $client = null;
+        static $cache  = null;
+
         $res   = $this->meta->getNode();
         $range = $propDesc->range;
         foreach ($this->meta->listObjects(new PT($prop, new LT(null, LT::ANY))) as $l) {
@@ -838,12 +841,17 @@ class Resource {
                 $this->meta->add(DF::quad($res, $prop, DF::literal((string) $l)));
                 $this->log?->debug("\t\tcasting $prop value from $type to string");
             } elseif (in_array(RDF::XSD_ANY_URI, $range) && !$prop->equals($this->schema->pid)) {
-                static $client = null;
                 if ($client === null) {
                     $client = new Client();
                 }
+                if ($cache === null) {
+                    $cache = new UriNormalizerCache('cacheXsdAnyUri.sqlite');
+                }
                 try {
-                    $client->send(new Request('HEAD', $l->getValue()));
+                    if (!$cache->has((string) $l)) {
+                        $client->send(new Request('HEAD', $l->getValue()));
+                        $cache->set((string) $l, (string) $l);
+                    }
                     $this->meta->delete(new PT($prop, $l));
                     $this->meta->add(DF::quad($res, $prop, $l->withDatatype(RDF::XSD_ANY_URI)));
                     $this->log?->debug("\t\tcasting $prop value from $type to " . RDF::XSD_ANY_URI);
