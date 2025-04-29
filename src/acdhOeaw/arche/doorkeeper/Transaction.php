@@ -585,7 +585,7 @@ class Transaction {
                 $this->parentIds = $query->fetchAll(PDO::FETCH_COLUMN);
             }
             $t1 = microtime(true);
-            $this->log->debug("\t\t\t" . count($this->parentIds) . " collections found");
+            $this->log?->debug("\t\t\t" . count($this->parentIds) . " collections found");
             $this->log?->debug("\t\t\ttiming: " . ($t1 - $t0));
         }
         return $this->parentIds;
@@ -593,6 +593,9 @@ class Transaction {
 
     private function getPropertyType(string $prop): string | false {
         $propDesc = $this->ontology->getProperty(null, $prop);
+        if ($propDesc === null) {
+            return false;
+        }
         $range    = array_filter($propDesc->range, fn($x) => str_starts_with($x, RDF::NMSP_XSD));
         return reset($range);
     }
