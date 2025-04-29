@@ -631,7 +631,7 @@ class Resource {
     public function check10NextItem(): void {
         foreach ($this->meta->getIterator(new PT($this->schema->nextItem)) as $q) {
             if ($q->getSubject()->equals($q->getObject())) {
-                //throw new DoorkeeperException($this->schema->nextItem . " points to itself");
+                throw new DoorkeeperException($this->schema->nextItem . " points to itself");
             }
         }
     }
