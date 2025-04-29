@@ -1166,6 +1166,7 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
         $m = $r->getGraph();
         $m->add(DF::quadNoSubject(self::$schema->nextItem, $m->getNode()));
         $r->setMetadata($m);
+        self::$repo->begin();
         try {
             $r->updateMetadata();
             $this->assertTrue(false);
