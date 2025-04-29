@@ -1162,11 +1162,11 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
     
     public function testNextItem(): void {
         $m = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        self::$repo->begin();
         $r = self::$repo->createResource($m);
         $m = $r->getGraph();
         $m->add(DF::quadNoSubject(self::$schema->nextItem, $m->getNode()));
         $r->setMetadata($m);
-        self::$repo->begin();
         try {
             $r->updateMetadata();
             $this->assertTrue(false);
