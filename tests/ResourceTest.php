@@ -1161,9 +1161,13 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
     }
     
     public function testNextItem(): void {
-        $m = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $m = self::createMetadata($m, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $r = self::$repo->createResource($m);
+        $m = $r->getGraph();
+        $m->add(DF::quadNoSubject(self::$schema->nextItem, $m->getNode()));
+        $r->setMetadata($m);
         try {
-            $r = self::$repo->createResource($m);
+            $r->updateMetadata();
             $this->assertTrue(false);
         } catch (ClientException $ex) {
             $msg    = (string) $ex->getResponse()->getBody();
