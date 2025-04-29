@@ -627,6 +627,15 @@ class Resource {
         }
     }
 
+    #[CheckAttribute]
+    public function check10NextItem(): void {
+        foreach ($this->meta->getIterator(new PT($this->schema->nextItem)) as $q) {
+            if ($q->getSubject()->equals($q->getObject())) {
+                //throw new DoorkeeperException($this->schema->nextItem . " points to itself");
+            }
+        }
+    }
+
     /**
      * CMDI records must have their very own PIDs but this requires special handling
      * as in ARCHE CMDI is just a metadata serialization format and not a separate

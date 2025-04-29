@@ -1159,13 +1159,17 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$cr, $rr]);
     }
-//    public function testRangeUri(): void {
-//        \acdhOeaw\arche\lib\ingest\MetadataCollection::$debug = true;
-//        $graph = new \acdhOeaw\arche\lib\ingest\MetadataCollection(self::$repo, __DIR__ . '/kraus_processed.nt');
-//        $graph->preprocess();
-//        self::$repo->begin();
-//        $graph->import(self::$repo->getSchema()->namespaces->id, \acdhOeaw\arche\lib\ingest\MetadataCollection::SKIP, \acdhOeaw\arche\lib\ingest\MetadataCollection::ERRMODE_PASS, 6, 7);
-//        //self::$repo->commit();
-//        self::$repo->rollback();
-//    }
+    
+    public function testNextItem(): void {
+        $m = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        try {
+            $r = self::$repo->createResource($m);
+            $this->assertTrue(false);
+        } catch (ClientException $ex) {
+            $msg    = (string) $ex->getResponse()->getBody();
+            $this->assertEquals(400, $ex->getCode());
+            $refMsg = "https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem points to itself";
+            $this->assertEquals($refMsg, $msg);
+        }
+    }
 }
