@@ -203,6 +203,9 @@ class Resource {
      */
     #[PreCheckAttribute]
     public function pre05MaintainAccessRights(): void {
+        if (!$this->inArcheCoreContext()) {
+            return;
+        }
         $accessRestr = (string) $this->meta->getObject(new PT($this->schema->accessRestriction));
         if (empty($accessRestr)) {
             return;
@@ -242,7 +245,7 @@ class Resource {
     public function pre06MaintainPropertyRange(): void {
         static $checkRangeUris = null;
         if ($checkRangeUris === null) {
-            $checkRangeUris = array_keys((array) RC::$config->doorkeeper->checkRanges);
+            $checkRangeUris = array_keys((array) $this->schema->checkRanges);
         }
 
         foreach ($this->meta->listPredicates() as $prop) {
@@ -807,7 +810,7 @@ class Resource {
 
     private function maintainPropertyRangeVocabs(
         PropertyDesc $propDesc, NamedNodeInterface $prop): void {
-        if (RC::$config->doorkeeper->checkVocabularyValues === false) {
+        if ($this->inArcheCoreContext() && RC::$config->doorkeeper->checkVocabularyValues === false) {
             return;
         }
         $res = $this->meta->getNode();
@@ -887,7 +890,7 @@ class Resource {
     private function verifyPropertyRangeUri(string $rangeUri, string $prop): void {
         static $rangeDefs = null;
         if ($rangeDefs === null) {
-            $rangeDefs = RC::$config->doorkeeper->checkRanges;
+            $rangeDefs = $this->schema->checkRanges;
         }
         static $client = null;
         if ($client === null) {
