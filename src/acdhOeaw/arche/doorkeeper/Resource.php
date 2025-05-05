@@ -30,6 +30,7 @@ use DateTime;
 use Exception;
 use PDO;
 use RuntimeException;
+use stdClass;
 use Psr\Log\LoggerInterface;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
@@ -115,13 +116,23 @@ class Resource {
     }
 
     private UriNormalizer $uriNorm;
+    private stdClass $checkRanges;
 
     public function __construct(private DatasetNodeInterface $meta,
                                 private Schema $schema,
                                 private Ontology $ontology,
                                 private PDO | null $pdo = null,
                                 private LoggerInterface | null $log = null) {
-        $this->uriNorm = new UriNormalizer();
+        $this->uriNorm     = new UriNormalizer();
+        $this->checkRanges = new stdClass();
+        if (is_object($schema->checkRanges)) {
+            foreach (iterator_to_array($schema->checkRanges) as $class => $rules) {
+                $this->checkRanges->$class = [];
+                foreach (iterator_to_array($rules) as $rule) {
+                    $this->checkRanges->$class[] = (string) $rule;
+                }
+            }
+        }
     }
 
     #[PreCheckAttribute]
@@ -245,9 +256,8 @@ class Resource {
     public function pre06MaintainPropertyRange(): void {
         static $checkRangeUris = null;
         if ($checkRangeUris === null) {
-            $checkRangeUris = array_keys((array) $this->schema->checkRanges);
+            $checkRangeUris = array_keys((array) $this->checkRanges);
         }
-
         foreach ($this->meta->listPredicates() as $prop) {
             $propDesc = $this->ontology->getProperty($this->meta, $prop);
             if ($propDesc === null || !is_array($propDesc->range) || count($propDesc->range) === 0) {
@@ -888,10 +898,6 @@ class Resource {
     }
 
     private function verifyPropertyRangeUri(string $rangeUri, string $prop): void {
-        static $rangeDefs = null;
-        if ($rangeDefs === null) {
-            $rangeDefs = $this->schema->checkRanges;
-        }
         static $client = null;
         if ($client === null) {
             $client = new Client();
@@ -902,7 +908,7 @@ class Resource {
         }
         static $normalizers = [];
         if (!isset($normalizers[$rangeUri])) {
-            $rules                  = UriNormRules::getRules($rangeDefs->$rangeUri);
+            $rules                  = UriNormRules::getRules($this->checkRanges->$rangeUri);
             $normalizers[$rangeUri] = new UriNormalizer($rules, '', $client, $cache);
         }
 
