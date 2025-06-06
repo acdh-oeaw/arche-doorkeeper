@@ -32,7 +32,7 @@ use PDO;
 use RuntimeException;
 use stdClass;
 use Psr\Log\LoggerInterface;
-use GuzzleHttp\Client;
+use zozlak\ProxyClient;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7\Request;
 use rdfInterface\DatasetNodeInterface;
@@ -864,7 +864,7 @@ class Resource {
                 $this->log?->debug("\t\tcasting $prop value from $type to string");
             } elseif (in_array(RDF::XSD_ANY_URI, $range) && !$prop->equals($this->schema->pid)) {
                 if ($client === null) {
-                    $client = new Client();
+                    $client = ProxyClient::factory();
                 }
                 if ($cache === null) {
                     $cache = new UriNormalizerCache('cacheXsdAnyUri.sqlite');
@@ -900,7 +900,7 @@ class Resource {
     private function verifyPropertyRangeUri(string $rangeUri, string $prop): void {
         static $client = null;
         if ($client === null) {
-            $client = new Client();
+            $client = ProxyClient::factory();
         }
         static $cache = null;
         if ($cache === null) {
