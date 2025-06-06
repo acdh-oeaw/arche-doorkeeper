@@ -32,9 +32,10 @@ jobs:
           sleep 10
         done
         cat log/initScripts.log
-    - uses: mxschmitt/action-tmate@v3
+    #- uses: mxschmitt/action-tmate@v3
     - name: test
       run: |
+        ln -s config/yaml/config-repo.yaml config.yaml
         XDEBUG_MODE=coverage ./vendor/bin/phpunit
     - name: coveralls
       run: |
