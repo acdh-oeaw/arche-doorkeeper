@@ -35,7 +35,6 @@ jobs:
     #- uses: mxschmitt/action-tmate@v3
     - name: test
       run: |
-        ln -s config/yaml/config-repo.yaml config.yaml
         XDEBUG_MODE=coverage ./vendor/bin/phpunit
     - name: coveralls
       run: |
