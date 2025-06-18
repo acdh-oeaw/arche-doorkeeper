@@ -123,7 +123,14 @@ class Resource {
                                 private Ontology $ontology,
                                 private PDO | null $pdo = null,
                                 private LoggerInterface | null $log = null) {
-        $this->uriNorm     = new UriNormalizer();
+        $uriNormRules      = UriNormRules::getRules();
+        $uriNormRules      = array_filter($uriNormRules, fn($x) => $x->name !== 'arche-localhost');
+        $uriNormRules[]    = (object) [
+                'name'    => 'baseUrl',
+                'match'   => '^(' . $meta->getNode() . ')$',
+                'replace' => '\\1',
+        ];
+        $this->uriNorm     = new UriNormalizer($uriNormRules);
         $this->checkRanges = new stdClass();
         if (is_object($schema->checkRanges)) {
             foreach (iterator_to_array($schema->checkRanges) as $class => $rules) {
