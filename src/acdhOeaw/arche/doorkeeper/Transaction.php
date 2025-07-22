@@ -343,18 +343,24 @@ class Transaction {
         // find all affected parents (gr, pp) and their children
         $query     = "
             CREATE TEMPORARY TABLE _resources AS
-            SELECT p.id AS cid, (get_relatives(p.id, ?, 999999, 0)).*
-            FROM (
-                SELECT DISTINCT gr.id
-                FROM resources r, LATERAL get_relatives(r.id, ?, 0) gr
-                WHERE r.transaction_id = ?
-              " . (count($parentIds) > 0 ? "UNION SELECT * FROM (VALUES %ids%) pp" : "") . "
-            ) p
+            WITH RECURSIVE t(cid, id) AS (
+                SELECT * FROM (
+                    SELECT DISTINCT gr.id AS cid, gr.id
+                    FROM resources r, LATERAL get_relatives(r.id, ?, 0) gr
+                    WHERE r.transaction_id = ?
+                    " . (count($parentIds) > 0 ? "UNION SELECT id, id FROM (VALUES %ids%) pp (id)" : "") . "
+                ) t0
+              UNION
+                SELECT t.cid, r.id
+                FROM t JOIN relations r ON t.id = r.target_id AND r.property = ?
+            )
+            SELECT * FROM t;
         ";
         $query     = str_replace('%ids%', substr(str_repeat('(?::bigint), ', count($parentIds)), 0, -2), $query);
         $param     = array_merge(
-            [$this->schema->parent, $this->schema->parent, $this->txId],
+            [$this->schema->parent, $this->txId], 
             $parentIds,
+            [$this->schema->parent],
         );
         $query     = $this->pdo->prepare($query);
         $query->execute($param);
