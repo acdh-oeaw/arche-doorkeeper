@@ -569,9 +569,11 @@ class Transaction {
                 $this->parentIds = [];
             } else {
                 $pdoOld          = RC::$transaction->getPreTransactionDbHandle();
+                $pdoOld->query("CREATE TEMPORARY TABLE _res (id bigint)");
+                $pdoOld->pgsqlCopyFromArray('_res', $resIds);
                 $query           = "
                     WITH RECURSIVE t(id, n) AS (
-                        SELECT * FROM (VALUES %ids%) t1
+                        SELECT id, 0 FROM _res
                       UNION
                         SELECT target_id, 1
                         FROM t JOIN relations USING (id)
@@ -579,10 +581,10 @@ class Transaction {
                     )
                     SELECT DISTINCT id FROM t WHERE n > 0
                 ";
-                $query           = str_replace('%ids%', substr(str_repeat('(?::bigint, 0), ', count($resIds)), 0, -2), $query);
                 $query           = $pdoOld->prepare($query);
-                $query->execute(array_merge($resIds, [$this->schema->parent]));
+                $query->execute([$this->schema->parent]);
                 $this->parentIds = $query->fetchAll(PDO::FETCH_COLUMN);
+                $pdoOld->query("DROP TABLE _res");
             }
             $t1 = microtime(true);
             $this->log?->debug("\t\t\t" . count($this->parentIds) . " collections found");
@@ -596,7 +598,7 @@ class Transaction {
         if ($propDesc === null) {
             return false;
         }
-        $range    = array_filter($propDesc->range, fn($x) => str_starts_with($x, RDF::NMSP_XSD));
+        $range = array_filter($propDesc->range, fn($x) => str_starts_with($x, RDF::NMSP_XSD));
         return reset($range);
     }
 }
