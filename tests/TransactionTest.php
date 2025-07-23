@@ -382,21 +382,21 @@ class TransactionTest extends TestBase {
         $tcr = self::$repo->createResource(self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection'));
         $cr  = self::$repo->createResource(self::createMetadata([$parentProp => $tcr->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
         $rr  = self::$repo->createResource(self::createMetadata([$parentProp => $cr->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
-        $m[] = self::createMetadata([$parentProp => $tcr->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
-        $r[] = self::$repo->createResource(end($m));
+        $r[] = self::$repo->createResource(self::createMetadata([$parentProp => $tcr->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
         for ($i = 0; $i < 3; $i++) {
-            $m[] = self::createMetadata([$parentProp => $r[0]->getUri()]);
-            $r[] = self::$repo->createResource(end($m));
+            $r[] = self::$repo->createResource(self::createMetadata([$parentProp => $r[0]->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
         }
         self::$repo->commit();
         $this->assertTrue(true);
         $this->toDelete = array_merge($this->toDelete, $r, [$tcr, $cr]);
+        $rCid = preg_replace('|^.*/|', '', $r[0]->getUri());
 
         // correct hasNextItem
         self::$repo->begin();
         for ($i = 0; $i < 3; $i++) {
-            $m[$i]->add(DF::quad($r[$i]->getUri(), self::$schema->nextItem, $r[$i + 1]->getUri()));
-            $r[$i]->setMetadata($m[$i]);
+            $m = $r[$i]->getGraph();
+            $m->add(DF::quadNoSubject(self::$schema->nextItem, $r[$i + 1]->getUri()));
+            $r[$i]->setGraph($m);
             $r[$i]->updateMetadata();
         }
         self::$repo->commit();
@@ -404,9 +404,10 @@ class TransactionTest extends TestBase {
 
         // drop one hasNextItem to create a broken chain
         self::$repo->begin();
-        $m[2]->delete(new PT(self::$schema->nextItem));
-        $m[2]->add(DF::quad($r[2]->getUri(), self::$schema->delete, self::$schema->nextItem));
-        $r[2]->setMetadata($m[2]);
+        $m = $r[2]->getGraph();
+        $m->delete(new PT(self::$schema->nextItem));
+        $m->add(DF::quad($r[2]->getUri(), self::$schema->delete, self::$schema->nextItem));
+        $r[2]->setGraph($m);
         $r[2]->updateMetadata();
         try {
             self::$repo->commit();
@@ -414,15 +415,18 @@ class TransactionTest extends TestBase {
         } catch (ClientException $ex) {
             $msg = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
-            $this->assertStringStartsWith("Collections containing incomplete $nextProp sequence: ", $msg);
-            $this->assertStringEndsWith(" (2 < 3)", $msg);
+            $this->assertStringStartsWith("$nextProp errors:\n", $msg);
+            $this->assertMatchesRegularExpression("|Collection $rCid has a gap in the next item chain in one of resources|", $msg);
+            $rid = preg_replace('|^.*/|', '', $r[3]->getUri());
+            $this->assertMatchesRegularExpression("|Resource $rid is not pointed with any next item|", $msg);
         }
 
         // same should go if removed from a collection
         self::$repo->begin();
-        $m[0]->delete(new PT(self::$schema->nextItem));
-        $m[0]->add(DF::quad($r[0]->getUri(), self::$schema->delete, self::$schema->nextItem));
-        $r[0]->setMetadata($m[0]);
+        $m = $r[0]->getGraph();
+        $m->delete(new PT(self::$schema->nextItem));
+        $m->add(DF::quad($r[0]->getUri(), self::$schema->delete, self::$schema->nextItem));
+        $r[0]->setGraph($m);
         $r[0]->updateMetadata();
         try {
             self::$repo->commit();
@@ -430,8 +434,11 @@ class TransactionTest extends TestBase {
         } catch (ClientException $ex) {
             $msg = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
-            $this->assertStringStartsWith("Collections containing incomplete $nextProp sequence: ", $msg);
-            $this->assertStringEndsWith(" (2 < 3)", $msg);
+            $this->assertStringStartsWith("$nextProp errors:\n", $msg);
+            $this->assertMatchesRegularExpression("|Collection $rCid has a gap in the next item chain in one of resources|", $msg);
+            $this->assertMatchesRegularExpression("|Collection $rCid does not point with the next item to its first child|", $msg);
+            $rid = preg_replace('|^.*/|', '', $r[1]->getUri());
+            $this->assertMatchesRegularExpression("|Resource $rid is not pointed with any next item|", $msg);
         }
         // give transaction controller a little time
         sleep(1);

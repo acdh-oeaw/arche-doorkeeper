@@ -264,70 +264,160 @@ class Transaction {
         $nextProp   = (string) $this->schema->nextItem;
         $parentProp = (string) $this->schema->parent;
         $query      = "
-            WITH
-            col AS (
-                SELECT DISTINCT gr.id AS cid, gr.id AS id, r3.target_id AS next
-                FROM
-                    resources r1, 
-                    LATERAL get_relatives(r1.id, ?, 0, -1) gr
-                    JOIN resources r2 ON gr.id = r2.id
-                    JOIN metadata m ON gr.id = m.id
-                    LEFT JOIN relations r3 ON gr.id = r3.id AND r3.property = ?
-                WHERE
-                    r1.transaction_id = ?
-                    AND r1.state = ?
-                    AND r2.state = ?
-                    AND m.property = ?
-                    AND m.value IN (?, ?)
+            CREATE TEMPORARY TABLE hni AS (
+            -- active collections containing transaction resources
+            WITH cols AS (
+                WITH
+                    t1 AS (SELECT id FROM resources WHERE transaction_id = ? AND state = ?),
+                    t2 AS (
+                        SELECT * FROM t1
+                      UNION
+                        SELECT rs.id 
+                        FROM relations r JOIN resources rs ON r.target_id = rs.id AND r.property = ? AND rs.state = ?
+                        WHERE EXISTS (SELECT 1 FROM t1 WHERE id = r.id)
+                    )
+                SELECT * 
+                FROM t2 
+                WHERE EXISTS (SELECT 1 FROM metadata WHERE id = t2.id AND property = ? AND value IN (?, ?))
             ),
-            children AS (
-                SELECT col.id AS cid, r2.id AS id, r3.target_id AS next
-                FROM
-                    col
-                    JOIN relations r1 ON col.id = r1.target_id AND r1.property = ?
-                    JOIN resources r2 ON r1.id = r2.id AND r2.state = ?
-                    LEFT JOIN relations r3 ON r1.id = r3.id AND r3.property = ?
-            ),
-            validchildren AS (
-                SELECT ch.*
-                FROM 
-                    children ch
-                    LEFT JOIN relations r ON ch.next = r.id AND r.property = ? AND r.target_id = ch.cid
-                WHERE ch.next IS NULL OR r.target_id IS NOT NULL
-            ),
-            together AS (
-                SELECT * FROM col
+            -- cols and their all active children
+            ch AS (
+                SELECT id AS pid, id, true AS col, true AS tocheck
+                FROM cols
               UNION
-                SELECT * FROM validchildren
+                SELECT c.id AS pid, r.id, m.value IN (?, ?) AS col, false AS tocheck
+                FROM
+                    cols c
+                    JOIN relations r ON r.target_id = c.id AND r.property= ?
+                    JOIN resources rs ON rs.id = r.id AND state = ?
+                    JOIN metadata m ON m.id = r.id AND m.property = ?
             ),
-            invalid AS (
-                SELECT cid AS id, count(*) - 1 AS total, count(next) AS nextitem
-                FROM together
-                GROUP BY 1
-                HAVING count(next) > 0 AND count(next) < count(*) - 1
+            -- nextProp chain from cols
+            ni AS (
+                WITH
+                    RECURSIVE t(previd, nextid, pid) AS (
+                        SELECT null::bigint, id, pid FROM ch WHERE tocheck
+                      UNION
+                        SELECT r.id, r.target_id, p.target_id
+                        FROM
+                            t
+                            JOIN relations r ON r.id = t.nextid AND r.property = ?
+                            JOIN resources rs ON rs.id = t.nextid AND rs.state = ?
+                            LEFT JOIN relations p ON r.target_id = p.id AND p.property = ?
+                    ),
+                    u AS (
+                        SELECT * FROM t
+                      UNION
+                        -- not to miss free children with next item when collection does not have a next item
+                        SELECT ch.id AS previd, r.target_id AS nextid, p.target_id AS pid
+                        FROM
+                            ch
+                            JOIN relations r ON r.id = ch.id AND r.property = ?
+                            JOIN resources rs ON rs.id = ch.id AND rs.state = ?
+                            LEFT JOIN relations p ON r.target_id = p.id AND p.property = ?
+                    )
+                SELECT t1.previd, t1.nextid AS id, t1.pid, t2.nextid 
+                FROM
+                    u t1
+                    LEFT JOIN u t2 ON t1.nextid = t2.previd AND t1.pid = t2.pid
+                WHERE t1.previd IS NOT NULL OR t2.nextid IS NOT NULL
             )
-            SELECT string_agg(ids, ', ')||' ('||nextitem::text||' < '||total::text||')'
+            -- ch and ni put together
+            SELECT * 
             FROM 
-                invalid 
-                JOIN identifiers USING (id)
-            GROUP BY id, total, nextitem
+                ch 
+                FULL JOIN ni USING (id, pid) 
+            )
         ";
         $param      = [
-            $parentProp, $nextProp,
-            $this->txId, ArcheTransaction::STATE_ACTIVE, ArcheTransaction::STATE_ACTIVE, // col
+            $this->txId, ArcheTransaction::STATE_ACTIVE, $parentProp, ArcheTransaction::STATE_ACTIVE, // col
             RDF::RDF_TYPE, $this->schema->classes->topCollection, $this->schema->classes->collection, // col
-            $parentProp, ArcheTransaction::STATE_ACTIVE, $nextProp, // children
-            $parentProp, // validchildren
+            $this->schema->classes->topCollection, $this->schema->classes->collection, // ch
+            $parentProp, ArcheTransaction::STATE_ACTIVE, RDF::RDF_TYPE, // ch
+            $nextProp, ArcheTransaction::STATE_ACTIVE, $parentProp, // ni
+            $nextProp, ArcheTransaction::STATE_ACTIVE, $parentProp, // ni
         ];
-        //$this->log->info(new \zozlak\queryPart\QueryPart($query, $param));
+        $this->log->debug(new \zozlak\queryPart\QueryPart($query, $param));
         $query      = $this->pdo->prepare($query);
-        $t          = microtime(true);
+        $t0         = microtime(true);
         $query->execute($param);
-        $t          = microtime(true) - $t;
-        $this->log?->debug("\t\tcheckHasNextItem performed in $t s");
-        $invalid    = $query->fetchAll(PDO::FETCH_COLUMN);
-        if (count($invalid) > 0) {
-            throw new DoorkeeperException("Collections containing incomplete $nextProp sequence: " . implode(', ', $invalid));
+//        $debug      = "\ndrop table hni; create temporary table hni (id bigint, pid bigint, col bool, tocheck bool, previd bigint, nextid bigint);\n";
+//        foreach ($this->pdo->query("SELECT id, pid, col::text, tocheck::text, previd, nextid FROM hni ORDER BY pid, id")->fetchAll(PDO::FETCH_OBJ) as $i) {
+//            $debug .= "INSERT INTO hni VALUES ($i->id, $i->pid, " . ($i->col ?? 'null') . ", " . ($i->tocheck ?? 'null') . ", " . ($i->previd ?? 'null') . ", " . ($i->nextid ?? 'null') . ");\n";
+//        }
+//        $this->log->info($debug);
+        $this->pdo->query("DELETE FROM hni WHERE pid IN (SELECT pid FROM hni GROUP BY pid HAVING count(previd) = 0 AND count(nextid) = 0)");
+        $t1 = microtime(true);
+
+        $errors = [];
+
+        $query = $this->pdo->query("SELECT id FROM hni WHERE col IS NULL");
+        foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
+            $errors[] = "Resource $i is pointed with the next item from outside of its parent collection";
+        }
+
+        $query = $this->pdo->query("
+            SELECT pid, string_agg(previd::text, ', ') AS gapin
+            FROM hni
+            GROUP BY pid
+            HAVING count(previd) + 1 != count(*);
+        ");
+        foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
+            $errors[] = "Collection $i->pid has a gap in the next item chain in one of resources $i->gapin";
+        }
+
+        $query = $this->pdo->query("
+            SELECT pid, string_agg(nextid::text, ', ') AS gapin
+            FROM hni
+            GROUP BY pid
+            HAVING count(nextid) + 1 != count(*);
+        ");
+        foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
+            $errors[] = "Collection $i->pid has a gap in the next item chain in one of resources $i->gapin";
+        }
+
+        $query = $this->pdo->query("SELECT id, previd FROM hni WHERE col AND id = pid AND previd IS NOT NULL");
+        foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
+            $errors[] = "Collection $i->id id pointed with the next item from an invalid resource $i->previd";
+        }
+
+        $query = $this->pdo->query("SELECT id FROM hni WHERE col AND id = pid AND nextid IS NULL");
+        foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
+            $errors[] = "Collection $i does not point with the next item to its first child";
+        }
+
+        $query = $this->pdo->query("SELECT id FROM hni WHERE (NOT col OR id <> pid) AND previd IS NULL");
+        foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
+            $errors[] = "Resource $i is not pointed with any next item";
+        }
+
+        $query = $this->pdo->query("
+            SELECT id 
+            FROM hni 
+            WHERE (NOT col OR id <> pid) 
+            GROUP BY 1 
+            HAVING count(*) > 1
+        ");
+        foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
+            $errors[] = "Resource $i has multiple has next item properties";
+        }
+
+        $query = $this->pdo->query("
+            SELECT id 
+            FROM hni 
+            WHERE col AND id = pid 
+            GROUP BY 1 
+            HAVING count(*) > 1;
+        ");
+        foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
+            $errors[] = "Collection $i points with next item to more than one child resource";
+        }
+
+        $t2 = microtime(true);
+        $this->log?->debug("\t\tcheckHasNextItem performed in: init " . ($t1 - $t0) . " s checks " . ($t2 - $t1) . " s");
+
+        if (count($errors) > 0) {
+            throw new DoorkeeperException("$nextProp errors:\n" . implode("\n", $errors));
         }
     }
 
@@ -358,7 +448,7 @@ class Transaction {
         ";
         $query     = str_replace('%ids%', substr(str_repeat('(?::bigint), ', count($parentIds)), 0, -2), $query);
         $param     = array_merge(
-            [$this->schema->parent, $this->txId], 
+            [$this->schema->parent, $this->txId],
             $parentIds,
             [$this->schema->parent],
         );
