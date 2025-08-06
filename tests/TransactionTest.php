@@ -191,36 +191,57 @@ class TransactionTest extends TestBase {
         $collClass      = $schema->classes->collection;
 
         self::$repo->begin();
-        $rCol1 = self::$repo->createResource(self::createMetadata([], $collClass));
-
+        $rCol1     = self::$repo->createResource(self::createMetadata([], $collClass));
+        $meta  = self::createMetadata([
+            (string) $parentProp  => $rCol1->getUri(),
+            (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
+            (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/noc-nc',
+        ]);
+        $rBin1 = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
+        
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $this->assertEquals('', $rCol1Meta->getObject(new PT($licenseAggProp))?->getValue());
         $this->assertEquals('', $rCol1Meta->getObject(new PT($accessAggProp))?->getValue());
+        self::$repo->commit();
 
-        // add resources
+        $rCol1->loadMetadata(true);
+        $rCol1Meta   = $rCol1->getGraph();
+        $licenseVals = iterator_to_array($rCol1Meta->listObjects(new PT($licenseAggProp)));
+        $ref         = ["NoC-NC: 1", "NoC-NC: 1"];
+        $this->assertEquals($ref, array_map(fn($x) => (string) $x, $licenseVals));
+        $ref         = [RDF::RDF_LANG_STRING, RDF::RDF_LANG_STRING];
+        $this->assertEquals($ref, array_map(fn(LiteralInterface $x) => $x->getDatatype(), $licenseVals));
+        $this->assertContains('en', array_map(fn(LiteralInterface $x) => $x->getLang(), $licenseVals));
+        $this->assertContains('de', array_map(fn(LiteralInterface $x) => $x->getLang(), $licenseVals));
+        $accessVals  = iterator_to_array($rCol1Meta->listObjects(new PT($accessAggProp)));
+        $ref         = [RDF::RDF_LANG_STRING, RDF::RDF_LANG_STRING];
+        $this->assertEquals($ref, array_map(fn(LiteralInterface $x) => $x->getDatatype(), $accessVals));
+        $accessVals  = array_combine(array_map(fn(LiteralInterface $x) => $x->getLang(), $accessVals), array_map(fn($x) => (string) $x, $accessVals));
+        $ref         = [
+            'en' => 'restricted: 1',
+            'de' => 'eingeschränkt: 1',
+        ];
+        $this->assertEquals($ref, array_map(fn($x) => (string) $x, $accessVals));
+        
+        // add more resources
+        self::$repo->begin();
         $meta           = [
             (string) $parentProp  => $rCol1->getUri(),
             (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/mit',
         ];
         $meta           = self::createMetadata($meta, $collClass);
-        $rCol2          =  self::$repo->createResource($meta);
+        $rCol2          = self::$repo->createResource($meta);
         $meta           = self::createMetadata([
             (string) $parentProp  => $rCol2->getUri(),
             (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
             (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/mit',
         ]);
-        $rBin1          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
+        $rBin2          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
         $meta           = self::createMetadata([
             (string) $parentProp  => $rCol1->getUri(),
             (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
             (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-4-0',
-        ]);
-        $rBin2          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
-        $meta           = self::createMetadata([
-            (string) $parentProp  => $rCol1->getUri(),
-            (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
-            (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/noc-nc',
         ]);
         $rBin3          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
         self::$repo->commit();
