@@ -199,8 +199,14 @@ class TransactionTest extends TestBase {
         $this->assertEquals('', $rCol1Meta->getObject(new PT($accessAggProp))?->getValue());
 
         // add resources
-        $meta           = self::createMetadata([
+        $meta           = [
             (string) $parentProp  => $rCol1->getUri(),
+            (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/mit',
+        ];
+        $meta           = self::createMetadata($meta, $collClass);
+        $rCol2          =  self::$repo->createResource($meta);
+        $meta           = self::createMetadata([
+            (string) $parentProp  => $rCol2->getUri(),
             (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
             (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/mit',
         ]);
@@ -237,6 +243,7 @@ class TransactionTest extends TestBase {
             'en' => 'academic: 2 / restricted: 1',
             'de' => 'akademisch: 2 / eingeschränkt: 1',
         ];
+        $this->assertEquals($ref, array_map(fn($x) => (string) $x, $accessVals));
     }
 
     public function testTopCollectionAggregates(): void {
@@ -389,7 +396,7 @@ class TransactionTest extends TestBase {
         self::$repo->commit();
         $this->assertTrue(true);
         $this->toDelete = array_merge($this->toDelete, $r, [$tcr, $cr]);
-        $rCid = preg_replace('|^.*/|', '', $r[0]->getUri());
+        $rCid           = preg_replace('|^.*/|', '', $r[0]->getUri());
 
         // correct hasNextItem
         self::$repo->begin();

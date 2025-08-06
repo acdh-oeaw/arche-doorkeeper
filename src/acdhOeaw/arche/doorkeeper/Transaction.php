@@ -578,6 +578,7 @@ class Transaction {
                         JOIN resources r1 ON r.id = r1.id AND r1.state = ?
                         JOIN relations rl ON r.id = rl.id AND rl.property = ?
                         JOIN metadata m ON rl.target_id = m.id AND m.property = ?
+                    WHERE NOT EXISTS (SELECT 1 FROM activecol WHERE cid = r.id)
                     GROUP BY 1, 2, 3, 4
                 ) a1
                 GROUP BY 1, 2, 3
@@ -593,6 +594,7 @@ class Transaction {
                         JOIN resources r1 ON r.id = r1.id AND r1.state = ?
                         JOIN relations rl ON r.id = rl.id AND rl.property = ?
                         JOIN metadata m ON rl.target_id = m.id AND m.property = ?
+                    WHERE NOT EXISTS (SELECT 1 FROM activecol WHERE cid = r.id)
                     GROUP BY 1, 2, 3, 4
                 ) a2
                 GROUP BY 1, 2, 3
