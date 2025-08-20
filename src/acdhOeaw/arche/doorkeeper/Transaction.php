@@ -322,8 +322,8 @@ class Transaction {
                     LEFT JOIN u t2 ON t1.nextid = t2.previd AND t1.pid = t2.pid
                 WHERE t1.previd IS NOT NULL OR t2.nextid IS NOT NULL
             )
-            -- ch and ni put together
-            SELECT * 
+            -- ch and ni put together with
+            SELECT *
             FROM 
                 ch 
                 FULL JOIN ni USING (id, pid) 
@@ -347,68 +347,105 @@ class Transaction {
 //        }
 //        $this->log->info($debug);
         $this->pdo->query("DELETE FROM hni WHERE pid IN (SELECT pid FROM hni GROUP BY pid HAVING count(previd) = 0 AND count(nextid) = 0)");
-        $t1 = microtime(true);
+        $t1         = microtime(true);
 
-        $errors = [];
+        $errors  = [];
+        $idsLike = $this->schema->namespaces->id . '%';
 
-        $query = $this->pdo->query("SELECT id FROM hni WHERE col IS NULL");
+        $query = $this->pdo->prepare("
+            SELECT coalesce(ids, hni.id::text) AS id
+            FROM hni LEFT JOIN identifiers i ON i.id = hni.id AND i.ids LIKE ?
+            WHERE col IS NULL");
+        $query->execute([$idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
             $errors[] = "Resource $i is pointed with the next item from outside of its parent collection";
         }
 
-        $query = $this->pdo->query("
-            SELECT pid, string_agg(previd::text, ', ') AS gapin
-            FROM hni
-            GROUP BY pid
+        $query = $this->pdo->prepare("
+            SELECT 
+                coalesce(i1.ids, pid::text) AS pid, 
+                string_agg(coalesce(i2.ids, previd::text), ', ') AS gapin
+            FROM 
+                hni 
+                LEFT JOIN identifiers i1 ON i1.id = hni.pid AND i1.ids LIKE ?
+                LEFT JOIN identifiers i2 ON i2.id = hni.previd AND i2.ids LIKE ?
+            GROUP BY i1.ids, pid
             HAVING count(previd) + 1 != count(*);
         ");
+        $query->execute([$idsLike, $idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
             $errors[] = "Collection $i->pid has a gap in the next item chain in one of resources $i->gapin";
         }
 
-        $query = $this->pdo->query("
-            SELECT pid, string_agg(nextid::text, ', ') AS gapin
-            FROM hni
-            GROUP BY pid
+        $query = $this->pdo->prepare("
+            SELECT 
+                coalesce(i1.ids, pid::text) AS pid, 
+                string_agg(coalesce(i2.ids, nextid::text), ', ') AS gapin
+            FROM 
+                hni 
+                LEFT JOIN identifiers i1 ON i1.id = hni.pid AND i1.ids LIKE ?
+                LEFT JOIN identifiers i2 ON i2.id = hni.nextid AND i2.ids LIKE ?
+            GROUP BY i1.ids, pid
             HAVING count(nextid) + 1 != count(*);
         ");
+        $query->execute([$idsLike, $idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
             $errors[] = "Collection $i->pid has a gap in the next item chain in one of resources $i->gapin";
         }
 
-        $query = $this->pdo->query("SELECT id, previd FROM hni WHERE col AND id = pid AND previd IS NOT NULL");
+        $query = $this->pdo->prepare("
+            SELECT coalesce(i1.ids, hni.id::text) AS id, coalesce(i2.ids, previd::text) AS previd
+            FROM 
+                hni 
+                LEFT JOIN identifiers i1 ON i1.id = hni.id     AND i1.ids LIKE ?
+                LEFT JOIN identifiers i2 ON i2.id = hni.previd AND i2.ids LIKE ?
+            WHERE col AND hni.id = pid AND previd IS NOT NULL
+        ");
+        $query->execute([$idsLike, $idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
             $errors[] = "Collection $i->id id pointed with the next item from an invalid resource $i->previd";
         }
 
-        $query = $this->pdo->query("SELECT id FROM hni WHERE col AND id = pid AND nextid IS NULL");
+        $query = $this->pdo->prepare("
+            SELECT coalesce(ids, hni.id::text) AS id 
+            FROM hni LEFT JOIN identifiers i ON i.id = hni.id AND i.ids LIKE ?
+            WHERE col AND hni.id = pid AND nextid IS NULL
+        ");
+        $query->execute([$idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
             $errors[] = "Collection $i does not point with the next item to its first child";
         }
 
-        $query = $this->pdo->query("SELECT id FROM hni WHERE (NOT col OR id <> pid) AND previd IS NULL");
+        $query = $this->pdo->prepare("
+            SELECT coalesce(ids, hni.id::text) AS id 
+            FROM hni LEFT JOIN identifiers i ON i.id = hni.id AND i.ids LIKE ?
+            WHERE (NOT col OR hni.id <> pid) AND previd IS NULL
+        ");
+        $query->execute([$idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
             $errors[] = "Resource $i is not pointed with any next item";
         }
 
-        $query = $this->pdo->query("
-            SELECT id 
-            FROM hni 
-            WHERE (NOT col OR id <> pid) 
+        $query = $this->pdo->prepare("
+            SELECT coalesce(ids, hni.id::text) AS id 
+            FROM hni LEFT JOIN identifiers i ON i.id = hni.id AND i.ids LIKE ?
+            WHERE (NOT col OR hni.id <> pid) 
             GROUP BY 1 
             HAVING count(*) > 1
         ");
+        $query->execute([$idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
             $errors[] = "Resource $i has multiple has next item properties";
         }
 
-        $query = $this->pdo->query("
-            SELECT id 
-            FROM hni 
-            WHERE col AND id = pid 
+        $query = $this->pdo->prepare("
+            SELECT coalesce(ids, hni.id::text) AS id 
+            FROM hni LEFT JOIN identifiers i ON i.id = hni.id AND i.ids LIKE ?
+            WHERE col AND hni.id = pid 
             GROUP BY 1 
             HAVING count(*) > 1;
         ");
+        $query->execute([$idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
             $errors[] = "Collection $i points with next item to more than one child resource";
         }

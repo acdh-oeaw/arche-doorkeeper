@@ -30,6 +30,7 @@ use GuzzleHttp\Exception\ClientException;
 use rdfInterface\LiteralInterface;
 use quickRdf\DataFactory as DF;
 use termTemplates\PredicateTemplate as PT;
+use termTemplates\ValueTemplate as VT;
 use acdhOeaw\arche\lib\BinaryPayload;
 use zozlak\RdfConstants as RDF;
 
@@ -191,14 +192,14 @@ class TransactionTest extends TestBase {
         $collClass      = $schema->classes->collection;
 
         self::$repo->begin();
-        $rCol1     = self::$repo->createResource(self::createMetadata([], $collClass));
+        $rCol1 = self::$repo->createResource(self::createMetadata([], $collClass));
         $meta  = self::createMetadata([
             (string) $parentProp  => $rCol1->getUri(),
             (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
             (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/noc-nc',
         ]);
         $rBin1 = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
-        
+
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
         $this->assertEquals('', $rCol1Meta->getObject(new PT($licenseAggProp))?->getValue());
@@ -223,7 +224,7 @@ class TransactionTest extends TestBase {
             'de' => 'eingeschränkt: 1',
         ];
         $this->assertEquals($ref, array_map(fn($x) => (string) $x, $accessVals));
-        
+
         // add more resources
         self::$repo->begin();
         $meta           = [
@@ -404,6 +405,7 @@ class TransactionTest extends TestBase {
     public function testNotAllChildrenHasNextItem(): void {
         $parentProp = (string) self::$schema->parent;
         $nextProp   = (string) self::$schema->nextItem;
+        $idsTmpl    = new PT(self::$schema->id, new VT(self::$schema->namespaces->id, VT::STARTS));
 
         // without hasNextItem
         self::$repo->begin();
@@ -417,7 +419,7 @@ class TransactionTest extends TestBase {
         self::$repo->commit();
         $this->assertTrue(true);
         $this->toDelete = array_merge($this->toDelete, $r, [$tcr, $cr]);
-        $rCid           = preg_replace('|^.*/|', '', $r[0]->getUri());
+        $rCid           = $r[0]->getGraph()->getObjectValue($idsTmpl);
 
         // correct hasNextItem
         self::$repo->begin();
@@ -445,7 +447,7 @@ class TransactionTest extends TestBase {
             $this->assertEquals(400, $ex->getCode());
             $this->assertStringStartsWith("$nextProp errors:\n", $msg);
             $this->assertMatchesRegularExpression("|Collection $rCid has a gap in the next item chain in one of resources|", $msg);
-            $rid = preg_replace('|^.*/|', '', $r[3]->getUri());
+            $rid = $r[3]->getGraph()->getObjectValue($idsTmpl);
             $this->assertMatchesRegularExpression("|Resource $rid is not pointed with any next item|", $msg);
         }
 
@@ -465,7 +467,7 @@ class TransactionTest extends TestBase {
             $this->assertStringStartsWith("$nextProp errors:\n", $msg);
             $this->assertMatchesRegularExpression("|Collection $rCid has a gap in the next item chain in one of resources|", $msg);
             $this->assertMatchesRegularExpression("|Collection $rCid does not point with the next item to its first child|", $msg);
-            $rid = preg_replace('|^.*/|', '', $r[1]->getUri());
+            $rid = $r[1]->getGraph()->getObjectValue($idsTmpl);
             $this->assertMatchesRegularExpression("|Resource $rid is not pointed with any next item|", $msg);
         }
         // give transaction controller a little time
