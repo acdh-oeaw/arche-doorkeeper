@@ -268,29 +268,35 @@ class Transaction {
             -- active collections containing transaction resources
             WITH cols AS (
                 WITH
-                    t1 AS (SELECT id FROM resources WHERE transaction_id = ? AND state = ?),
+                    t1 AS (SELECT id, true AS tx FROM resources WHERE transaction_id = ? AND state = ?),
                     t2 AS (
                         SELECT * FROM t1
                       UNION
-                        SELECT rs.id 
+                        SELECT rs.id, false AS tx
                         FROM relations r JOIN resources rs ON r.target_id = rs.id AND r.property = ? AND rs.state = ?
                         WHERE EXISTS (SELECT 1 FROM t1 WHERE id = r.id)
                     )
-                SELECT * 
+                SELECT id, bool_or(tx) AS tx
                 FROM t2 
                 WHERE EXISTS (SELECT 1 FROM metadata WHERE id = t2.id AND property = ? AND value IN (?, ?))
+                GROUP BY 1
             ),
             -- cols and their all active children
             ch AS (
-                SELECT id AS pid, id, true AS col, true AS tocheck
-                FROM cols
-              UNION
-                SELECT c.id AS pid, r.id, m.value IN (?, ?) AS col, false AS tocheck
-                FROM
-                    cols c
-                    JOIN relations r ON r.target_id = c.id AND r.property= ?
-                    JOIN resources rs ON rs.id = r.id AND state = ?
-                    JOIN metadata m ON m.id = r.id AND m.property = ?
+                SELECT pid, id, bool_or(col) AS col, bool_or(tocheck) AS tocheck, bool_or(tx) AS tx
+                FROM (
+                    SELECT id AS pid, id, true AS col, true AS tocheck, -1 AS cpid, tx
+                    FROM cols
+                  UNION
+                    SELECT c.id AS pid, r.id, m.value IN (?, ?) AS col, false AS tocheck, cp.id as cpid,rs.transaction_id = ? AS tx
+                    FROM
+                        cols c
+                        JOIN relations r ON r.target_id = c.id AND r.property = ?
+                        JOIN resources rs ON rs.id = r.id AND state = ?
+                        JOIN metadata m ON m.id = r.id AND m.property = ?
+                        LEFT JOIN cols cp ON r.target_id = cp.id
+                ) t
+                GROUP BY 1, 2
             ),
             -- nextProp chain from cols
             ni AS (
@@ -315,6 +321,8 @@ class Transaction {
                             JOIN relations r ON r.id = ch.id AND r.property = ?
                             JOIN resources rs ON rs.id = ch.id AND rs.state = ?
                             LEFT JOIN relations p ON r.target_id = p.id AND p.property = ?
+                            LEFT JOIN ch pch ON p.target_id = pch.id
+                        WHERE pch.tx OR pch.tocheck OR ch.tx OR ch.tocheck
                     )
                 SELECT t1.previd, t1.nextid AS id, t1.pid, t2.nextid 
                 FROM
@@ -333,6 +341,7 @@ class Transaction {
             $this->txId, ArcheTransaction::STATE_ACTIVE, $parentProp, ArcheTransaction::STATE_ACTIVE, // col
             RDF::RDF_TYPE, $this->schema->classes->topCollection, $this->schema->classes->collection, // col
             $this->schema->classes->topCollection, $this->schema->classes->collection, // ch
+            $this->txId, // ch
             $parentProp, ArcheTransaction::STATE_ACTIVE, RDF::RDF_TYPE, // ch
             $nextProp, ArcheTransaction::STATE_ACTIVE, $parentProp, // ni
             $nextProp, ArcheTransaction::STATE_ACTIVE, $parentProp, // ni
@@ -355,7 +364,8 @@ class Transaction {
         $query = $this->pdo->prepare("
             SELECT coalesce(ids, hni.id::text) AS id
             FROM hni LEFT JOIN identifiers i ON i.id = hni.id AND i.ids LIKE ?
-            WHERE col IS NULL");
+            WHERE col IS NULL
+        ");
         $query->execute([$idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
             $errors[] = "Resource $i is pointed with the next item from outside of its parent collection";
@@ -370,7 +380,7 @@ class Transaction {
                 LEFT JOIN identifiers i1 ON i1.id = hni.pid AND i1.ids LIKE ?
                 LEFT JOIN identifiers i2 ON i2.id = hni.previd AND i2.ids LIKE ?
             GROUP BY i1.ids, pid
-            HAVING count(previd) + 1 != count(*);
+            HAVING count(previd) + 1 != count(*)
         ");
         $query->execute([$idsLike, $idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
@@ -386,7 +396,7 @@ class Transaction {
                 LEFT JOIN identifiers i1 ON i1.id = hni.pid AND i1.ids LIKE ?
                 LEFT JOIN identifiers i2 ON i2.id = hni.nextid AND i2.ids LIKE ?
             GROUP BY i1.ids, pid
-            HAVING count(nextid) + 1 != count(*);
+            HAVING count(nextid) + 1 != count(*)
         ");
         $query->execute([$idsLike, $idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
@@ -443,7 +453,7 @@ class Transaction {
             FROM hni LEFT JOIN identifiers i ON i.id = hni.id AND i.ids LIKE ?
             WHERE col AND hni.id = pid 
             GROUP BY 1 
-            HAVING count(*) > 1;
+            HAVING count(*) > 1
         ");
         $query->execute([$idsLike]);
         foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {

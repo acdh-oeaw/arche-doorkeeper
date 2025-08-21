@@ -417,7 +417,6 @@ class TransactionTest extends TestBase {
             $r[] = self::$repo->createResource(self::createMetadata([$parentProp => $r[0]->getUri()], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
         }
         self::$repo->commit();
-        $this->assertTrue(true);
         $this->toDelete = array_merge($this->toDelete, $r, [$tcr, $cr]);
         $rCid           = $r[0]->getGraph()->getObjectValue($idsTmpl);
 
@@ -472,5 +471,64 @@ class TransactionTest extends TestBase {
         }
         // give transaction controller a little time
         sleep(1);
+    }
+
+    public function testHasNextItemContamination(): void {
+        $idProp     = (string) self::$schema->id;
+        $parentProp = (string) self::$schema->parent;
+        $nextProp   = self::$schema->nextItem;
+
+        // create a structure of
+        // TC --> C1 --> R11
+        //    |      |-> R12
+        //    |-> C2 -next-> R21 -next-> R22
+        self::$repo->begin();
+        $tmp              = [$idProp => 'https://id.acdh.oeaw.ac.at/ni/tc'];
+        $tcr              = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection'));
+        $tmp              = [$parentProp => $tcr->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/c1'];
+        $c1r              = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
+        $tmp              = [$parentProp => $c1r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r11'];
+        $r11r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp              = [$parentProp => $c1r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r12'];
+        $r12r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp              = [$parentProp => $tcr->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/c2'];
+        $c2r              = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
+        $tmp              = [$parentProp => $c2r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r21'];
+        $r21r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp              = [$parentProp => $c2r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r22'];
+        $r22r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $graph            = $c2r->getGraph();
+        $graph->add(DF::quadNoSubject($nextProp, $r21r->getUri()));
+        $c2r->setGraph($graph);
+        $c2r->updateMetadata();
+        $graph            = $r21r->getGraph();
+        $graph->add(DF::quadNoSubject($nextProp, $r22r->getUri()));
+        $r21r->setGraph($graph);
+        $r21r->updateMetadata();
+        self::$repo->commit();
+        $this->toDelete[] = $tcr;
+
+        // add C3 making it
+        // TC --> C1 --> R11
+        //    |      |-> R12
+        //    |-> C2 -next-> R21 -next-> R22
+        //    |-> C3 -next-> R31 -next-> R32
+        self::$repo->begin();
+        $tmp   = [$parentProp => $tcr->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/c3'];
+        $c3r   = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
+        $tmp   = [$parentProp => $c3r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r31'];
+        $r31r  = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp   = [$parentProp => $c3r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r32'];
+        $r32r  = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $graph = $c3r->getGraph();
+        $graph->add(DF::quadNoSubject($nextProp, $r31r->getUri()));
+        $c3r->setGraph($graph);
+        $c3r->updateMetadata();
+        $graph = $r31r->getGraph();
+        $graph->add(DF::quadNoSubject($nextProp, $r32r->getUri()));
+        $r31r->setGraph($graph);
+        $r31r->updateMetadata();
+        self::$repo->commit();
+        $this->assertTrue(true);
     }
 }
