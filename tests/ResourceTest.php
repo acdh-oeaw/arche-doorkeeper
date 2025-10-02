@@ -248,7 +248,7 @@ class ResourceTest extends TestBase {
         } catch (RequestException $e) {
             $this->assertMatchesRegularExpression('/unresolvable URI/', $e->getMessage());
         }
-
+        
         self::$repo->rollback();
     }
 
@@ -1124,13 +1124,10 @@ class ResourceTest extends TestBase {
     public function testKulturpool(): void {
         $idTmpl = new PT(self::$schema->id);
 
-        // fail
+        // fail - collection
         self::$repo->begin();
-        $cm = [
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
-            (string) self::$schema->mime                      => 'application/pdf',
-        ];
-        $cm = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $cm = ['https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool'];
+        $cm = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         try {
             $cr = self::$repo->createResource($cm);
             $this->assertTrue(false);
@@ -1139,11 +1136,28 @@ class ResourceTest extends TestBase {
             $this->assertEquals(400, $ex->getCode());
             $refMsg = "https://vocabs.acdh.oeaw.ac.at/schema#hasLicense is required for a Kulturpool resource
 exactly one https://vocabs.acdh.oeaw.ac.at/schema#hasTag with value being one of TEXT, VIDEO, SOUND, IMAGE, 3D is required for a Kulturpool resource
-https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool resource of class https://vocabs.acdh.oeaw.ac.at/schema#Collection
-Only image and GLB formats are valid for non-collection Kulturpool resources (application/pdf)";
+https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool resource of class https://vocabs.acdh.oeaw.ac.at/schema#Collection";
             $this->assertEquals($refMsg, $msg);
         }
 
+        // fail - resource
+        $cm = [
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
+            (string) self::$schema->mime                      => 'application/pdf',
+            (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag'    => 'FOO',
+        ];
+        $cm = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        try {
+            $cr = self::$repo->createResource($cm);
+            $this->assertTrue(false);
+        } catch (ClientException $ex) {
+            $msg    = (string) $ex->getResponse()->getBody();
+            $this->assertEquals(400, $ex->getCode());
+            $refMsg = "exactly one https://vocabs.acdh.oeaw.ac.at/schema#hasTag with value being one of TEXT, VIDEO, SOUND, IMAGE, 3D is required for a Kulturpool resource
+Only image and GLB formats are valid for non-collection Kulturpool resources (application/pdf)";
+            $this->assertEquals($refMsg, $msg);
+        }
+        
         // pass
         $cid            = $cm->getObjectValue($idTmpl);
         $rm             = [(string) self::$schema->parent => $cid];
@@ -1156,7 +1170,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
             (string) self::$schema->license                            => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-sa-4-0',
             (string) self::$schema->nextItem                           => (string) $rm->getObjectValue($idTmpl),
         ];
-        $cm             = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $cm             = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         $rr             = self::$repo->createResource($rm);
         $cr             = self::$repo->getResourceById($cid);
         $cr->setMetadata($cm);
@@ -1164,7 +1178,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$cr, $rr]);
     }
-
+    
     public function testNextItem(): void {
         $m = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         self::$repo->begin();
