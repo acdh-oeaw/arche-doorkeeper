@@ -248,7 +248,7 @@ class ResourceTest extends TestBase {
         } catch (RequestException $e) {
             $this->assertMatchesRegularExpression('/unresolvable URI/', $e->getMessage());
         }
-        
+
         self::$repo->rollback();
     }
 
@@ -1126,8 +1126,11 @@ class ResourceTest extends TestBase {
 
         // fail
         self::$repo->begin();
-        $cm = ['https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool'];
-        $cm = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        $cm = [
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
+            (string) self::$schema->mime                      => 'application/pdf',
+        ];
+        $cm = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         try {
             $cr = self::$repo->createResource($cm);
             $this->assertTrue(false);
@@ -1135,8 +1138,9 @@ class ResourceTest extends TestBase {
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
             $refMsg = "https://vocabs.acdh.oeaw.ac.at/schema#hasLicense is required for a Kulturpool resource
-exactly one https://vocabs.acdh.oeaw.ac.at/schema#hasTag with value being one of TEXT, VIDEO, SOUND, IMAGE, 3D is rquired for a Kulturpool resource
-https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool resource of class https://vocabs.acdh.oeaw.ac.at/schema#Collection";
+exactly one https://vocabs.acdh.oeaw.ac.at/schema#hasTag with value being one of TEXT, VIDEO, SOUND, IMAGE, 3D is required for a Kulturpool resource
+https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool resource of class https://vocabs.acdh.oeaw.ac.at/schema#Collection
+Only image and GLB formats are valid for non-collection Kulturpool resources (application/pdf)";
             $this->assertEquals($refMsg, $msg);
         }
 
@@ -1147,7 +1151,8 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
         $cm             = [
             (string) self::$schema->id                                 => $cid,
             (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
-            (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag'    => 'VIDEO',
+            (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag'    => 'IMAGE',
+            (string) self::$schema->mime                               => 'image/tiff',
             (string) self::$schema->license                            => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-sa-4-0',
             (string) self::$schema->nextItem                           => (string) $rm->getObjectValue($idTmpl),
         ];
@@ -1159,7 +1164,7 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$cr, $rr]);
     }
-    
+
     public function testNextItem(): void {
         $m = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         self::$repo->begin();
