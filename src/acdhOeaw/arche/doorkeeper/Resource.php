@@ -637,14 +637,15 @@ class Resource {
         }
 
         $isCollection = $this->meta->any(new PT(DF::namedNode(RDF::RDF_TYPE), $this->schema->classes->collection));
-        
-        $hasNextItem  = $this->meta->any(new PT($this->schema->nextItem));
+
+        $hasNextItem = $this->meta->any(new PT($this->schema->nextItem));
         if ($isCollection && !$hasNextItem) {
             $errors[] = $this->schema->nextItem . " is required for a Kulturpool resource of class " . $this->schema->classes->collection;
         }
-        
-        $format = $this->meta->getObjectValue(new PT($this->schema->mime));
-        $validFormats = ['model/gltf-binary', 'image/tiff', 'image/jpeg', 'image/png', 'image/webp'];
+
+        $format       = $this->meta->getObjectValue(new PT($this->schema->mime));
+        $validFormats = ['model/gltf-binary', 'image/tiff', 'image/jpeg', 'image/png',
+            'image/webp'];
         if (!$isCollection && !in_array($format, $validFormats)) {
             $errors[] = "Only image and GLB formats are valid for non-collection Kulturpool resources ($format)";
         }
@@ -914,7 +915,12 @@ class Resource {
     private function verifyPropertyRangeUri(string $rangeUri, string $prop): void {
         static $client = null;
         if ($client === null) {
-            $client = ProxyClient::factory();
+            $options = [
+                'headers' => [
+                    'user-agent' => 'ARCHE-url-checker/1.0 (https://github.com/acdh-oeaw/arche-doorkeeper; mzoltak@oeaw.ac.at)'
+                ]
+            ];
+            $client  = ProxyClient::factory($options);
         }
         static $cache = null;
         if ($cache === null) {
