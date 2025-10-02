@@ -633,13 +633,20 @@ class Resource {
         $tags = $this->meta->listObjects(new PT(DF::namedNode(self::PROP_TAG)))->getValues();
         $tags = array_intersect($tags, ['TEXT', 'VIDEO', 'SOUND', 'IMAGE', '3D']);
         if (count($tags) !== 1) {
-            $errors[] = "exactly one " . self::PROP_TAG . " with value being one of TEXT, VIDEO, SOUND, IMAGE, 3D is rquired for a Kulturpool resource";
+            $errors[] = "exactly one " . self::PROP_TAG . " with value being one of TEXT, VIDEO, SOUND, IMAGE, 3D is required for a Kulturpool resource";
         }
 
         $isCollection = $this->meta->any(new PT(DF::namedNode(RDF::RDF_TYPE), $this->schema->classes->collection));
+        
         $hasNextItem  = $this->meta->any(new PT($this->schema->nextItem));
         if ($isCollection && !$hasNextItem) {
             $errors[] = $this->schema->nextItem . " is required for a Kulturpool resource of class " . $this->schema->classes->collection;
+        }
+        
+        $format = $this->meta->getObjectValue(new PT($this->schema->mime));
+        $validFormats = ['model/gltf-binary', 'image/tiff', 'image/jpeg', 'image/png', 'image/webp'];
+        if (!$isCollection && !in_array($format, $validFormats)) {
+            $errors[] = "Only image and GLB formats are valid for non-collection Kulturpool resources ($format)";
         }
 
         if (count($errors) > 0) {
