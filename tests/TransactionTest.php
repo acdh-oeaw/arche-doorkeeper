@@ -385,7 +385,7 @@ class TransactionTest extends TestBase {
         self::$repo->commit();
 
         $rcm = $rcr->getMetadata();
-        $rcm->forEach(fn($q) => $q->withObject($rcr->getUri()), new PT($parentProp));
+        $rcm->forEach(fn($q) => $q->withObject($tcr->getUri()), new PT($parentProp));
         $rcr->setMetadata($rcm);
         self::$repo->begin();
         $rcr->updateMetadata();

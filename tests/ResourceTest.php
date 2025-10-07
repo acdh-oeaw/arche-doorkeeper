@@ -248,7 +248,7 @@ class ResourceTest extends TestBase {
         } catch (RequestException $e) {
             $this->assertMatchesRegularExpression('/unresolvable URI/', $e->getMessage());
         }
-        
+
         self::$repo->rollback();
     }
 
@@ -1142,9 +1142,9 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
 
         // fail - resource
         $cm = [
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
-            (string) self::$schema->mime                      => 'application/pdf',
-            (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag'    => 'FOO',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet'       => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
+            (string) self::$schema->mime                            => 'application/pdf',
+            (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag' => 'FOO',
         ];
         $cm = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
         try {
@@ -1157,7 +1157,7 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
 Only image and GLB formats are valid for non-collection Kulturpool resources (application/pdf)";
             $this->assertEquals($refMsg, $msg);
         }
-        
+
         // pass
         $cid            = $cm->getObjectValue($idTmpl);
         $rm             = [(string) self::$schema->parent => $cid];
@@ -1178,7 +1178,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$cr, $rr]);
     }
-    
+
     public function testNextItem(): void {
         $m = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         self::$repo->begin();
@@ -1193,6 +1193,25 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
             $refMsg = "https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem points to itself";
+            $this->assertEquals($refMsg, $msg);
+        }
+    }
+
+    public function testParent(): void {
+        $id = self::$schema->namespaces->id . '/selfParent';
+        $m  = [
+            (string) self::$schema->id     => $id,
+            (string) self::$schema->parent => $id
+        ];
+        $m  = self::createMetadata($m, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
+        self::$repo->begin();
+        try {
+            self::$repo->createResource($m);
+            $this->assertTrue(false);
+        } catch (ClientException $ex) {
+            $msg    = (string) $ex->getResponse()->getBody();
+            $this->assertEquals(400, $ex->getCode());
+            $refMsg = "https://vocabs.acdh.oeaw.ac.at/schema#isPartOf points to itself";
             $this->assertEquals($refMsg, $msg);
         }
     }

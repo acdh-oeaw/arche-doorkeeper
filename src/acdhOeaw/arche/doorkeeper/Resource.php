@@ -664,6 +664,15 @@ class Resource {
         }
     }
 
+    #[CheckAttribute]
+    public function check11Parent(): void {
+        $ids     = $this->meta->listObjects(new PT($this->schema->id))->getValues();
+        $parents = $this->meta->listObjects(new PT($this->schema->parent))->getValues();
+        if (count(array_intersect($ids, $parents)) > 0) {
+            throw new DoorkeeperException($this->schema->parent . " points to itself");
+        }
+    }
+
     /**
      * CMDI records must have their very own PIDs but this requires special handling
      * as in ARCHE CMDI is just a metadata serialization format and not a separate
