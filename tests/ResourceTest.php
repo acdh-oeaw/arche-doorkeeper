@@ -1091,6 +1091,19 @@ class ResourceTest extends TestBase {
         $this->assertEquals('1345-01-01', $resMeta->getObjectValue(new PT($startProp)));
         $this->assertEquals('1345-01-01', $resMeta->getObjectValue(new PT($endProp)));
 
+        
+        $meta    = self::createMetadata([(string) $startProp => '-10200', (string) $endProp => '-1900-12-31']);
+        $res     = self::$repo->createResource($meta);
+        $resMeta = $res->getMetadata();
+        $this->assertEquals('-10200-01-01', $resMeta->getObjectValue(new PT($startProp)));
+        $this->assertEquals('-1900-12-31', $resMeta->getObjectValue(new PT($endProp)));
+
+        $meta    = self::createMetadata([(string) $startProp => '-0020-01-01', (string) $endProp => '100']);
+        $res     = self::$repo->createResource($meta);
+        $resMeta = $res->getMetadata();
+        $this->assertEquals('-0020-01-01', $resMeta->getObjectValue(new PT($startProp)));
+        $this->assertEquals('0100-01-01', $resMeta->getObjectValue(new PT($endProp)));
+        
         $meta = self::createMetadata([(string) $startProp => '1345', (string) $endProp => '1234']);
         try {
             $res = self::$repo->createResource($meta);
@@ -1118,6 +1131,24 @@ class ResourceTest extends TestBase {
             $this->assertEquals("Start date after the end date for $startProp/$endProp (-1345-01-01 > -1456-01-01)", $msg);
         }
 
+        $meta = self::createMetadata([(string) $startProp => '-19000-05-01', (string) $endProp => '-200000']);
+        try {
+            $res = self::$repo->createResource($meta);
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $msg = (string) $e->getResponse()->getBody();
+            $this->assertEquals("Start date after the end date for $startProp/$endProp (-19000-05-01 > -200000-01-01)", $msg);
+        }
+        
+        $meta = self::createMetadata([(string) $startProp => '-19000-05-01', (string) $endProp => '-19000-04-03']);
+        try {
+            $res = self::$repo->createResource($meta);
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $msg = (string) $e->getResponse()->getBody();
+            $this->assertEquals("Start date after the end date for $startProp/$endProp (-19000-05-01 > -19000-04-03)", $msg);
+        }
+        
         self::$repo->rollback();
     }
 

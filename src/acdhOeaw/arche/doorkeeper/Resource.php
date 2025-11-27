@@ -609,10 +609,15 @@ class Resource {
                 throw new DoorkeeperException("Different number of values for $prop and $endProp");
             }
             while (count($startValues) > 0) {
-                $start  = array_pop($startValues);
-                $end    = array_pop($endValues);
-                $negate = str_starts_with($start, '-') && str_starts_with($end, '-');
-                if ($negate ? $start < $end : $start > $end) {
+                $start     = array_pop($startValues);
+                $startYear = (int) preg_replace('/-[0-9][0-9]-[0-9][0-9]$/', '', $start);
+                $startRest = substr($start, strlen($startYear));
+                $startYear = (int) $startYear;
+                $end       = array_pop($endValues);
+                $endYear   = (int) preg_replace('/-[0-9][0-9]-[0-9][0-9]$/', '', $end);
+                $endRest   = substr($end, strlen($endYear));
+                $endYear   = (int) $endYear;
+                if ($startYear > $endYear || ($startYear === $endYear && $startRest > $endRest)) {
                     throw new DoorkeeperException("Start date after the end date for $prop/$endProp ($start > $end)");
                 }
             }
