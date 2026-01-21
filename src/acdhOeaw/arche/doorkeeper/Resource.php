@@ -50,6 +50,7 @@ use RenanBr\BibTexParser\Exception\ParserException as BiblatexE1;
 use RenanBr\BibTexParser\Exception\ProcessorException as BiblatexE2;
 use acdhOeaw\UriNormalizer;
 use acdhOeaw\UriNormalizerCache;
+use acdhOeaw\UriNormalizerRetryConfig;
 use acdhOeaw\UriNormalizerException;
 use acdhOeaw\UriNormRules;
 use acdhOeaw\epicHandle\HandleService;
@@ -94,7 +95,13 @@ class Resource {
         $cacheFile  = RC::$config->doorkeeper->ontologyCacheFile ?? '';
         $cacheTtl   = RC::$config->doorkeeper->ontologyCacheTtl ?? 600;
         $ontology   = Ontology::factoryDb(RC::$pdo, $schema, $cacheFile, $cacheTtl);
-        $doorkeeper = new Resource($meta, $schema, $ontology, $pdo, RC::$log);
+        $retryCfg   = new UriNormalizerRetryConfig(
+            RC::$config->doorkeeper->retryAttempts ?? 3,
+            RC::$config->doorkeeper->retryDelay ?? 2,
+            UriNormalizerRetryConfig::SCALE_POWER,
+            RC::$config->doorkeeper->retryOn ?? [429, 500, 501, 502, 503, 504],
+        );
+        $doorkeeper = new Resource($meta, $schema, $ontology, $pdo, RC::$log, $retryCfg);
 
         $errors = [];
         foreach ([PreCheckAttribute::class, CheckAttribute::class, PostCheckAttribute::class] as $checkType) {
@@ -122,7 +129,8 @@ class Resource {
                                 private Schema $schema,
                                 private Ontology $ontology,
                                 private PDO | null $pdo = null,
-                                private LoggerInterface | null $log = null) {
+                                private LoggerInterface | null $log = null,
+                                private UriNormalizerRetryConfig | null $retryCfg = null) {
         $uriNormRules      = UriNormRules::getRules();
         $uriNormRules      = array_filter($uriNormRules, fn($x) => $x->name !== 'arche-localhost');
         $uriNormRules[]    = (object) [
@@ -130,7 +138,7 @@ class Resource {
                 'match'   => '^(' . $meta->getNode() . ')$',
                 'replace' => '\\1',
         ];
-        $this->uriNorm     = new UriNormalizer($uriNormRules);
+        $this->uriNorm     = new UriNormalizer($uriNormRules, retryCfg: $this->retryCfg);
         $this->checkRanges = new stdClass();
         if (is_object($schema->checkRanges)) {
             foreach (iterator_to_array($schema->checkRanges) as $class => $rules) {
@@ -611,11 +619,11 @@ class Resource {
             while (count($startValues) > 0) {
                 $start     = array_pop($startValues);
                 $startYear = (int) preg_replace('/-[0-9][0-9]-[0-9][0-9]$/', '', $start);
-                $startRest = substr($start, strlen($startYear));
+                $startRest = substr($start, strlen((string) $startYear));
                 $startYear = (int) $startYear;
                 $end       = array_pop($endValues);
                 $endYear   = (int) preg_replace('/-[0-9][0-9]-[0-9][0-9]$/', '', $end);
-                $endRest   = substr($end, strlen($endYear));
+                $endRest   = substr($end, strlen((string) $endYear));
                 $endYear   = (int) $endYear;
                 if ($startYear > $endYear || ($startYear === $endYear && $startRest > $endRest)) {
                     throw new DoorkeeperException("Start date after the end date for $prop/$endProp ($start > $end)");
@@ -807,7 +815,7 @@ class Resource {
         $create = $create && count($curPids) === 0; // do not mint if pid exists
         // standardize pids
         if (!isset($this->uriNorm)) {
-            $this->uriNorm = new UriNormalizer();
+            $this->uriNorm = new UriNormalizer(retryCfg: $this->retryCfg);
         }
         $curPids = array_map(fn($x) => $this->uriNorm->normalize($x, false), $curPids);
 
@@ -943,7 +951,7 @@ class Resource {
         static $normalizers = [];
         if (!isset($normalizers[$rangeUri])) {
             $rules                  = UriNormRules::getRules($this->checkRanges->$rangeUri);
-            $normalizers[$rangeUri] = new UriNormalizer($rules, '', $client, $cache);
+            $normalizers[$rangeUri] = new UriNormalizer($rules, '', $client, $cache, retryCfg: $this->retryCfg);
         }
 
         /** @var UriNormalizer $norm */
