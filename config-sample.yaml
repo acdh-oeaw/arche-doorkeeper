@@ -72,4 +72,7 @@ doorkeeper:
         clarinSetProperty: https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet
     # used only by tests
     restConfigDstPath: config/yaml/config-repo.yaml
+    retryDelay: 1.5
+    retryAttempts: 3
+    retryOn: [429, 500, 501, 502, 503, 504]
         
