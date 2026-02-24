@@ -288,7 +288,7 @@ class Transaction {
                     SELECT id AS pid, id, true AS col, true AS tocheck, -1 AS cpid, tx
                     FROM cols
                   UNION
-                    SELECT c.id AS pid, r.id, m.value IN (?, ?) AS col, false AS tocheck, cp.id as cpid,rs.transaction_id = ? AS tx
+                    SELECT c.id AS pid, r.id, m.value IN (?, ?) AS col, coalesce(rs.transaction_id, 0) = ? AS tocheck, cp.id as cpid, rs.transaction_id = ? AS tx
                     FROM
                         cols c
                         JOIN relations r ON r.target_id = c.id AND r.property = ?
@@ -302,17 +302,32 @@ class Transaction {
             ni AS (
                 WITH
                     RECURSIVE t(previd, nextid, pid) AS (
-                        SELECT null::bigint, id, pid FROM ch WHERE tocheck
+                        SELECT 
+                            null::bigint AS previd, 
+                            ch.id AS nextid, 
+                            pid, 
+                            r.target_id AS pid2, 
+                            tx 
+                        FROM 
+                            ch
+                            LEFT JOIN relations r ON ch.id = r.id AND r.property = ?
+                        WHERE tocheck
                       UNION
-                        SELECT r.id, r.target_id, p.target_id
+                        SELECT
+                            r.id AS previd, 
+                            r.target_id AS nextid, 
+                            p.target_id AS pid, 
+                            null::bigint AS pid2, 
+                            true AS tx
                         FROM
                             t
                             JOIN relations r ON r.id = t.nextid AND r.property = ?
                             JOIN resources rs ON rs.id = t.nextid AND rs.state = ?
                             LEFT JOIN relations p ON r.target_id = p.id AND p.property = ?
+                        WHERE tx OR p.target_id <> pid2
                     ),
                     u AS (
-                        SELECT * FROM t
+                        SELECT previd, nextid, pid FROM t
                       UNION
                         -- not to miss free children with next item when collection does not have a next item
                         SELECT ch.id AS previd, r.target_id AS nextid, p.target_id AS pid
@@ -322,13 +337,14 @@ class Transaction {
                             JOIN resources rs ON rs.id = ch.id AND rs.state = ?
                             LEFT JOIN relations p ON r.target_id = p.id AND p.property = ?
                             LEFT JOIN ch pch ON p.target_id = pch.id
-                        WHERE pch.tx OR pch.tocheck OR ch.tx OR ch.tocheck
+                        WHERE pch.tx OR pch.tocheck OR (ch.tx AND ch.tocheck)
                     )
-                SELECT t1.previd, t1.nextid AS id, t1.pid, t2.nextid 
+                SELECT min(t1.previd) AS previd, t1.nextid AS id, t1.pid, t2.nextid 
                 FROM
                     u t1
                     LEFT JOIN u t2 ON t1.nextid = t2.previd AND t1.pid = t2.pid
                 WHERE t1.previd IS NOT NULL OR t2.nextid IS NOT NULL
+                GROUP BY 2, 3, 4 
             )
             -- ch and ni put together with
             SELECT *
@@ -341,10 +357,11 @@ class Transaction {
             $this->txId, ArcheTransaction::STATE_ACTIVE, $parentProp, ArcheTransaction::STATE_ACTIVE, // col
             RDF::RDF_TYPE, $this->schema->classes->topCollection, $this->schema->classes->collection, // col
             $this->schema->classes->topCollection, $this->schema->classes->collection, // ch
-            $this->txId, // ch
+            $this->txId, $this->txId, // ch
             $parentProp, ArcheTransaction::STATE_ACTIVE, RDF::RDF_TYPE, // ch
-            $nextProp, ArcheTransaction::STATE_ACTIVE, $parentProp, // ni
-            $nextProp, ArcheTransaction::STATE_ACTIVE, $parentProp, // ni
+            $parentProp, // ni-recursive-initial
+            $nextProp, ArcheTransaction::STATE_ACTIVE, $parentProp, // ni-recursive-recursive
+            $nextProp, ArcheTransaction::STATE_ACTIVE, $parentProp, // ni-u
         ];
         $this->log->debug(new \zozlak\queryPart\QueryPart($query, $param));
         $query      = $this->pdo->prepare($query);

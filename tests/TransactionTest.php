@@ -32,6 +32,7 @@ use quickRdf\DataFactory as DF;
 use termTemplates\PredicateTemplate as PT;
 use termTemplates\ValueTemplate as VT;
 use acdhOeaw\arche\lib\BinaryPayload;
+use acdhOeaw\arche\lib\RepoResource;
 use zozlak\RdfConstants as RDF;
 
 /**
@@ -423,10 +424,7 @@ class TransactionTest extends TestBase {
         // correct hasNextItem
         self::$repo->begin();
         for ($i = 0; $i < 3; $i++) {
-            $m = $r[$i]->getGraph();
-            $m->add(DF::quadNoSubject(self::$schema->nextItem, $r[$i + 1]->getUri()));
-            $r[$i]->setGraph($m);
-            $r[$i]->updateMetadata();
+            $this->addNextItem($r[$i], $r[$i + 1]);
         }
         self::$repo->commit();
         $this->assertTrue(true);
@@ -476,7 +474,6 @@ class TransactionTest extends TestBase {
     public function testHasNextItemContamination(): void {
         $idProp     = (string) self::$schema->id;
         $parentProp = (string) self::$schema->parent;
-        $nextProp   = self::$schema->nextItem;
 
         // create a structure of
         // TC --> C1 --> R11
@@ -497,14 +494,8 @@ class TransactionTest extends TestBase {
         $r21r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
         $tmp              = [$parentProp => $c2r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r22'];
         $r22r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
-        $graph            = $c2r->getGraph();
-        $graph->add(DF::quadNoSubject($nextProp, $r21r->getUri()));
-        $c2r->setGraph($graph);
-        $c2r->updateMetadata();
-        $graph            = $r21r->getGraph();
-        $graph->add(DF::quadNoSubject($nextProp, $r22r->getUri()));
-        $r21r->setGraph($graph);
-        $r21r->updateMetadata();
+        $this->addNextItem($c2r, $r21r);
+        $this->addNextItem($r21r, $r22r);
         self::$repo->commit();
         $this->toDelete[] = $tcr;
 
@@ -514,21 +505,140 @@ class TransactionTest extends TestBase {
         //    |-> C2 -next-> R21 -next-> R22
         //    |-> C3 -next-> R31 -next-> R32
         self::$repo->begin();
-        $tmp   = [$parentProp => $tcr->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/c3'];
-        $c3r   = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
-        $tmp   = [$parentProp => $c3r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r31'];
-        $r31r  = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
-        $tmp   = [$parentProp => $c3r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r32'];
-        $r32r  = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
-        $graph = $c3r->getGraph();
-        $graph->add(DF::quadNoSubject($nextProp, $r31r->getUri()));
-        $c3r->setGraph($graph);
-        $c3r->updateMetadata();
-        $graph = $r31r->getGraph();
-        $graph->add(DF::quadNoSubject($nextProp, $r32r->getUri()));
-        $r31r->setGraph($graph);
-        $r31r->updateMetadata();
+        $tmp  = [$parentProp => $tcr->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/c3'];
+        $c3r  = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
+        $tmp  = [$parentProp => $c3r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r31'];
+        $r31r = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp  = [$parentProp => $c3r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r32'];
+        $r32r = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $this->addNextItem($c3r, $r31r);
+        $this->addNextItem($r31r, $r32r);
         self::$repo->commit();
         $this->assertTrue(true);
+    }
+
+    public function testHasNextItemIssue50(): void {
+        $idProp     = (string) self::$schema->id;
+        $parentProp = (string) self::$schema->parent;
+
+        // create a structure of
+        // TC -next--> C1 -next-> R11 -next-> R12
+        //    |-next-> C2 -next-> R21 -next-> R22
+        //    |-next-> R3
+        self::$repo->begin();
+        $tmp              = [$idProp => 'https://id.acdh.oeaw.ac.at/ni/tc'];
+        $tcr              = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection'));
+        $tmp              = [$parentProp => $tcr->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/c1'];
+        $c1r              = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
+        $tmp              = [$parentProp => $c1r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r11'];
+        $r11r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp              = [$parentProp => $c1r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r12'];
+        $r12r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp              = [$parentProp => $tcr->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/c2'];
+        $c2r              = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
+        $tmp              = [$parentProp => $c2r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r21'];
+        $r21r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp              = [$parentProp => $c2r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r22'];
+        $r22r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp              = [$parentProp => $tcr->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r3'];
+        $r3r              = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $this->addNextItem($tcr, $c1r);
+        $this->addNextItem($c1r, $c2r, false);
+        $this->addNextItem($c1r, $r11r);
+        $this->addNextItem($r11r, $r12r);
+        $this->addNextItem($c2r, $r3r, false);
+        $this->addNextItem($c2r, $r21r);
+        $this->addNextItem($r21r, $r22r);
+        self::$repo->commit();
+        $this->toDelete[] = $tcr;
+
+        // now add R12-titleImageOf->TC
+        self::$repo->begin();
+        $meta = $r12r->getGraph();
+        $meta->add(DF::quadNoSubject(self::$schema->titleImage, $tcr->getUri()));
+        $r12r->setGraph($meta);
+        $r12r->updateMetadata();
+        self::$repo->commit();
+        $this->assertTrue(true);
+
+        // now add R4-titleImageOf->TC
+        self::$repo->begin();
+        $meta = $r3r->getGraph();
+        $meta->add(DF::quadNoSubject(self::$schema->titleImage, $tcr->getUri()));
+        $r3r->setGraph($meta);
+        $r3r->updateMetadata();
+        self::$repo->commit();
+        $this->assertTrue(true);
+    }
+
+    public function testHasNextItemOutOfCollection(): void {
+        $idProp     = (string) self::$schema->id;
+        $parentProp = (string) self::$schema->parent;
+
+        // create a structure of
+        // TC -next--> C1 -next-> R11 -next-> R12
+        //    |-next-> R2
+        self::$repo->begin();
+        $tmp              = [$idProp => 'https://id.acdh.oeaw.ac.at/ni/tc'];
+        $tcr              = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#TopCollection'));
+        $tmp              = [$parentProp => $tcr->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/c1'];
+        $c1r              = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection'));
+        $tmp              = [$parentProp => $c1r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r11'];
+        $r11r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp              = [$parentProp => $c1r->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r12'];
+        $r12r             = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        $tmp              = [$parentProp => $tcr->getUri(), $idProp => 'https://id.acdh.oeaw.ac.at/ni/r2'];
+        $r2r              = self::$repo->createResource(self::createMetadata($tmp, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource'));
+        self::$repo->commit();
+        $this->toDelete[] = $tcr;
+        self::$repo->begin();
+        $this->addNextItem($tcr, $c1r);
+        $this->addNextItem($c1r, $r2r, false);
+        $this->addNextItem($c1r, $r11r);
+        $this->addNextItem($r11r, $r12r);
+        self::$repo->commit();
+
+        // add R12 -next->R2
+        self::$repo->begin();
+        $this->addNextItem($r12r, $r2r);
+        try {
+            self::$repo->commit();
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $this->assertEquals(400, $e->getCode());
+            $refErrMsg = "https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem errors:
+Resource https://id.acdh.oeaw.ac.at/ni/r2 is pointed with the next item from outside of its parent collection
+Collection https://id.acdh.oeaw.ac.at/ni/tc has a gap in the next item chain in one of resources https://id.acdh.oeaw.ac.at/ni/r12";
+            $this->assertEquals($refErrMsg, (string) $e->getResponse()->getBody());
+        }
+        self::$repo->rollback();
+
+        // add R2 -next->R11
+        self::$repo->begin();
+        $this->addNextItem($r2r, $r11r);
+        try {
+            self::$repo->commit();
+            $this->assertTrue(false);
+        } catch (ClientException $e) {
+            $this->assertEquals(400, $e->getCode());
+            $refErrMsg = "https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem errors:
+Resource https://id.acdh.oeaw.ac.at/ni/r11 is pointed with the next item from outside of its parent collection
+Resource https://id.acdh.oeaw.ac.at/ni/r12 is pointed with the next item from outside of its parent collection
+Collection https://id.acdh.oeaw.ac.at/ni/c1 has a gap in the next item chain in one of resources https://id.acdh.oeaw.ac.at/ni/r2, https://id.acdh.oeaw.ac.at/ni/r11";
+            $this->assertEquals($refErrMsg, (string) $e->getResponse()->getBody());
+        }
+        self::$repo->rollback();
+
+        sleep(1);
+    }
+
+    private function addNextItem(RepoResource $prev, RepoResource $next,
+                                 bool $update = true): void {
+        $graph = $prev->getGraph();
+        $graph->add(DF::quadNoSubject(self::$schema->nextItem, $next->getUri()));
+        if ($update) {
+            $prev->setGraph($graph);
+            $prev->updateMetadata();
+        }
     }
 }
