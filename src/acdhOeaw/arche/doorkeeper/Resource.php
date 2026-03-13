@@ -100,6 +100,7 @@ class Resource {
             RC::$config->doorkeeper->retryDelay ?? 2,
             UriNormalizerRetryConfig::SCALE_POWER,
             RC::$config->doorkeeper->retryOn ?? [429, 500, 501, 502, 503, 504],
+            RC::$config->doorkeeper->certVerify ?? true,
         );
         $doorkeeper = new Resource($meta, $schema, $ontology, $pdo, RC::$log, $retryCfg);
 
@@ -940,7 +941,8 @@ class Resource {
             $options = [
                 'headers' => [
                     'user-agent' => 'ARCHE-url-checker/1.0 (https://github.com/acdh-oeaw/arche-doorkeeper; mzoltak@oeaw.ac.at)'
-                ]
+                ],
+                'verify'  => $this->retryCfg->certVerify,
             ];
             $client  = ProxyClient::factory($options);
         }
