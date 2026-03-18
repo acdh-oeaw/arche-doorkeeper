@@ -1,7 +1,7 @@
 # arche-doorkeeper
 
 [![Latest Stable Version](https://poser.pugx.org/acdh-oeaw/arche-doorkeeper/v/stable)](https://packagist.org/packages/acdh-oeaw/arche-doorkeeper)
-![Build status](https://github.com/acdh-oeaw/arche-doorkeeper/workflows/phpunit/badge.svg?branch=master)
+[![Build Status](https://github.com/acdh-oeaw/arche-doorkeeper/actions/workflows/test.yml/badge.svg)](https://github.com/acdh-oeaw/arche-doorkeeper/actions/workflows/test.yml)
 [![Coverage Status](https://coveralls.io/repos/github/acdh-oeaw/arche-doorkeeper/badge.svg?branch=master)](https://coveralls.io/github/acdh-oeaw/arche-doorkeeper?branch=master)
 [![License](https://poser.pugx.org/acdh-oeaw/arche-doorkeeper/license)](https://packagist.org/packages/acdh-oeaw/arche-doorkeeper)
 
