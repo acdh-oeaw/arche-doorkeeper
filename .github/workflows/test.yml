@@ -6,7 +6,7 @@ jobs:
   phpunit:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: clone repo config
       run: |
         git clone --depth 1 --branch arche https://github.com/acdh-oeaw/arche-docker-config.git config
@@ -23,6 +23,9 @@ jobs:
     - name: composer update
       run: |
         composer update
+    - name: phpstan
+      run: |
+        vendor/bin/phpstan analyze -l 4 src tests
     - name: wait
       run: |
         while [ "`grep '# INIT SCRIPTS ENDED' log/initScripts.log | wc -l`" != "1" ]; do
@@ -35,7 +38,7 @@ jobs:
     #- uses: mxschmitt/action-tmate@v3
     - name: test
       run: |
-        XDEBUG_MODE=coverage ./vendor/bin/phpunit
+        XDEBUG_MODE=coverage vendor/bin/phpunit --display-all-issues
     - name: coveralls
       if: ${{ matrix.php == 8.5 }}
       run: |

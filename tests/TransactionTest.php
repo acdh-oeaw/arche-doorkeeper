@@ -301,6 +301,7 @@ class TransactionTest extends TestBase {
         $r->updateMetadata();
         try {
             self::$repo->commit();
+            /** @phpstan-ignore method.impossibleType */
             $this->assertTrue(false);
         } catch (ClientException $e) {
             $resp   = $e->getResponse();
@@ -341,6 +342,7 @@ class TransactionTest extends TestBase {
         $this->toDelete[] = $old2r;
         try {
             self::$repo->commit();
+            /** @phpstan-ignore method.impossibleType */
             $this->assertTrue(false);
         } catch (ClientException $e) {
             $resp = $e->getResponse();
@@ -361,6 +363,7 @@ class TransactionTest extends TestBase {
         $this->toDelete = array_merge($this->toDelete, [$tcr, $cr]);
         try {
             self::$repo->commit();
+            /** @phpstan-ignore method.impossibleType */
             $this->assertTrue(false);
         } catch (ClientException $e) {
             $msg  = (string) $e->getResponse()->getBody();
@@ -392,6 +395,7 @@ class TransactionTest extends TestBase {
         $rcr->updateMetadata();
         try {
             self::$repo->commit();
+            /** @phpstan-ignore method.impossibleType */
             $this->assertTrue(false);
         } catch (ClientException $e) {
             $msg  = (string) $e->getResponse()->getBody();
@@ -427,6 +431,7 @@ class TransactionTest extends TestBase {
             $this->addNextItem($r[$i], $r[$i + 1]);
         }
         self::$repo->commit();
+        /** @phpstan-ignore method.alreadyNarrowedType */
         $this->assertTrue(true);
 
         // drop one hasNextItem to create a broken chain
@@ -438,6 +443,7 @@ class TransactionTest extends TestBase {
         $r[2]->updateMetadata();
         try {
             self::$repo->commit();
+            /** @phpstan-ignore method.impossibleType */
             $this->assertTrue(false);
         } catch (ClientException $ex) {
             $msg = (string) $ex->getResponse()->getBody();
@@ -457,6 +463,7 @@ class TransactionTest extends TestBase {
         $r[0]->updateMetadata();
         try {
             self::$repo->commit();
+            /** @phpstan-ignore method.impossibleType */
             $this->assertTrue(false);
         } catch (ClientException $ex) {
             $msg = (string) $ex->getResponse()->getBody();
@@ -514,6 +521,7 @@ class TransactionTest extends TestBase {
         $this->addNextItem($c3r, $r31r);
         $this->addNextItem($r31r, $r32r);
         self::$repo->commit();
+        /** @phpstan-ignore method.alreadyNarrowedType */
         $this->assertTrue(true);
     }
 
@@ -555,19 +563,23 @@ class TransactionTest extends TestBase {
         // now add R12-titleImageOf->TC
         self::$repo->begin();
         $meta = $r12r->getGraph();
+        /** @phpstan-ignore property.notFound */
         $meta->add(DF::quadNoSubject(self::$schema->titleImage, $tcr->getUri()));
         $r12r->setGraph($meta);
         $r12r->updateMetadata();
         self::$repo->commit();
+        /** @phpstan-ignore method.alreadyNarrowedType */
         $this->assertTrue(true);
 
         // now add R4-titleImageOf->TC
         self::$repo->begin();
         $meta = $r3r->getGraph();
+        /** @phpstan-ignore property.notFound */
         $meta->add(DF::quadNoSubject(self::$schema->titleImage, $tcr->getUri()));
         $r3r->setGraph($meta);
         $r3r->updateMetadata();
         self::$repo->commit();
+        /** @phpstan-ignore method.alreadyNarrowedType */
         $this->assertTrue(true);
     }
 
@@ -603,6 +615,7 @@ class TransactionTest extends TestBase {
         $this->addNextItem($r12r, $r2r);
         try {
             self::$repo->commit();
+            /** @phpstan-ignore method.impossibleType */
             $this->assertTrue(false);
         } catch (ClientException $e) {
             $this->assertEquals(400, $e->getCode());
@@ -618,6 +631,7 @@ Collection https://id.acdh.oeaw.ac.at/ni/tc has a gap in the next item chain in 
         $this->addNextItem($r2r, $r11r);
         try {
             self::$repo->commit();
+            /** @phpstan-ignore method.impossibleType */
             $this->assertTrue(false);
         } catch (ClientException $e) {
             $this->assertEquals(400, $e->getCode());

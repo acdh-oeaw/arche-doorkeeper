@@ -48,10 +48,10 @@ use RenanBr\BibTexParser\Listener as BiblatexL;
 use RenanBr\BibTexParser\Parser as BiblatexP;
 use RenanBr\BibTexParser\Exception\ParserException as BiblatexE1;
 use RenanBr\BibTexParser\Exception\ProcessorException as BiblatexE2;
-use acdhOeaw\UriNormalizer;
-use acdhOeaw\UriNormalizerCache;
-use acdhOeaw\UriNormalizerRetryConfig;
-use acdhOeaw\UriNormalizerException;
+use acdhOeaw\uriNormalizer\UriNormalizer;
+use acdhOeaw\uriNormalizer\UriNormalizerCache;
+use acdhOeaw\uriNormalizer\UriNormalizerResolveConfig;
+use acdhOeaw\uriNormalizer\UriNormalizerException;
 use acdhOeaw\UriNormRules;
 use acdhOeaw\epicHandle\HandleService;
 use acdhOeaw\arche\core\Metadata;
@@ -95,12 +95,13 @@ class Resource {
         $cacheFile  = RC::$config->doorkeeper->ontologyCacheFile ?? '';
         $cacheTtl   = RC::$config->doorkeeper->ontologyCacheTtl ?? 600;
         $ontology   = Ontology::factoryDb(RC::$pdo, $schema, $cacheFile, $cacheTtl);
-        $retryCfg   = new UriNormalizerRetryConfig(
+        $retryCfg   = new UriNormalizerResolveConfig(
             RC::$config->doorkeeper->retryAttempts ?? 3,
             RC::$config->doorkeeper->retryDelay ?? 2,
-            UriNormalizerRetryConfig::SCALE_POWER,
+            UriNormalizerResolveConfig::SCALE_POWER,
             RC::$config->doorkeeper->retryOn ?? [429, 500, 501, 502, 503, 504],
             RC::$config->doorkeeper->certVerify ?? true,
+            RC::$config->doorkeeper->uriTtl ?? "P7D",
         );
         $doorkeeper = new Resource($meta, $schema, $ontology, $pdo, RC::$log, $retryCfg);
 
@@ -131,7 +132,7 @@ class Resource {
                                 private Ontology $ontology,
                                 private PDO | null $pdo = null,
                                 private LoggerInterface | null $log = null,
-                                private UriNormalizerRetryConfig | null $retryCfg = null) {
+                                private UriNormalizerResolveConfig | null $resolveCfg = null) {
         $uriNormRules      = UriNormRules::getRules();
         $uriNormRules      = array_filter($uriNormRules, fn($x) => $x->name !== 'arche-localhost');
         $uriNormRules[]    = (object) [
@@ -139,8 +140,9 @@ class Resource {
                 'match'   => '^(' . $meta->getNode() . ')$',
                 'replace' => '\\1',
         ];
-        $this->uriNorm     = new UriNormalizer($uriNormRules, retryCfg: $this->retryCfg);
+        $this->uriNorm     = new UriNormalizer($uriNormRules, retryCfg: $this->resolveCfg);
         $this->checkRanges = new stdClass();
+        /** @phpstan-ignore property.notFound */
         if (is_object($schema->checkRanges)) {
             foreach (iterator_to_array($schema->checkRanges) as $class => $rules) {
                 $this->checkRanges->$class = [];
@@ -197,6 +199,7 @@ class Resource {
     #[PreCheckAttribute]
     public function pre03MaintainOpenAire(): void {
         if ($this->meta->any(new PT(RDF::RDF_TYPE, $this->schema->classes->topCollection))) {
+            /** @phpstan-ignore property.notFound */
             $this->meta->add(DF::quadNoSubject($this->schema->oaipmhSet, DF::namedNode(self::OPENAIRE_OAIPMH_SET)));
         }
     }
@@ -276,6 +279,7 @@ class Resource {
         }
         foreach ($this->meta->listPredicates() as $prop) {
             $propDesc = $this->ontology->getProperty($this->meta, $prop);
+            /** @phpstan-ignore function.alreadyNarrowedType */
             if ($propDesc === null || !is_array($propDesc->range) || count($propDesc->range) === 0) {
                 continue;
             }
@@ -593,6 +597,7 @@ class Resource {
             } catch (BiblatexE1 $e) {
                 $msg = $e->getMessage();
                 throw new DoorkeeperException("Invalid BibLaTeX entry ($msg): $biblatex");
+                /** @phpstan-ignore catch.neverThrown */
             } catch (BiblatexE2 $e) {
                 $msg = $e->getMessage();
                 throw new DoorkeeperException("Invalid BibLaTeX entry ($msg): $biblatex");
@@ -635,6 +640,7 @@ class Resource {
 
     #[CheckAttribute]
     public function check09Kulturpool(): void {
+        /** @phpstan-ignore property.notFound */
         if ($this->meta->none(new PT($this->schema->oaipmhSet, DF::namedNode(self::KULTURPOOL_OAIPMH_SET)))) {
             return;
         }
@@ -815,8 +821,9 @@ class Resource {
         }
         $create = $create && count($curPids) === 0; // do not mint if pid exists
         // standardize pids
+        /** @phpstan-ignore isset.initializedProperty */
         if (!isset($this->uriNorm)) {
-            $this->uriNorm = new UriNormalizer(retryCfg: $this->retryCfg);
+            $this->uriNorm = new UriNormalizer(retryCfg: $this->resolveCfg);
         }
         $curPids = array_map(fn($x) => $this->uriNorm->normalize($x, false), $curPids);
 
@@ -905,7 +912,7 @@ class Resource {
                     $client = ProxyClient::factory();
                 }
                 if ($cache === null) {
-                    $cache = new UriNormalizerCache('cacheXsdAnyUri.sqlite');
+                    $cache = new UriNormalizerCache('cacheXsdAnyUri.sqlite', $this->resolveCfg->ttl);
                 }
                 try {
                     if (!$cache->has((string) $l)) {
@@ -913,6 +920,7 @@ class Resource {
                         $cache->set((string) $l, (string) $l);
                     }
                     $this->meta->delete(new PT($prop, $l));
+                    /** @var LiteralInterface $l */
                     $this->meta->add(DF::quad($res, $prop, $l->withDatatype(RDF::XSD_ANY_URI)));
                     $this->log?->debug("\t\tcasting $prop value from $type to " . RDF::XSD_ANY_URI);
                 } catch (GuzzleException $ex) {
@@ -942,18 +950,18 @@ class Resource {
                 'headers' => [
                     'user-agent' => 'ARCHE-url-checker/1.0 (https://github.com/acdh-oeaw/arche-doorkeeper; mzoltak@oeaw.ac.at)'
                 ],
-                'verify'  => $this->retryCfg->certVerify,
+                'verify'  => $this->resolveCfg->certVerify,
             ];
             $client  = ProxyClient::factory($options);
         }
         static $cache = null;
         if ($cache === null) {
-            $cache = new UriNormalizerCache('cache.sqlite');
+            $cache = new UriNormalizerCache('cache.sqlite', $this->resolveCfg->ttl);
         }
         static $normalizers = [];
         if (!isset($normalizers[$rangeUri])) {
             $rules                  = UriNormRules::getRules($this->checkRanges->$rangeUri);
-            $normalizers[$rangeUri] = new UriNormalizer($rules, '', $client, $cache, retryCfg: $this->retryCfg);
+            $normalizers[$rangeUri] = new UriNormalizer($rules, '', $client, $cache, retryCfg: $this->resolveCfg);
         }
 
         /** @var UriNormalizer $norm */

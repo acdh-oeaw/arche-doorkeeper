@@ -63,7 +63,7 @@ class Transaction {
 
         $schema    = new Schema(RC::$config->schema);
         $cacheFile = RC::$config->doorkeeper->ontologyCacheFile ?? '';
-        $cacheTtl  = RC::$config->doorkeeper->onFtologyCacheTtl ?? 600;
+        $cacheTtl  = RC::$config->doorkeeper->ontologyCacheTtl ?? 600;
         $ontology  = Ontology::factoryDb($pdo, $schema, $cacheFile, $cacheTtl);
         $tx        = new Transaction($txId, $pdo, $schema, $ontology, RC::$log);
 
@@ -363,7 +363,7 @@ class Transaction {
             $nextProp, ArcheTransaction::STATE_ACTIVE, $parentProp, // ni-recursive-recursive
             $nextProp, ArcheTransaction::STATE_ACTIVE, $parentProp, // ni-u
         ];
-        $this->log->debug(new \zozlak\queryPart\QueryPart($query, $param));
+        $this->log?->debug(new \zozlak\queryPart\QueryPart($query, $param));
         $query      = $this->pdo->prepare($query);
         $t0         = microtime(true);
         $query->execute($param);
@@ -371,7 +371,7 @@ class Transaction {
 //        foreach ($this->pdo->query("SELECT id, pid, col::text, tocheck::text, previd, nextid FROM hni ORDER BY pid, id")->fetchAll(PDO::FETCH_OBJ) as $i) {
 //            $debug .= "INSERT INTO hni VALUES ($i->id, $i->pid, " . ($i->col ?? 'null') . ", " . ($i->tocheck ?? 'null') . ", " . ($i->previd ?? 'null') . ", " . ($i->nextid ?? 'null') . ");\n";
 //        }
-//        $this->log->info($debug);
+//        $this->log?->info($debug);
         $this->pdo->query("DELETE FROM hni WHERE pid IN (SELECT pid FROM hni GROUP BY pid HAVING count(previd) = 0 AND count(nextid) = 0)");
         $t1         = microtime(true);
 

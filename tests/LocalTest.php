@@ -49,6 +49,7 @@ class LocalTest extends TestBase {
         $resource = new Resource($meta, self::$repo->getSchema(), self::$ontology);
         try {
             $resource->runTests(CheckAttribute::class);
+            /** @phpstan-ignore method.impossibleType */
             $this->assertTrue(false);
         } catch (DoorkeeperException $e) {
             $this->assertEquals('Max property count for https://vocabs.acdh.oeaw.ac.at/schema#hasCompleteness is 1 but resource has 2', $e->getMessage());
