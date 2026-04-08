@@ -950,13 +950,13 @@ class Resource {
                 'headers' => [
                     'user-agent' => 'ARCHE-url-checker/1.0 (https://github.com/acdh-oeaw/arche-doorkeeper; mzoltak@oeaw.ac.at)'
                 ],
-                'verify'  => $this->resolveCfg->certVerify,
+                'verify'  => $this->resolveCfg->certVerify ?? true,
             ];
             $client  = ProxyClient::factory($options);
         }
         static $cache = null;
         if ($cache === null) {
-            $cache = new UriNormalizerCache('cache.sqlite', $this->resolveCfg->ttl);
+            $cache = new UriNormalizerCache('cache.sqlite', $this->resolveCfg?->ttl);
         }
         static $normalizers = [];
         if (!isset($normalizers[$rangeUri])) {
