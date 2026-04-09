@@ -912,7 +912,7 @@ class Resource {
                     $client = ProxyClient::factory();
                 }
                 if ($cache === null) {
-                    $cache = new UriNormalizerCache('cacheXsdAnyUri.sqlite', $this->resolveCfg->ttl);
+                    $cache = new UriNormalizerCache('cacheXsdAnyUri.sqlite', $this->resolveCfg?->ttl);
                 }
                 try {
                     if (!$cache->has((string) $l)) {
