@@ -35,7 +35,7 @@ jobs:
     - name: run repo docker
       run: |
         mkdir -p build/logs log
-        docker run --name arche -p 80:80 -p 5432:5432 -v `pwd`/build:/home/www-data/docroot/api/build -v `pwd`/log:/home/www-data/log -v `pwd`/config:/home/www-data/config -v `pwd`:/home/www-data/arche-doorkeeper -e USER_UID=`id -u` -e USER_GID=`id -g` -d acdhch/arche
+        docker run --name arche -p 80:80 -p 5432:5432 -v `pwd`/build:/home/www-data/docroot/api/build -v `pwd`/log:/home/www-data/log -v `pwd`/config:/home/www-data/config -v `pwd`:/home/www-data/arche-doorkeeper -e USER_UID=`id -u` -e USER_GID=`id -g` -d acdhch/arche:resolute
     - name: wait
       run: |
         while [ "`grep '# INIT SCRIPTS ENDED' log/initScripts.log | wc -l`" != "1" ]; do
