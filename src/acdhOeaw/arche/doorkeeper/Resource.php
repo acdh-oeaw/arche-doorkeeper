@@ -344,7 +344,7 @@ class Resource {
         $titles = iterator_to_array($this->meta->listObjects(new PT($titleProp)));
         $langs  = [];
         foreach ($titles as $i) {
-            $lang = $i instanceof LiteralInterface ? $i->getLang() : '';
+            $lang = (string) ($i instanceof LiteralInterface ? $i->getLang() : '');
             if (isset($langs[$lang])) {
                 throw new DoorkeeperException("more than one $titleProp property");
             }

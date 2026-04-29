@@ -174,16 +174,16 @@ class TestBase extends \PHPUnit\Framework\TestCase {
             foreach ($i->range as $j) {
                 switch ($j) {
                     case RDF::XSD_DECIMAL:
-                    case RDF::XSD_BYTE;
-                    case RDF::XSD_DOUBLE;
-                    case RDF::XSD_FLOAT;
-                    case RDF::XSD_INT;
-                    case RDF::XSD_INTEGER;
-                    case RDF::XSD_NON_NEGATIVE_INTEGER;
-                    case RDF::XSD_POSITIVE_INTEGER;
+                    case RDF::XSD_BYTE:
+                    case RDF::XSD_DOUBLE:
+                    case RDF::XSD_FLOAT:
+                    case RDF::XSD_INT:
+                    case RDF::XSD_INTEGER:
+                    case RDF::XSD_NON_NEGATIVE_INTEGER:
+                    case RDF::XSD_POSITIVE_INTEGER:
                         return DF::literal(123, null, $j);
-                    case RDF::XSD_NON_POSITIVE_INTEGER;
-                    case RDF::XSD_NEGATIVE_INTEGER;
+                    case RDF::XSD_NON_POSITIVE_INTEGER:
+                    case RDF::XSD_NEGATIVE_INTEGER:
                         return DF::literal(-321, null, $j);
                     case RDF::XSD_DATE:
                         return DF::literal('2019-01-01', null, $j);
