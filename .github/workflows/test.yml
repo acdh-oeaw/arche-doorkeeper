@@ -7,6 +7,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
+    - name: composer update
+      run: |
+        composer update
+    - name: phpstan
+      run: vendor/bin/phpstan analyze -l 4 src tests
     - name: clone repo config
       run: |
         git clone --depth 1 --branch arche https://github.com/acdh-oeaw/arche-docker-config.git config
@@ -20,9 +25,6 @@ jobs:
       run: |
         mkdir -p build/logs log
         docker run --name arche -p 80:80 -p 5432:5432 -v `pwd`/build:/home/www-data/docroot/api/build -v `pwd`/log:/home/www-data/log -v `pwd`/config:/home/www-data/config -v `pwd`:/home/www-data/arche-doorkeeper -e USER_UID=`id -u` -e USER_GID=`id -g` -d acdhch/arche
-    - name: composer update
-      run: |
-        composer update
     - name: wait
       run: |
         while [ "`grep '# INIT SCRIPTS ENDED' log/initScripts.log | wc -l`" != "1" ]; do
@@ -48,15 +50,3 @@ jobs:
       if: ${{ failure() }}
       run: |
         cat log/rest.log
-  phpstan:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        php: [8.4, 8.5]
-    - uses: actions/checkout@v6
-    - name: composer
-      run:  composer update
-    - name: phpstan
-      run: vendor/bin/phpstan analyze -l 4 src tests
-
-
