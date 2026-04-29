@@ -926,7 +926,7 @@ class ResourceTest extends TestBase {
 
         // full URI
         $meta1->delete($propTmpl);
-        $meta1->add(DF::quadNoSubject($propUri, DF::namedNode(current($values)->concept[0])));
+        $meta1->add(DF::quadNoSubject($propUri, DF::namedNode((string)(current($values)->concept[0] ?? ''))));
         $r     = self::$repo->createResource($meta1);
         $meta2 = $r->getMetadata();
         $value = (string) $meta2->getObject($propTmpl);
