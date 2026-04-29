@@ -13,7 +13,7 @@
     "require": {
         "php": "^8.4",
         "acdh-oeaw/uri-normalizer": "^4",
-        "acdh-oeaw/arche-lib-schema": "^7.1",
+        "acdh-oeaw/arche-lib-schema": "^7.1.3",
         "acdh-oeaw/arche-assets": "^3.14",
         "zozlak/rdf-constants": "^1",
         "renanbr/bibtex-parser": "^2.1",
