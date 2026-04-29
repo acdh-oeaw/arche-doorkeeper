@@ -23,9 +23,6 @@ jobs:
     - name: composer update
       run: |
         composer update
-    - name: phpstan
-      run: |
-        vendor/bin/phpstan analyze -l 4 src tests
     - name: wait
       run: |
         while [ "`grep '# INIT SCRIPTS ENDED' log/initScripts.log | wc -l`" != "1" ]; do
@@ -51,3 +48,15 @@ jobs:
       if: ${{ failure() }}
       run: |
         cat log/rest.log
+  phpstan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: [8.4, 8.5]
+    - uses: actions/checkout@v6
+    - name: composer
+      run:  composer update
+    - name: phpstan
+      run: vendor/bin/phpstan analyze -l 4 src tests
+
+

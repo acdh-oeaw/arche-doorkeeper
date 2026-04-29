@@ -116,7 +116,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
      * @return DatasetNode
      */
     static protected function createMetadata(array $props = [],
-                                             string $class = null): DatasetNode {
+                                             ?string $class = null): DatasetNode {
         $idProp    = self::$schema->id;
         $labelProp = self::$schema->label;
 

@@ -24,6 +24,8 @@ use termTemplates\AnyOfTemplate as Any;
 use termTemplates\ValueTemplate as VT;
 use zozlak\RdfConstants as RC;
 
+$argc ??= 0;
+$argv ??= [];
 if ($argc < 2) {
     die("Usage: $argv[0] archeResourceUri\n");
 }

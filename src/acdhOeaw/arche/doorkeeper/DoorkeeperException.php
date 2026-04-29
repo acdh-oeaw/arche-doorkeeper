@@ -37,7 +37,7 @@ use acdhOeaw\arche\lib\exception\RepoLibException;
 class DoorkeeperException extends RepoLibException {
 
     public function __construct(string $message = '', int $code = 400,
-                                Throwable $previous = NULL) {
+                                ?Throwable $previous = null) {
         parent::__construct($message, $code, $previous);
     }
 

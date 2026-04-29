@@ -90,9 +90,13 @@ class Coverage implements ExecutionFinishedSubscriber {
         $testEnvDir = '/home/www-data/arche-doorkeeper/src';
         $localDir   = realpath(__DIR__ . '/../src');
         $filter     = new Filter();
-        $filter->includeDirectory($localDir);
-        $driver     = new XdebugDriver($filter);
-        $cc         = new CodeCoverage($driver, $filter);
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($localDir)) as $f) {
+            if ($f->getExtension() === 'php') {
+                $filter->includeFile($f->getRealPath());
+            }
+        }
+        $driver = new XdebugDriver($filter);
+        $cc     = new CodeCoverage($driver, $filter);
         foreach (new DirectoryIterator(__DIR__ . '/../build/logs') as $i) {
             if ($i->getExtension() === 'json') {
                 $rawData = (array) json_decode((string) file_get_contents($i->getPathname()), true);
