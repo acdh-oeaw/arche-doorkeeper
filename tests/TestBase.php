@@ -194,7 +194,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
             return DF::literal('sample', 'en');
         } elseif (!empty($i->vocabs)) {
             /** @phpstan-ignore property.private */
-            return DF::namedNode(current($i->vocabularyValues)->concept[0] ?? throw new \RuntimeException('no concept found'));
+            return DF::namedNode((string) reset(current($i->vocabularyValues)->concept));
         } else {
             return DF::namedNode(self::$sampleResUri);
         }
