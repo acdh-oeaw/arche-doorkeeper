@@ -1290,4 +1290,22 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
             $this->assertEquals($refMsg, $msg);
         }
     }
+    
+    public function testHasClass(): void {
+        $idNmsp = self::$schema->namespaces->id;
+        $id =  "$idNmsp/foo";
+        $m  = [(string) self::$schema->id     => $id];
+        $m = self::createMetadata($m);
+        self::$repo->begin();
+        try {
+            self::$repo->createResource($m);
+            /** @phpstan-ignore method.impossibleType */
+            $this->assertTrue(false);            
+        } catch (ClientException $ex) {
+            $msg    = (string) $ex->getResponse()->getBody();
+            $this->assertEquals(400, $ex->getCode());
+            $refMsg = "Resource has id in the $idNmsp but no RDF class";
+            $this->assertEquals($refMsg, $msg);
+        }
+    }
 }

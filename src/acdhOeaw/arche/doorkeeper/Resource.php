@@ -693,6 +693,21 @@ class Resource {
         }
     }
 
+    #[CheckAttribute]
+    public function check12Class(): void {
+        $idNmsp = $this->schema->namespaces->id;
+        $inNmsp = false;
+        foreach ($this->meta->listObjects(new PT($this->schema->id)) as $id) {
+            if (str_starts_with((string) $id, $idNmsp)) {
+                $inNmsp = true;
+                break;
+            }
+        }
+        if ($inNmsp && $this->meta->none(new PT(RDF::RDF_TYPE))) {
+            throw new DoorkeeperException("Resource has id in the $idNmsp but no RDF class");
+        }
+    }
+
     /**
      * CMDI records must have their very own PIDs but this requires special handling
      * as in ARCHE CMDI is just a metadata serialization format and not a separate
