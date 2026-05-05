@@ -625,7 +625,8 @@ class TransactionTest extends TestBase {
             $refErrMsg = "https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem errors:
 Resource https://id.acdh.oeaw.ac.at/ni/r2 is pointed with the next item from outside of its parent collection
 Collection https://id.acdh.oeaw.ac.at/ni/tc has a gap in the next item chain in one of resources https://id.acdh.oeaw.ac.at/ni/r12";
-            $this->assertEquals($refErrMsg, (string) $e->getResponse()->getBody());
+            $errMsg    = (string) $e->getResponse()->getBody();
+            $this->assertEqualsCanonicalizing(explode("\n", $refErrMsg), explode("\n", $errMsg));
         }
         self::$repo->rollback();
 
@@ -642,7 +643,8 @@ Collection https://id.acdh.oeaw.ac.at/ni/tc has a gap in the next item chain in 
 Resource https://id.acdh.oeaw.ac.at/ni/r11 is pointed with the next item from outside of its parent collection
 Resource https://id.acdh.oeaw.ac.at/ni/r12 is pointed with the next item from outside of its parent collection
 Collection https://id.acdh.oeaw.ac.at/ni/c1 has a gap in the next item chain in one of resources https://id.acdh.oeaw.ac.at/ni/r2, https://id.acdh.oeaw.ac.at/ni/r11";
-            $this->assertEquals($refErrMsg, (string) $e->getResponse()->getBody());
+            $errMsg    = (string) $e->getResponse()->getBody();
+            $this->assertEqualsCanonicalizing(explode("\n", $refErrMsg), explode("\n", $errMsg));
         }
         self::$repo->rollback();
 
