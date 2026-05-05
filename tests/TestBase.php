@@ -55,6 +55,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
      */
     static protected string $sampleResUri;
     static protected Ontology $ontology;
+    static protected string $resourceClass;
 
     static public function setUpBeforeClass(): void {
         parent::setUpBeforeClass();
@@ -65,6 +66,7 @@ class TestBase extends \PHPUnit\Framework\TestCase {
         self::$ontology = Ontology::factoryDb(new PDO(self::$config->dbConn->admin), self::$schema);
 
         self::$sampleResUri = 'https://orcid.org/0000-0001-5853-2534';
+        self::$resourceClass = self::$schema->classes->resource;
     }
 
     /**

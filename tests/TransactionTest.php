@@ -56,10 +56,10 @@ class TransactionTest extends TestBase {
         // add resources
         $bin1Size       = filesize(__FILE__);
         $bin2Size       = filesize(__DIR__ . '/../config-sample.yaml');
-        $meta1          = self::createMetadata([(string) $schema->parent => $rCol1->getUri()]);
+        $meta1          = self::createMetadata([(string) $schema->parent => $rCol1->getUri()], self::$resourceClass);
         $binary1        = new BinaryPayload(null, __FILE__);
         $rBin1          = self::$repo->createResource($meta1, $binary1);
-        $meta2          = self::createMetadata([(string) $schema->parent => $rCol2->getUri()]);
+        $meta2          = self::createMetadata([(string) $schema->parent => $rCol2->getUri()], self::$resourceClass);
         $binary2        = new BinaryPayload(null, __DIR__ . '/../config-sample.yaml');
         $rBin2          = self::$repo->createResource($meta2, $binary2);
         self::$repo->commit();
@@ -145,11 +145,11 @@ class TransactionTest extends TestBase {
         self::$repo->begin();
         $rCol1          = self::$repo->createResource(self::createMetadata([], $collClass));
         $rCol2          = self::$repo->createResource(self::createMetadata([], $collClass));
-        $meta1          = self::createMetadata([(string) $parentProp => $rCol1->getUri()]);
+        $meta1          = self::createMetadata([(string) $parentProp => $rCol1->getUri()], self::$resourceClass);
         $rBin1          = self::$repo->createResource($meta1, $binary1);
-        $meta2          = self::createMetadata([(string) $parentProp => $rCol2->getUri()]);
+        $meta2          = self::createMetadata([(string) $parentProp => $rCol2->getUri()], self::$resourceClass);
         $rBin2          = self::$repo->createResource($meta2, $binary2);
-        $meta3          = self::createMetadata([(string) $parentProp => $rCol2->getUri()]);
+        $meta3          = self::createMetadata([(string) $parentProp => $rCol2->getUri()], self::$resourceClass);
         $rBin3          = self::$repo->createResource($meta3, $binary1);
         self::$repo->commit();
         $this->toDelete = array_merge(
@@ -194,11 +194,12 @@ class TransactionTest extends TestBase {
 
         self::$repo->begin();
         $rCol1 = self::$repo->createResource(self::createMetadata([], $collClass));
-        $meta  = self::createMetadata([
+        $meta  = [
             (string) $parentProp  => $rCol1->getUri(),
             (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
             (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/noc-nc',
-        ]);
+        ];
+        $meta  = self::createMetadata($meta, self::$resourceClass);
         $rBin1 = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
 
         $rCol1->loadMetadata(true);
@@ -234,17 +235,19 @@ class TransactionTest extends TestBase {
         ];
         $meta           = self::createMetadata($meta, $collClass);
         $rCol2          = self::$repo->createResource($meta);
-        $meta           = self::createMetadata([
+        $meta           = [
             (string) $parentProp  => $rCol2->getUri(),
             (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
             (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/mit',
-        ]);
+        ];
+        $meta           = self::createMetadata($meta, self::$resourceClass);
         $rBin2          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
-        $meta           = self::createMetadata([
+        $meta           = [
             (string) $parentProp  => $rCol1->getUri(),
             (string) $accessProp  => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
             (string) $licenseProp => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-4-0',
-        ]);
+        ];
+        $meta           = self::createMetadata($meta, self::$resourceClass);
         $rBin3          = self::$repo->createResource($meta, new BinaryPayload(null, __FILE__));
         self::$repo->commit();
         $this->toDelete = array_merge($this->toDelete, [$rCol1, $rBin1, $rBin2, $rBin3]);
@@ -316,10 +319,10 @@ class TransactionTest extends TestBase {
         $schema  = self::$schema;
         $verProp = $schema->isNewVersionOf;
 
-        $new1m = self::createMetadata();
-        $new2m = self::createMetadata();
-        $old1m = self::createMetadata();
-        $old2m = self::createMetadata();
+        $new1m = self::createMetadata(class: self::$resourceClass);
+        $new2m = self::createMetadata(class: self::$resourceClass);
+        $old1m = self::createMetadata(class: self::$resourceClass);
+        $old2m = self::createMetadata(class: self::$resourceClass);
 
         self::$repo->begin();
         $new1r            = self::$repo->createResource($new1m);

@@ -155,14 +155,16 @@ class ResourceTest extends TestBase {
     public function testMaintainRange(): void {
         $cfg = self::$config->doorkeeper->epicPid;
         $pid = $cfg->resolver . $cfg->prefix . '/' . rand();
-        $im  = self::createMetadata([
+        $im  = [
+            (string) self::$schema->id                                  => 'https://test/range',
             'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedStartDate' => '2017',
             'https://vocabs.acdh.oeaw.ac.at/schema#hasCreatedEndDate'   => '2017-03-08T20:45:17',
             'https://vocabs.acdh.oeaw.ac.at/schema#hasStartDate'        => DF::literal('2018', null, RDF::XSD_DATE),
             'https://vocabs.acdh.oeaw.ac.at/schema#hasBinarySize'       => '300.54',
             'https://other/property'                                    => DF::literal('test value', 'en'),
             'https://vocabs.acdh.oeaw.ac.at/schema#hasPid'              => $pid,
-        ]);
+        ];
+        $im  = self::createMetadata($im);
 
         self::$repo->begin();
         $r  = self::$repo->createResource($im);
@@ -308,7 +310,7 @@ class ResourceTest extends TestBase {
     public function testCardinalitiesMax(): void {
         $idProp = self::$schema->id;
         $prop   = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/schema#hasTransferDate');
-        $im     = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $im     = self::createMetadata([], self::$resourceClass);
         $im->add(DF::quadNoSubject($prop, DF::literal('2020-07-01')));
         self::$repo->begin();
         $r      = self::$repo->createResource($im);
@@ -361,7 +363,7 @@ class ResourceTest extends TestBase {
         /** @phpstan-ignore property.notFound */
         $this->assertContains(self::getPropertyDefault((string) self::$schema->hosting), $rh->getIds());
 
-        $im  = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $im  = self::createMetadata([], self::$resourceClass);
         $r   = self::$repo->createResource($im, new BinaryPayload('foo bar', null, 'text/plain'));
         $rm  = $r->getGraph();
         $this->assertEquals('text/plain', (string) $rm->getObject(new PT($mimeProp)));
@@ -370,7 +372,7 @@ class ResourceTest extends TestBase {
     }
 
     public function testAccessRightsAuto(): void {
-        $im   = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $im   = self::createMetadata([], self::$resourceClass);
         self::$repo->begin();
         $r    = self::$repo->createResource($im);
         $om   = $r->getGraph();
@@ -386,7 +388,7 @@ class ResourceTest extends TestBase {
         $accessRestProp = self::$schema->accessRestriction;
         $im             = self::createMetadata([
             (string) $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic',
-            ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+            ], self::$resourceClass);
         $bp             = new BinaryPayload('dummy content');
         self::$repo->begin();
         $r              = self::$repo->createResource($im, $bp);
@@ -408,7 +410,7 @@ class ResourceTest extends TestBase {
         $im             = self::createMetadata([
             (string) $accessRestProp           => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted',
             (string) self::$schema->accessRole => 'foo',
-            ], 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+            ], self::$resourceClass);
         $bp             = new BinaryPayload('dummy content');
         self::$repo->begin();
         $r              = self::$repo->createResource($im, $bp);
@@ -439,7 +441,7 @@ class ResourceTest extends TestBase {
         $client         = new Client(['http_errors' => false, 'allow_redirects' => false]);
 
         $meta = [(string) $accessRestProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted'];
-        $im   = self::createMetadata($meta, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $im   = self::createMetadata($meta, self::$resourceClass);
         $bp   = new BinaryPayload('dummy content');
         self::$repo->begin();
         $r    = self::$repo->createResource($im, $bp);
@@ -474,7 +476,7 @@ class ResourceTest extends TestBase {
         $id              = DF::namedNode('.');
 
         $meta = [(string) $accessRestrProp => 'https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public'];
-        $im   = self::createMetadata($meta, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $im   = self::createMetadata($meta, self::$resourceClass);
         $bp   = new BinaryPayload('dummy content');
         self::$repo->begin();
         $r    = self::$repo->createResource($im, $bp);
@@ -502,38 +504,49 @@ class ResourceTest extends TestBase {
     }
 
     public function testTitleAuto(): void {
+        $idProp    = (string) self::$schema->id;
         $titleProp = self::$schema->label;
         $titleTmpl = new PT($titleProp);
         self::$repo->begin();
 
         // copied from other title-like property
-        $im = self::createMetadata(['http://purl.org/dc/elements/1.1/title' => DF::literal('foo', 'en')]);
+        $im = [
+            $idProp                                 => 'http://title/auto/1',
+            'http://purl.org/dc/elements/1.1/title' => DF::literal('foo', 'en')
+        ];
+        $im = self::createMetadata($im);
         $im->delete($titleTmpl);
         $r  = self::$repo->createResource($im);
         $this->assertEquals('foo', (string) $r->getGraph()->getObject($titleTmpl));
 
         // combined from acdh:hasFirstName and acdh:hasLastName
-        $im = self::createMetadata([
+        $im = [
+            $idProp                                              => 'http://title/auto/2',
             'https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName' => 'foo',
             'https://vocabs.acdh.oeaw.ac.at/schema#hasLastName'  => 'bar',
-        ]);
+        ];
+        $im = self::createMetadata($im);
         $im->delete($titleTmpl);
         $r  = self::$repo->createResource($im);
         $this->assertEquals('foo bar', (string) $r->getGraph()->getObject($titleTmpl));
 
         // combined from acdh:hasFirstName
-        $im = self::createMetadata([
-            'https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName' => 'foo'
-        ]);
+        $im = [
+            $idProp                                              => 'http://title/auto/3',
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasFirstName' => 'foo',
+        ];
+        $im = self::createMetadata($im);
         $im->delete($titleTmpl);
         $r  = self::$repo->createResource($im);
         $this->assertEquals('foo', (string) $r->getGraph()->getObject($titleTmpl));
 
         // combined from foaf:givenName and foaf:familyName
-        $im = self::createMetadata([
+        $im = [
+            $idProp                                => 'http://title/auto/4',
             'http://xmlns.com/foaf/0.1/givenName'  => 'foo',
             'http://xmlns.com/foaf/0.1/familyName' => 'bar',
-        ]);
+        ];
+        $im = self::createMetadata($im);
         $im->delete($titleTmpl);
         $r  = self::$repo->createResource($im);
         $this->assertEquals('foo bar', (string) $r->getGraph()->getObject($titleTmpl));
@@ -556,7 +569,8 @@ class ResourceTest extends TestBase {
         $titleTmpl = new PT($titleProp);
         self::$repo->begin();
 
-        $meta = self::createMetadata([(string) $titleProp => DF::literal('foo', 'en')]);
+        $meta = [(string) $titleProp => DF::literal('foo', 'en')];
+        $meta = self::createMetadata($meta, self::$resourceClass);
         $res  = self::$repo->createResource($meta);
         $meta->delete($titleTmpl);
         $meta->add(DF::quadNoSubject($titleProp, DF::literal('bar', 'de')));
@@ -660,12 +674,11 @@ class ResourceTest extends TestBase {
         $accessProp = self::$schema->accessRestriction;
         $pidProp    = self::$schema->pid;
         $pidNmsp    = self::$config->doorkeeper->epicPid->resolver;
-        $idNmsp     = self::$schema->namespaces->id;
         $pidTmpl    = new PT($pidProp);
         $restricted = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted');
         $academic   = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic');
         $public     = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public');
-        $im         = self::createMetadata([(string) $idProp => $idNmsp . rand()]);
+        $im         = self::createMetadata([(string) $idProp => 'https://test/pid/generation'], );
         self::$repo->begin();
 
         // no pid generated automatically
@@ -673,6 +686,9 @@ class ResourceTest extends TestBase {
         $m1 = $r->getGraph();
         $this->assertTrue($m1->none(new PT($pidProp)));
 
+        /*
+         * As PID is minted only if an id in the $idNmsp exists but existence of such an id
+         * currently enforces RDF class presence which turns into one of the tests below
         // pid generated automatically and promoted to an id
         $m1->add(DF::quadNoSubject($pidProp, DF::literal(self::$config->doorkeeper->epicPid->createValue)));
         $r->setGraph($m1);
@@ -683,10 +699,10 @@ class ResourceTest extends TestBase {
         $this->assertEquals(1, count($pids));
         $this->assertStringStartsWith($pidNmsp, (string) $pids[0]);
         $this->assertContains((string) $pids[0], $m2->listObjects(new PT($idProp))->getValues());
+         */
 
         // pid generated automatically and promoted to an id
         // for all resources of class TopCollection/Collection/Resource/Metadata with non-restricted access
-
         $classes = [
             self::$schema->classes->resource,
             self::$schema->classes->metadata,
@@ -732,10 +748,11 @@ class ResourceTest extends TestBase {
 
         // existing pid not overwritten but promoted to an id
         $idn = rand();
-        $im  = self::createMetadata([
+        $im  = [
             (string) $idProp  => $idNmsp . $idn,
             (string) $pidProp => $httpPid,
-        ]);
+        ];
+        $im  = self::createMetadata($im, self::$resourceClass);
         $r   = self::$repo->createResource($im);
         $m1  = $r->getGraph();
         $this->assertEquals([$httpsPid], $m1->listObjects($pidTmpl)->getValues());
@@ -769,10 +786,11 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
 
         $id       = $idNmsp . rand();
-        $im       = self::createMetadata([
+        $im       = [
             (string) $idProp  => $id,
             (string) $pidProp => $pid,
-        ]);
+        ];
+        $im       = self::createMetadata($im, self::$resourceClass);
         $r        = self::$repo->createResource($im);
         $m        = $r->getGraph();
         $this->assertEquals([$pid], $m->listObjects($pidTmpl)->getValues());
@@ -788,7 +806,11 @@ class ResourceTest extends TestBase {
     public function testUnknownProperty(): void {
         $cfgFile = __DIR__ . '/../config/yaml/config-repo.yaml';
         $cfg     = yaml_parse_file($cfgFile);
-        $im      = self::createMetadata(['https://vocabs.acdh.oeaw.ac.at/schema#foo' => 'bar']);
+        $im      = [
+            (string) self::$schema->id                   => 'http://unknown/property',
+            'https://vocabs.acdh.oeaw.ac.at/schema#foo' => 'bar',
+        ];
+        $im      = self::createMetadata($im);
 
         // turn off the check
         $cfg['doorkeeper']['checkUnknownProperties'] = false;
@@ -836,10 +858,11 @@ class ResourceTest extends TestBase {
         $idProp      = self::$schema->id;
         $rid         = $idNmsp . rand();
 
-        $im = self::createMetadata([
+        $im = [
             (string) $idProp                 => $rid,
             (string) $cfg->clarinSetProperty => $cfg->clarinSet,
-        ]);
+        ];
+        $im = self::createMetadata($im, self::$resourceClass);
         self::$repo->begin();
 
         $r        = self::$repo->createResource($im);
@@ -875,10 +898,11 @@ class ResourceTest extends TestBase {
         $biblatexProp = self::$schema->biblatex;
         $rid          = $idNmsp . rand();
 
-        $meta = self::createMetadata([
+        $meta = [
             (string) $idProp       => $rid,
             (string) $biblatexProp => " @dataset{foo,\nauthor = {Baz, Bar}\n}",
-        ]);
+        ];
+        $meta = self::createMetadata($meta, self::$resourceClass);
         self::$repo->begin();
 
         $r = self::$repo->createResource($meta);
@@ -999,8 +1023,7 @@ class ResourceTest extends TestBase {
     public function testBadIdentifier(): void {
         $idProp = self::$schema->id;
 
-        $meta1 = self::createMetadata();
-        $meta1->add(DF::quadNoSubject($idProp, DF::namedNode('http://unable/to/normalize1')));
+        $meta1 = self::createMetadata([(string) $idProp => 'http://unable/to/normalize1']);
         $meta2 = self::createMetadata([], 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         $meta2->add(DF::quadNoSubject($idProp, DF::namedNode('http://unable/to/normalize2')));
 
@@ -1025,7 +1048,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
 
         // no pid generated automatically
-        $r = self::$repo->createResource(self::createMetadata());
+        $r = self::$repo->createResource(self::createMetadata(class: 'https://vocabs.acdh.oeaw.ac.at/schema#Place'));
         $m = $r->getGraph();
         $this->assertNull($m->getObject(new PT($latProp)));
         $this->assertNull($m->getObject(new PT($lonProp)));
@@ -1116,29 +1139,43 @@ class ResourceTest extends TestBase {
 
         self::$repo->begin();
 
-        $meta = self::createMetadata([(string) $startProp => '2000-05-07']);
+        $meta = [(string) $startProp => '2000-05-07'];
+        $meta = self::createMetadata($meta, self::$resourceClass);
         $res  = self::$repo->createResource($meta);
         $this->assertEquals('2000-05-07', $res->getMetadata()->getObjectValue(new PT($endProp)));
 
-        $meta    = self::createMetadata([(string) $startProp => '1345']);
+        $meta    = [(string) $startProp => '1345'];
+        $meta    = self::createMetadata($meta, self::$resourceClass);
         $res     = self::$repo->createResource($meta);
         $resMeta = $res->getMetadata();
         $this->assertEquals('1345-01-01', $resMeta->getObjectValue(new PT($startProp)));
         $this->assertEquals('1345-01-01', $resMeta->getObjectValue(new PT($endProp)));
 
-        $meta    = self::createMetadata([(string) $startProp => '-10200', (string) $endProp => '-1900-12-31']);
+        $meta    = [
+            (string) $startProp => '-10200',
+            (string) $endProp   => '-1900-12-31',
+        ];
+        $meta    = self::createMetadata($meta, self::$resourceClass);
         $res     = self::$repo->createResource($meta);
         $resMeta = $res->getMetadata();
         $this->assertEquals('-10200-01-01', $resMeta->getObjectValue(new PT($startProp)));
         $this->assertEquals('-1900-12-31', $resMeta->getObjectValue(new PT($endProp)));
 
-        $meta    = self::createMetadata([(string) $startProp => '-0020-01-01', (string) $endProp => '100']);
+        $meta    = [
+            (string) $startProp => '-0020-01-01',
+            (string) $endProp   => '100',
+        ];
+        $meta    = self::createMetadata($meta, self::$resourceClass);
         $res     = self::$repo->createResource($meta);
         $resMeta = $res->getMetadata();
         $this->assertEquals('-0020-01-01', $resMeta->getObjectValue(new PT($startProp)));
         $this->assertEquals('0100-01-01', $resMeta->getObjectValue(new PT($endProp)));
 
-        $meta = self::createMetadata([(string) $startProp => '1345', (string) $endProp => '1234']);
+        $meta = [
+            (string) $startProp => '1345',
+            (string) $endProp   => '1234',
+        ];
+        $meta = self::createMetadata($meta, self::$resourceClass);
         try {
             $res = self::$repo->createResource($meta);
             /** @phpstan-ignore method.impossibleType */
@@ -1148,7 +1185,11 @@ class ResourceTest extends TestBase {
             $this->assertEquals("Start date after the end date for $startProp/$endProp (1345-01-01 > 1234-01-01)", $msg);
         }
 
-        $meta = self::createMetadata([(string) $startProp => '1345', (string) $endProp => '-1456']);
+        $meta = [
+            (string) $startProp => '1345',
+            (string) $endProp   => '-1456',
+        ];
+        $meta = self::createMetadata($meta, self::$resourceClass);
         try {
             $res = self::$repo->createResource($meta);
             /** @phpstan-ignore method.impossibleType */
@@ -1158,7 +1199,11 @@ class ResourceTest extends TestBase {
             $this->assertEquals("Start date after the end date for $startProp/$endProp (1345-01-01 > -1456-01-01)", $msg);
         }
 
-        $meta = self::createMetadata([(string) $startProp => '-1345', (string) $endProp => '-1456']);
+        $meta = [
+            (string) $startProp => '-1345',
+            (string) $endProp   => '-1456',
+        ];
+        $meta = self::createMetadata($meta, self::$resourceClass);
         try {
             $res = self::$repo->createResource($meta);
             /** @phpstan-ignore method.impossibleType */
@@ -1168,7 +1213,11 @@ class ResourceTest extends TestBase {
             $this->assertEquals("Start date after the end date for $startProp/$endProp (-1345-01-01 > -1456-01-01)", $msg);
         }
 
-        $meta = self::createMetadata([(string) $startProp => '-19000-05-01', (string) $endProp => '-200000']);
+        $meta = [
+            (string) $startProp => '-19000-05-01',
+            (string) $endProp   => '-200000',
+        ];
+        $meta = self::createMetadata($meta, self::$resourceClass);
         try {
             $res = self::$repo->createResource($meta);
             /** @phpstan-ignore method.impossibleType */
@@ -1178,7 +1227,11 @@ class ResourceTest extends TestBase {
             $this->assertEquals("Start date after the end date for $startProp/$endProp (-19000-05-01 > -200000-01-01)", $msg);
         }
 
-        $meta = self::createMetadata([(string) $startProp => '-19000-05-01', (string) $endProp => '-19000-04-03']);
+        $meta = [
+            (string) $startProp => '-19000-05-01',
+            (string) $endProp   => '-19000-04-03',
+        ];
+        $meta = self::createMetadata($meta, self::$resourceClass);
         try {
             $res = self::$repo->createResource($meta);
             /** @phpstan-ignore method.impossibleType */
@@ -1217,7 +1270,7 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
             (string) self::$schema->mime                            => 'application/pdf',
             (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag' => 'FOO',
         ];
-        $cm = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $cm = self::createMetadata($cm, self::$resourceClass);
         try {
             $cr = self::$repo->createResource($cm);
             /** @phpstan-ignore method.impossibleType */
@@ -1233,7 +1286,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
         // pass
         $cid            = $cm->getObjectValue($idTmpl);
         $rm             = [(string) self::$schema->parent => $cid];
-        $rm             = self::createMetadata($rm, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $rm             = self::createMetadata($rm, self::$resourceClass);
         $cm             = [
             (string) self::$schema->id                                 => $cid,
             (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
@@ -1242,7 +1295,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
             (string) self::$schema->license                            => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-sa-4-0',
             (string) self::$schema->nextItem                           => (string) $rm->getObjectValue($idTmpl),
         ];
-        $cm             = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Resource');
+        $cm             = self::createMetadata($cm, self::$resourceClass);
         $rr             = self::$repo->createResource($rm);
         /** @var RepoResource $cr */
         $cr             = self::$repo->getResourceById($cid);
@@ -1290,17 +1343,17 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
             $this->assertEquals($refMsg, $msg);
         }
     }
-    
+
     public function testHasClass(): void {
         $idNmsp = self::$schema->namespaces->id;
-        $id =  "$idNmsp/foo";
-        $m  = [(string) self::$schema->id     => $id];
-        $m = self::createMetadata($m);
+        $id     = "$idNmsp/foo";
+        $m      = [(string) self::$schema->id => $id];
+        $m      = self::createMetadata($m);
         self::$repo->begin();
         try {
             self::$repo->createResource($m);
             /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);            
+            $this->assertTrue(false);
         } catch (ClientException $ex) {
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
