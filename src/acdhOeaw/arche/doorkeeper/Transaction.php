@@ -27,7 +27,7 @@
 namespace acdhOeaw\arche\doorkeeper;
 
 use Psr\Log\LoggerInterface;
-use PDO\Pgsql;
+use PDO;
 use zozlak\RdfConstants as RDF;
 use acdhOeaw\arche\lib\Schema;
 use acdhOeaw\arche\lib\schema\Ontology;
@@ -55,8 +55,8 @@ class Transaction {
     static public function onTxCommit(string $method, int $txId,
                                       array $resourceIds): void {
         // current state database handler
-        $pdo = new Pgsql(RC::$config->dbConn->admin);
-        $pdo->setAttribute(Pgsql::ATTR_ERRMODE, Pgsql::ERRMODE_EXCEPTION);
+        $pdo = new PDO(RC::$config->dbConn->admin);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->query("SET application_name TO doorkeeper");
         $pdo->query("SET lock_timeout TO " . self::DB_LOCK_TIMEOUT);
         $pdo->beginTransaction();
@@ -79,7 +79,7 @@ class Transaction {
      */
     private array $parentIds;
 
-    public function __construct(private int $txId, private Pgsql $pdo,
+    public function __construct(private int $txId, private PDO $pdo,
                                 private Schema $schema,
                                 private Ontology $ontology,
                                 private LoggerInterface | null $log = null) {
@@ -368,7 +368,7 @@ class Transaction {
         $t0         = microtime(true);
         $query->execute($param);
 //        $debug      = "\ndrop table hni; create temporary table hni (id bigint, pid bigint, col bool, tocheck bool, previd bigint, nextid bigint);\n";
-//        foreach ($this->pdo->query("SELECT id, pid, col::text, tocheck::text, previd, nextid FROM hni ORDER BY pid, id")->fetchAll(Pgsql::FETCH_OBJ) as $i) {
+//        foreach ($this->pdo->query("SELECT id, pid, col::text, tocheck::text, previd, nextid FROM hni ORDER BY pid, id")->fetchAll(PDO::FETCH_OBJ) as $i) {
 //            $debug .= "INSERT INTO hni VALUES ($i->id, $i->pid, " . ($i->col ?? 'null') . ", " . ($i->tocheck ?? 'null') . ", " . ($i->previd ?? 'null') . ", " . ($i->nextid ?? 'null') . ");\n";
 //        }
 //        $this->log?->info($debug);
@@ -384,7 +384,7 @@ class Transaction {
             WHERE col IS NULL
         ");
         $query->execute([$idsLike]);
-        foreach ($query->fetchAll(Pgsql::FETCH_COLUMN) as $i) {
+        foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
             $errors[] = "Resource $i is pointed with the next item from outside of its parent collection";
         }
 
@@ -400,7 +400,7 @@ class Transaction {
             HAVING count(previd) + 1 != count(*)
         ");
         $query->execute([$idsLike, $idsLike]);
-        foreach ($query->fetchAll(Pgsql::FETCH_OBJ) as $i) {
+        foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
             $errors[] = "Collection $i->pid has a gap in the next item chain in one of resources $i->gapin";
         }
 
@@ -416,7 +416,7 @@ class Transaction {
             HAVING count(nextid) + 1 != count(*)
         ");
         $query->execute([$idsLike, $idsLike]);
-        foreach ($query->fetchAll(Pgsql::FETCH_OBJ) as $i) {
+        foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
             $errors[] = "Collection $i->pid has a gap in the next item chain in one of resources $i->gapin";
         }
 
@@ -429,7 +429,7 @@ class Transaction {
             WHERE col AND hni.id = pid AND previd IS NOT NULL
         ");
         $query->execute([$idsLike, $idsLike]);
-        foreach ($query->fetchAll(Pgsql::FETCH_OBJ) as $i) {
+        foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
             $errors[] = "Collection $i->id id pointed with the next item from an invalid resource $i->previd";
         }
 
@@ -439,7 +439,7 @@ class Transaction {
             WHERE col AND hni.id = pid AND nextid IS NULL
         ");
         $query->execute([$idsLike]);
-        foreach ($query->fetchAll(Pgsql::FETCH_COLUMN) as $i) {
+        foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
             $errors[] = "Collection $i does not point with the next item to its first child";
         }
 
@@ -449,7 +449,7 @@ class Transaction {
             WHERE (NOT col OR hni.id <> pid) AND previd IS NULL
         ");
         $query->execute([$idsLike]);
-        foreach ($query->fetchAll(Pgsql::FETCH_COLUMN) as $i) {
+        foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
             $errors[] = "Resource $i is not pointed with any next item";
         }
 
@@ -461,7 +461,7 @@ class Transaction {
             HAVING count(*) > 1
         ");
         $query->execute([$idsLike]);
-        foreach ($query->fetchAll(Pgsql::FETCH_COLUMN) as $i) {
+        foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
             $errors[] = "Resource $i has multiple has next item properties";
         }
 
@@ -473,7 +473,7 @@ class Transaction {
             HAVING count(*) > 1
         ");
         $query->execute([$idsLike]);
-        foreach ($query->fetchAll(Pgsql::FETCH_OBJ) as $i) {
+        foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
             $errors[] = "Collection $i points with next item to more than one child resource";
         }
 
@@ -536,7 +536,7 @@ class Transaction {
         //                JOIN resources r USING (id)
         //        ");
         //        $query->execute([$this->txId]);
-        //        $result = $query->fetch(Pgsql::FETCH_OBJ);
+        //        $result = $query->fetch(PDO::FETCH_OBJ);
         //        if ($result !== false && $result->all !== $result->locked) {
         //            $msg = "Some resources locked by another transaction (" . ($result->all - $result->locked) . " out of " . $result->all . ")";
         //            throw new DoorkeeperException($msg, 409);
@@ -671,8 +671,8 @@ class Transaction {
         $query = $this->pdo->prepare($query);
         $query->execute($param);
         $this->log?->info('[-----');
-        $this->log?->info((string) json_encode($this->pdo->query("SELECT * FROM _resources")->fetchAll(Pgsql::FETCH_OBJ)));
-        $this->log?->info((string) json_encode($this->pdo->query("SELECT * FROM _aggupdate")->fetchAll(Pgsql::FETCH_OBJ)));
+        $this->log?->info((string) json_encode($this->pdo->query("SELECT * FROM _resources")->fetchAll(PDO::FETCH_OBJ)));
+        $this->log?->info((string) json_encode($this->pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ)));
 
         // add empty property values for empty collections
         $query = "
@@ -694,7 +694,7 @@ class Transaction {
             $collClass, $topCollClass];
         $query = $this->pdo->prepare($query);
         $query->execute($param);
-        $this->log?->info((string) json_encode($this->pdo->query("SELECT * FROM _aggupdate")->fetchAll(Pgsql::FETCH_OBJ)));
+        $this->log?->info((string) json_encode($this->pdo->query("SELECT * FROM _aggupdate")->fetchAll(PDO::FETCH_OBJ)));
 
         // remove old values
         $query = $this->pdo->prepare("
@@ -724,7 +724,7 @@ class Transaction {
                 WHERE transaction_id = ?
             ");
             $query->execute([$this->txId]);
-            $resIds = $query->fetchAll(Pgsql::FETCH_COLUMN);
+            $resIds = $query->fetchAll(PDO::FETCH_COLUMN);
 
             // find all pre-transaction parents of resources affected by the current transaction
             if (count($resIds) === 0) {
@@ -750,7 +750,7 @@ class Transaction {
                 ";
                 $query           = $pdoOld->prepare($query);
                 $query->execute([$this->schema->parent]);
-                $this->parentIds = $query->fetchAll(Pgsql::FETCH_COLUMN);
+                $this->parentIds = $query->fetchAll(PDO::FETCH_COLUMN);
                 $pdoOld->query("DROP TABLE _res");
             }
             $t1 = microtime(true);
