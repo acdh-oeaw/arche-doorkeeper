@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "php": "^8.4",
+        "php": "^8.3",
         "acdh-oeaw/uri-normalizer": "^4",
         "acdh-oeaw/arche-lib-schema": "^7.1.3",
         "acdh-oeaw/arche-assets": "^3.14",

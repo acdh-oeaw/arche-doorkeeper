@@ -732,7 +732,12 @@ class Transaction {
             } else {
                 $pdoOld          = RC::$transaction->getPreTransactionDbHandle();
                 $pdoOld->query("CREATE TEMPORARY TABLE _res (id bigint)");
-                $pdoOld->copyFromArray('_res', $resIds);
+                // instanceof doesn't require the class on the right sized to exist (which is good for us)
+                if ($pdoOld instanceof \Pdo\Pgsql) {
+                    $pdoOld->copyFromArray('_res', $resIds);
+                } else {
+                    $pdoOld->pgsqlCopyFromArray('_res', $resIds);
+                }
                 $query           = "
                     WITH RECURSIVE t(id, n) AS (
                         SELECT id, 0 FROM _res
