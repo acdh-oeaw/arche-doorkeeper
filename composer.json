@@ -25,7 +25,7 @@
         }
     },
     "require-dev": {
-        "acdh-oeaw/arche-core": "^5.11",
+        "acdh-oeaw/arche-core": "^5.10",
         "acdh-oeaw/epic-handle": "^1",
         "acdh-oeaw/arche-lib-ingest": "^4 | ^5",
         "phpunit/phpunit": "^12",
