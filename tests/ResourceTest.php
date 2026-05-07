@@ -1357,7 +1357,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
         } catch (ClientException $ex) {
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
-            $refMsg = "Resource has id in the $idNmsp but no RDF class";
+            $refMsg = "Resource $id has no RDF class";
             $this->assertEquals($refMsg, $msg);
         }
     }

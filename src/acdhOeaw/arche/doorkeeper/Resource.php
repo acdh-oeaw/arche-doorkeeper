@@ -696,15 +696,15 @@ class Resource {
     #[CheckAttribute]
     public function check12Class(): void {
         $idNmsp = $this->schema->namespaces->id;
-        $inNmsp = false;
+        $inNmsp = null;
         foreach ($this->meta->listObjects(new PT($this->schema->id)) as $id) {
             if (str_starts_with((string) $id, $idNmsp)) {
-                $inNmsp = true;
+                $inNmsp = (string) $id;
                 break;
             }
         }
-        if ($inNmsp && $this->meta->none(new PT(RDF::RDF_TYPE))) {
-            throw new DoorkeeperException("Resource has id in the $idNmsp but no RDF class");
+        if (!empty($inNmsp) && $this->meta->none(new PT(RDF::RDF_TYPE))) {
+            throw new DoorkeeperException("Resource $inNmsp has no RDF class");
         }
     }
 
