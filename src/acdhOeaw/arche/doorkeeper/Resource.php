@@ -156,6 +156,10 @@ class Resource {
         $this->cacheDir = !empty($cacheDir) ? $cacheDir : sys_get_temp_dir();
     }
 
+    public function setResource(DatasetNodeInterface $meta): void {
+        $this->meta = $meta;
+    }
+
     #[PreCheckAttribute]
     public function pre01MaintainDefaultValues(): void {
         $res = $this->meta->getNode();
