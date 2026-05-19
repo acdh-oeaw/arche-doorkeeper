@@ -126,13 +126,15 @@ class Resource {
 
     private UriNormalizer $uriNorm;
     private stdClass $checkRanges;
+    private string $cacheDir;
 
     public function __construct(private DatasetNodeInterface $meta,
                                 private Schema $schema,
                                 private Ontology $ontology,
                                 private PDO | null $pdo = null,
                                 private LoggerInterface | null $log = null,
-                                private UriNormalizerResolveConfig | null $resolveCfg = null) {
+                                private UriNormalizerResolveConfig | null $resolveCfg = null,
+                                string $cacheDir = '') {
         $uriNormRules      = UriNormRules::getRules();
         $uriNormRules      = array_filter($uriNormRules, fn($x) => $x->name !== 'arche-localhost');
         $uriNormRules[]    = (object) [
@@ -151,6 +153,7 @@ class Resource {
                 }
             }
         }
+        $this->cacheDir = !empty($cacheDir) ? $cacheDir : sys_get_temp_dir();
     }
 
     #[PreCheckAttribute]
@@ -927,7 +930,7 @@ class Resource {
                     $client = ProxyClient::factory();
                 }
                 if ($cache === null) {
-                    $cache = new UriNormalizerCache('cacheXsdAnyUri.sqlite', $this->resolveCfg?->ttl);
+                    $cache = new UriNormalizerCache($this->cacheDir . '/cacheXsdAnyUri.sqlite', $this->resolveCfg?->ttl);
                 }
                 try {
                     if (!$cache->has((string) $l)) {
@@ -971,7 +974,7 @@ class Resource {
         }
         static $cache = null;
         if ($cache === null) {
-            $cache = new UriNormalizerCache('cache.sqlite', $this->resolveCfg?->ttl);
+            $cache = new UriNormalizerCache($this->cacheDir . '/cache.sqlite', $this->resolveCfg?->ttl);
         }
         static $normalizers = [];
         if (!isset($normalizers[$rangeUri])) {
