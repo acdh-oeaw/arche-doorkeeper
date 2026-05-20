@@ -473,7 +473,7 @@ class Transaction {
             HAVING count(*) > 1
         ");
         $query->execute([$idsLike]);
-        foreach ($query->fetchAll(PDO::FETCH_OBJ) as $i) {
+        foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $i) {
             $errors[] = "Collection $i points with next item to more than one child resource";
         }
 
