@@ -399,9 +399,9 @@ class ResourceTest extends TestBase {
         $this->assertNotContains(self::$config->doorkeeper->roleAcademic, $om->listObjects(new PT(self::$config->accessControl->schema->write))->getValues());
 
         $client = new Client(['http_errors' => false, 'allow_redirects' => false]);
-        $resp   = $client->send(new Request('get', (string) $r->getUri()));
+        $resp   = $client->send(new Request('GET', (string) $r->getUri()));
         $this->assertEquals(401, $resp->getStatusCode());
-        $resp   = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
+        $resp   = $client->send(new Request('GET', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(200, $resp->getStatusCode());
     }
 
@@ -422,11 +422,11 @@ class ResourceTest extends TestBase {
         $this->assertContains('foo', $om->listObjects(new PT(self::$schema->accessRole))->getValues());
 
         $client = new Client(['http_errors' => false, 'allow_redirects' => false]);
-        $resp   = $client->send(new Request('get', (string) $r->getUri()));
+        $resp   = $client->send(new Request('GET', (string) $r->getUri()));
         $this->assertEquals(401, $resp->getStatusCode());
-        $resp   = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
+        $resp   = $client->send(new Request('GET', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(403, $resp->getStatusCode());
-        $resp   = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => 'foo']));
+        $resp   = $client->send(new Request('GET', (string) $r->getUri(), ['eppn' => 'foo']));
         $this->assertEquals(200, $resp->getStatusCode());
     }
 
@@ -450,9 +450,9 @@ class ResourceTest extends TestBase {
         $meta->add(DF::quadNoSubject($accessRestProp, DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic')));
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
-        $resp = $client->send(new Request('get', (string) $r->getUri()));
+        $resp = $client->send(new Request('GET', (string) $r->getUri()));
         $this->assertEquals(401, $resp->getStatusCode());
-        $resp = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
+        $resp = $client->send(new Request('GET', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(200, $resp->getStatusCode());
 
         $id   = DF::namedNode('.');
@@ -460,7 +460,7 @@ class ResourceTest extends TestBase {
         $meta->add(DF::quad($id, $accessRestProp, DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public')));
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
-        $resp = $client->send(new Request('get', (string) $r->getUri()));
+        $resp = $client->send(new Request('GET', (string) $r->getUri()));
         $this->assertEquals(200, $resp->getStatusCode());
     }
 
@@ -485,9 +485,9 @@ class ResourceTest extends TestBase {
         $meta->add(DF::quad($id, $accessRestrProp, DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic')));
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
-        $resp = $client->send(new Request('get', (string) $r->getUri()));
+        $resp = $client->send(new Request('GET', (string) $r->getUri()));
         $this->assertEquals(401, $resp->getStatusCode());
-        $resp = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
+        $resp = $client->send(new Request('GET', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(200, $resp->getStatusCode());
 
         $meta = new DatasetNode($id);
@@ -495,11 +495,11 @@ class ResourceTest extends TestBase {
         $meta->add(DF::quad($id, self::$schema->accessRole, DF::literal('bar')));
         $r->setMetadata($meta);
         $r->updateMetadata(RepoResource::UPDATE_MERGE);
-        $resp = $client->send(new Request('get', (string) $r->getUri()));
+        $resp = $client->send(new Request('GET', (string) $r->getUri()));
         $this->assertEquals(401, $resp->getStatusCode());
-        $resp = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
+        $resp = $client->send(new Request('GET', (string) $r->getUri(), ['eppn' => self::$config->doorkeeper->roleAcademic]));
         $this->assertEquals(403, $resp->getStatusCode());
-        $resp = $client->send(new Request('get', (string) $r->getUri(), ['eppn' => 'bar']));
+        $resp = $client->send(new Request('GET', (string) $r->getUri(), ['eppn' => 'bar']));
         $this->assertEquals(200, $resp->getStatusCode());
     }
 
