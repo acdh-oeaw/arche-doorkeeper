@@ -81,6 +81,9 @@ class Resource {
     const OPENAIRE_OAIPMH_SET   = 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/openaire_data';
     const KULTURPOOL_OAIPMH_SET = 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool';
     const PROP_TAG              = 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag';
+    const URI_RESOLVE_HEADERS   = [
+        'user-agent' => 'ARCHE-url-checker/1.0 (https://github.com/acdh-oeaw/arche-doorkeeper; mzoltak@oeaw.ac.at)',
+    ];
     use RunTestsTrait;
 
     static public function onResEdit(int $id, DatasetNodeInterface $meta,
@@ -938,7 +941,7 @@ class Resource {
                 }
                 try {
                     if (!$cache->has((string) $l)) {
-                        $client->send(new Request('HEAD', $l->getValue()));
+                        $client->send(new Request('HEAD', $l->getValue(), self::URI_RESOLVE_HEADERS));
                         $cache->set((string) $l, (string) $l);
                     }
                     $this->meta->delete(new PT($prop, $l));
@@ -969,9 +972,7 @@ class Resource {
         static $client = null;
         if ($client === null) {
             $options = [
-                'headers' => [
-                    'user-agent' => 'ARCHE-url-checker/1.0 (https://github.com/acdh-oeaw/arche-doorkeeper; mzoltak@oeaw.ac.at)'
-                ],
+                'headers' => self::URI_RESOLVE_HEADERS,
                 'verify'  => $this->resolveCfg->certVerify ?? true,
             ];
             $client  = ProxyClient::factory($options);
