@@ -592,28 +592,33 @@ class Resource {
     }
 
     #[CheckAttribute]
-    public function check07Biblatex(): void {
-        $biblatexProp = $this->schema->biblatex ?? '';
-        $biblatex     = trim((string) $this->meta->getObject(new PT($biblatexProp)));
-        if (!empty($biblatex)) {
-            if (substr($biblatex, 0, 1) !== '@') {
-                $biblatex = "@dataset{foo,\n$biblatex\n}";
+    public function check07CustomCitation(): void {
+        $citationProp = $this->schema->customCitation ?? '';
+        $citation     = trim((string) $this->meta->getObject(new PT($citationProp)));
+        $csl = json_decode($citation, true);
+        if (is_array($csl)) {
+            // as for now we don't validate CSL-JSON fields
+            return ;
+        }
+        if (!empty($citation)) {
+            if (substr($citation, 0, 1) !== '@') {
+                $citation = "@dataset{foo,\n$citation\n}";
             }
             $listener = new BiblatexL();
             $parser   = new BiblatexP();
             $parser->addListener($listener);
             try {
-                $parser->parseString($biblatex);
+                $parser->parseString($citation);
             } catch (BiblatexE1 $e) {
                 $msg = $e->getMessage();
-                throw new DoorkeeperException("Invalid BibLaTeX entry ($msg): $biblatex");
+                throw new DoorkeeperException("Invalid BibLaTeX entry ($msg): $citation");
                 /** @phpstan-ignore catch.neverThrown */
             } catch (BiblatexE2 $e) {
                 $msg = $e->getMessage();
-                throw new DoorkeeperException("Invalid BibLaTeX entry ($msg): $biblatex");
+                throw new DoorkeeperException("Invalid BibLaTeX entry ($msg): $citation");
             }
             if (count($listener->export()) === 0) {
-                throw new DoorkeeperException("Invalid BibLaTeX entry: $biblatex");
+                throw new DoorkeeperException("Invalid BibLaTeX entry: $citation");
             }
         }
     }

@@ -733,6 +733,7 @@ class Transaction {
                 $pdoOld          = RC::$transaction->getPreTransactionDbHandle();
                 $pdoOld->query("CREATE TEMPORARY TABLE _res (id bigint)");
                 // instanceof doesn't require the class on the right sized to exist (which is good for us)
+                /** @phpstan-ignore instanceof.alwaysTrue */
                 if ($pdoOld instanceof \Pdo\Pgsql) {
                     $pdoOld->copyFromArray('_res', $resIds);
                 } else {
