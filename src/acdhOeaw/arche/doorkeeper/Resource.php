@@ -595,10 +595,10 @@ class Resource {
     public function check07CustomCitation(): void {
         $citationProp = $this->schema->customCitation ?? '';
         $citation     = trim((string) $this->meta->getObject(new PT($citationProp)));
-        $csl = json_decode($citation, true);
+        $csl          = json_decode($citation, true);
         if (is_array($csl)) {
             // as for now we don't validate CSL-JSON fields
-            return ;
+            return;
         }
         if (!empty($citation)) {
             if (substr($citation, 0, 1) !== '@') {
@@ -669,6 +669,9 @@ class Resource {
         $tags = array_intersect($tags, ['TEXT', 'VIDEO', 'SOUND', 'IMAGE', '3D']);
         if (count($tags) !== 1) {
             $errors[] = "exactly one " . self::PROP_TAG . " with value being one of TEXT, VIDEO, SOUND, IMAGE, 3D is required for a Kulturpool resource";
+        }
+        if ($tags === ['TEXT'] && $this->meta->none(new PT($this->schema->language))) {
+            $errors[] = "Kulturpool resources of type TEXT require " . $this->schema->language . " to be specified";
         }
 
         $isCollection = $this->meta->any(new PT(DF::namedNode(RDF::RDF_TYPE), $this->schema->classes->collection));

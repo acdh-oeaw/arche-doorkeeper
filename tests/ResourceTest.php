@@ -1264,7 +1264,7 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
             $this->assertEquals($refMsg, $msg);
         }
 
-        // fail - resource
+        // fail - resource - wrong hasTag
         $cm = [
             'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet'       => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
             (string) self::$schema->mime                            => 'application/pdf',
@@ -1283,6 +1283,24 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
             $this->assertEquals($refMsg, $msg);
         }
 
+        // fail - resource - hasTag=TEXT and no hasLanguage
+        $cm = [
+            'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet'       => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
+            (string) self::$schema->mime                            => 'image/tiff',
+            (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag' => 'TEXT',
+        ];
+        $cm = self::createMetadata($cm, self::$resourceClass);
+        try {
+            $cr = self::$repo->createResource($cm);
+            /** @phpstan-ignore method.impossibleType */
+            $this->assertTrue(false);
+        } catch (ClientException $ex) {
+            $msg    = (string) $ex->getResponse()->getBody();
+            $this->assertEquals(400, $ex->getCode());
+            $refMsg = "Kulturpool resources of type TEXT require https://vocabs.acdh.oeaw.ac.at/schema#hasLanguage to be specified";
+            $this->assertEquals($refMsg, $msg);
+        }
+        
         // pass
         $cid            = $cm->getObjectValue($idTmpl);
         $rm             = [(string) self::$schema->parent => $cid];
@@ -1290,9 +1308,10 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
         $cm             = [
             (string) self::$schema->id                                 => $cid,
             (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet' => 'https://vocabs.acdh.oeaw.ac.at/archeoaisets/kulturpool',
-            (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag'    => 'IMAGE',
+            (string) 'https://vocabs.acdh.oeaw.ac.at/schema#hasTag'    => 'TEXT',
             (string) self::$schema->mime                               => 'image/tiff',
             (string) self::$schema->license                            => 'https://vocabs.acdh.oeaw.ac.at/archelicenses/cc-by-sa-4-0',
+            (string) self::$schema->language                           => 'https://vocabs.acdh.oeaw.ac.at/iso6393/deu',
             (string) self::$schema->nextItem                           => (string) $rm->getObjectValue($idTmpl),
         ];
         $cm             = self::createMetadata($cm, self::$resourceClass);

@@ -31,6 +31,7 @@ schema:
     accessRole: https://vocabs.acdh.oeaw.ac.at/schema#hasRestrictionRole
     countCumulative: https://vocabs.acdh.oeaw.ac.at/schema#hasNumberOfItems
     oaipmhSet: https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet
+    language: https://vocabs.acdh.oeaw.ac.at/schema#hasLanguage
     classes:
         repoObject: https://vocabs.acdh.oeaw.ac.at/schema#RepoObject
         sharedObject: https://vocabs.acdh.oeaw.ac.at/schema#AgentOrPlaceOrPublication
