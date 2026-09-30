@@ -678,7 +678,7 @@ class ResourceTest extends TestBase {
         $restricted = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/restricted');
         $academic   = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/academic');
         $public     = DF::namedNode('https://vocabs.acdh.oeaw.ac.at/archeaccessrestrictions/public');
-        $im         = self::createMetadata([(string) $idProp => 'https://test/pid/generation'], );
+        $im         = self::createMetadata([(string) $idProp => 'https://test/pid/generation'],);
         self::$repo->begin();
 
         // no pid generated automatically
@@ -689,16 +689,16 @@ class ResourceTest extends TestBase {
         /*
          * As PID is minted only if an id in the $idNmsp exists but existence of such an id
          * currently enforces RDF class presence which turns into one of the tests below
-        // pid generated automatically and promoted to an id
-        $m1->add(DF::quadNoSubject($pidProp, DF::literal(self::$config->doorkeeper->epicPid->createValue)));
-        $r->setGraph($m1);
-        $r->updateMetadata();
-        $m2   = $r->getGraph();
-        $this->assertTrue($m2->none($pidTmpl->withObject(new NNT(null, NNT::ANY))));
-        $pids = $m2->listObjects($pidTmpl)->getValues();
-        $this->assertEquals(1, count($pids));
-        $this->assertStringStartsWith($pidNmsp, (string) $pids[0]);
-        $this->assertContains((string) $pids[0], $m2->listObjects(new PT($idProp))->getValues());
+          // pid generated automatically and promoted to an id
+          $m1->add(DF::quadNoSubject($pidProp, DF::literal(self::$config->doorkeeper->epicPid->createValue)));
+          $r->setGraph($m1);
+          $r->updateMetadata();
+          $m2   = $r->getGraph();
+          $this->assertTrue($m2->none($pidTmpl->withObject(new NNT(null, NNT::ANY))));
+          $pids = $m2->listObjects($pidTmpl)->getValues();
+          $this->assertEquals(1, count($pids));
+          $this->assertStringStartsWith($pidNmsp, (string) $pids[0]);
+          $this->assertContains((string) $pids[0], $m2->listObjects(new PT($idProp))->getValues());
          */
 
         // pid generated automatically and promoted to an id
@@ -807,7 +807,7 @@ class ResourceTest extends TestBase {
         $cfgFile = __DIR__ . '/../config/yaml/config-repo.yaml';
         $cfg     = yaml_parse_file($cfgFile);
         $im      = [
-            (string) self::$schema->id                   => 'http://unknown/property',
+            (string) self::$schema->id                  => 'http://unknown/property',
             'https://vocabs.acdh.oeaw.ac.at/schema#foo' => 'bar',
         ];
         $im      = self::createMetadata($im);
@@ -1300,7 +1300,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
             $refMsg = "Kulturpool resources of type TEXT require https://vocabs.acdh.oeaw.ac.at/schema#hasLanguage to be specified";
             $this->assertEquals($refMsg, $msg);
         }
-        
+
         // pass
         $cid            = $cm->getObjectValue($idTmpl);
         $rm             = [(string) self::$schema->parent => $cid];
@@ -1379,5 +1379,28 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
             $refMsg = "Resource $id has no RDF class";
             $this->assertEquals($refMsg, $msg);
         }
+    }
+
+    public function testPersonLastName(): void {
+        $lastNameProp = self::$schema->lastName;
+        $m = $this->createMetadata([], self::$schema->classes->person);
+        $m->delete(new PT($lastNameProp));
+        self::$repo->begin();
+        
+        try {
+            self::$repo->createResource($m);
+            /** @phpstan-ignore method.impossibleType */
+            $this->assertTrue(false);
+        } catch (ClientException $ex) {
+            $msg    = (string) $ex->getResponse()->getBody();
+            $this->assertEquals(400, $ex->getCode());
+            $refMsg = "Resource of class " . self::$schema->classes->person . " has to have the " . $lastNameProp . " property";
+            $this->assertEquals($refMsg, $msg);
+        }
+        
+        $m->add(DF::quadNoSubject($lastNameProp, DF::literal("lastname", lang: "und")));
+        self::$repo->createResource($m);
+        
+        self::$repo->rollback();
     }
 }

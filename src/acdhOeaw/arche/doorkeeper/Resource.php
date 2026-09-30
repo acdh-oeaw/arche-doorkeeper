@@ -726,6 +726,17 @@ class Resource {
         }
     }
 
+    #[CheckAttribute]
+    public function check13LastName(): void {
+        $class = (string) $this->meta->getObjectValue(new PT(RDF::RDF_TYPE));
+        if ($class === (string) $this->schema->classes->person) {
+            $lastName = (string) $this->meta->getObjectValue(new PT($this->schema->lastName));
+            if (empty($lastName)) {
+                throw new DoorkeeperException("Resource of class " . $this->schema->classes->person . " has to have the " . $this->schema->lastName . " property");
+            }
+        }
+    }
+
     /**
      * CMDI records must have their very own PIDs but this requires special handling
      * as in ARCHE CMDI is just a metadata serialization format and not a separate

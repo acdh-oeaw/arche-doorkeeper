@@ -32,6 +32,7 @@ schema:
     countCumulative: https://vocabs.acdh.oeaw.ac.at/schema#hasNumberOfItems
     oaipmhSet: https://vocabs.acdh.oeaw.ac.at/schema#hasOaiSet
     language: https://vocabs.acdh.oeaw.ac.at/schema#hasLanguage
+    lastName: https://vocabs.acdh.oeaw.ac.at/schema#hasLastName
     classes:
         repoObject: https://vocabs.acdh.oeaw.ac.at/schema#RepoObject
         sharedObject: https://vocabs.acdh.oeaw.ac.at/schema#AgentOrPlaceOrPublication
