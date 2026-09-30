@@ -707,6 +707,17 @@ class Transaction {
             SELECT id, property, ?::text, lang, value FROM _aggupdate
         ");
         $query->execute([RDF::RDF_LANG_STRING]);
+
+        // update last modification dates as well
+        $query = "
+            UPDATE metadata
+            SET value_t = now(), value = to_char(now(), 'YYYY-MM-DD\"T\"HH24:MI:SS.MS')
+            WHERE
+                property = ?
+                AND id IN (SELECT id FROM _aggupdate)
+        ";
+        $query = $this->pdo->prepare($query);
+        $query->execute([$this->schema->modificationDate]);
     }
 
     /**

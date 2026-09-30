@@ -186,10 +186,11 @@ class TransactionTest extends TestBase {
     public function testCollectionAggregates(): void {
         $schema         = self::$schema;
         $accessProp     = $schema->accessRestriction;
-        $accessAggProp  = $schema->accessRestrictionAgg;
+        $accessAggTmpl  = new PT($schema->accessRestrictionAgg);
         $licenseProp    = $schema->license;
-        $licenseAggProp = $schema->licenseAgg;
+        $licenseAggTmpl = new PT($schema->licenseAgg);
         $parentProp     = $schema->parent;
+        $modDateTmpl    = new PT($schema->modificationDate);
         $collClass      = $schema->classes->collection;
 
         self::$repo->begin();
@@ -204,20 +205,21 @@ class TransactionTest extends TestBase {
 
         $rCol1->loadMetadata(true);
         $rCol1Meta = $rCol1->getGraph();
-        $this->assertEquals('', $rCol1Meta->getObject(new PT($licenseAggProp))?->getValue());
-        $this->assertEquals('', $rCol1Meta->getObject(new PT($accessAggProp))?->getValue());
+        $this->assertEquals('', $rCol1Meta->getObject($licenseAggTmpl)?->getValue());
+        $this->assertEquals('', $rCol1Meta->getObject($accessAggTmpl)?->getValue());
+        $modDateOrig = (string) $rCol1Meta->getObjectValue($modDateTmpl);
         self::$repo->commit();
 
         $rCol1->loadMetadata(true);
         $rCol1Meta   = $rCol1->getGraph();
-        $licenseVals = iterator_to_array($rCol1Meta->listObjects(new PT($licenseAggProp)));
+        $licenseVals = iterator_to_array($rCol1Meta->listObjects($licenseAggTmpl));
         $ref         = ["NoC-NC: 1", "NoC-NC: 1"];
         $this->assertEquals($ref, array_map(fn($x) => (string) $x, $licenseVals));
         $ref         = [RDF::RDF_LANG_STRING, RDF::RDF_LANG_STRING];
         $this->assertEquals($ref, array_map(fn(LiteralInterface $x) => $x->getDatatype(), $licenseVals));
         $this->assertContains('en', array_map(fn(LiteralInterface $x) => $x->getLang(), $licenseVals));
         $this->assertContains('de', array_map(fn(LiteralInterface $x) => $x->getLang(), $licenseVals));
-        $accessVals  = iterator_to_array($rCol1Meta->listObjects(new PT($accessAggProp)));
+        $accessVals  = iterator_to_array($rCol1Meta->listObjects($accessAggTmpl));
         $ref         = [RDF::RDF_LANG_STRING, RDF::RDF_LANG_STRING];
         $this->assertEquals($ref, array_map(fn(LiteralInterface $x) => $x->getDatatype(), $accessVals));
         $accessVals  = array_combine(array_map(fn(LiteralInterface $x) => $x->getLang(), $accessVals), array_map(fn($x) => (string) $x, $accessVals));
@@ -254,14 +256,14 @@ class TransactionTest extends TestBase {
 
         $rCol1->loadMetadata(true);
         $rCol1Meta   = $rCol1->getGraph();
-        $licenseVals = iterator_to_array($rCol1Meta->listObjects(new PT($licenseAggProp)));
+        $licenseVals = iterator_to_array($rCol1Meta->listObjects($licenseAggTmpl));
         $ref         = ["CC BY 4.0: 1 / MIT: 1 / NoC-NC: 1", "CC BY 4.0: 1 / MIT: 1 / NoC-NC: 1"];
         $this->assertEquals($ref, array_map(fn($x) => (string) $x, $licenseVals));
         $ref         = [RDF::RDF_LANG_STRING, RDF::RDF_LANG_STRING];
         $this->assertEquals($ref, array_map(fn(LiteralInterface $x) => $x->getDatatype(), $licenseVals));
         $this->assertContains('en', array_map(fn(LiteralInterface $x) => $x->getLang(), $licenseVals));
         $this->assertContains('de', array_map(fn(LiteralInterface $x) => $x->getLang(), $licenseVals));
-        $accessVals  = iterator_to_array($rCol1Meta->listObjects(new PT($accessAggProp)));
+        $accessVals  = iterator_to_array($rCol1Meta->listObjects($accessAggTmpl));
         $ref         = [RDF::RDF_LANG_STRING, RDF::RDF_LANG_STRING];
         $this->assertEquals($ref, array_map(fn(LiteralInterface $x) => $x->getDatatype(), $accessVals));
         $accessVals  = array_combine(array_map(fn(LiteralInterface $x) => $x->getLang(), $accessVals), array_map(fn($x) => (string) $x, $accessVals));
@@ -270,6 +272,7 @@ class TransactionTest extends TestBase {
             'de' => 'akademisch: 2 / eingeschränkt: 1',
         ];
         $this->assertEquals($ref, array_map(fn($x) => (string) $x, $accessVals));
+        $this->assertGreaterThan($modDateOrig, (string) $rCol1Meta->getObjectValue($modDateTmpl));
     }
 
     public function testTopCollectionAggregates(): void {
