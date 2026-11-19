@@ -56,8 +56,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp   = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -88,8 +87,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -104,8 +102,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -210,8 +207,7 @@ class ResourceTest extends TestBase {
         ]);
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (RequestException $e) {
             $this->assertMatchesRegularExpression('/value does not match data type/', $e->getMessage());
         }
@@ -221,8 +217,7 @@ class ResourceTest extends TestBase {
         ]);
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (RequestException $e) {
             $this->assertMatchesRegularExpression('/value does not match data type/', $e->getMessage());
         }
@@ -232,8 +227,7 @@ class ResourceTest extends TestBase {
         ]);
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (RequestException $e) {
             $this->assertMatchesRegularExpression('/value does not match data type/', $e->getMessage());
         }
@@ -243,8 +237,7 @@ class ResourceTest extends TestBase {
         ]);
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (RequestException $e) {
             $this->assertMatchesRegularExpression('/value does not match data type/', $e->getMessage());
         }
@@ -254,8 +247,7 @@ class ResourceTest extends TestBase {
         ]);
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (RequestException $e) {
             $this->assertMatchesRegularExpression('/unresolvable URI/', $e->getMessage());
         }
@@ -270,8 +262,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -298,8 +289,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -322,8 +312,7 @@ class ResourceTest extends TestBase {
         $im->add(DF::quadNoSubject($prop, DF::literal('2020-08-01')));
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -615,8 +604,7 @@ class ResourceTest extends TestBase {
         $im->add(DF::quad($id, $titleProp, DF::literal('', 'en')));
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -628,8 +616,7 @@ class ResourceTest extends TestBase {
         $im->add(DF::quad($id, self::$schema->id, DF::namedNode('https://id/prop' . time() . rand())));
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -643,8 +630,7 @@ class ResourceTest extends TestBase {
         $im->add(DF::quad($id, $titleProp, DF::literal('bar')));
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp   = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -660,8 +646,7 @@ class ResourceTest extends TestBase {
         $im->add(DF::quad($id, $titleProp, DF::literal('bar', 'en')));
         try {
             self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -803,6 +788,34 @@ class ResourceTest extends TestBase {
         self::$repo->rollback();
     }
 
+    /**
+     * PID in foreign prefix exists as an identifier - shouldn't be promoted
+     * to the PID property.
+     * 
+     * @see https://github.com/acdh-oeaw/arche-doorkeeper/issues/57
+     */
+    public function testPidForeign(): void {
+        $cfg     = self::$config->doorkeeper->epicPid;
+        $idProp  = self::$schema->id;
+        $pidProp = self::$schema->pid;
+        $pidTmpl = new PT($pidProp);
+        $id1     = $pid     = $cfg->resolver . 'otherPrefix/123';
+        $id2     = $pid     = $cfg->resolver . $cfg->prefix . '/123';
+        self::$repo->begin();
+
+        $im1 = [(string) $idProp => $id1];
+        $im1 = self::createMetadata($im1, self::$resourceClass);
+        $r1  = self::$repo->createResource($im1);
+        $this->assertNull($r1->getGraph()->getObjectValue($pidTmpl));
+
+        $im2 = [(string) $idProp => $id2];
+        $im2 = self::createMetadata($im2, self::$resourceClass);
+        $r2  = self::$repo->createResource($im2);
+        $this->assertEquals($id2, $r2->getGraph()->getObjectValue($pidTmpl));
+        
+        self::$repo->rollback();
+    }
+
     public function testUnknownProperty(): void {
         $cfgFile = __DIR__ . '/../config/yaml/config-repo.yaml';
         $cfg     = yaml_parse_file($cfgFile);
@@ -827,8 +840,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         try {
             $r = self::$repo->createResource($im);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -918,8 +930,7 @@ class ResourceTest extends TestBase {
         $r->setMetadata($meta);
         try {
             $r->updateMetadata();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -970,8 +981,7 @@ class ResourceTest extends TestBase {
         $r->setMetadata($meta2);
         try {
             $r->updateMetadata();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -985,8 +995,7 @@ class ResourceTest extends TestBase {
         $r->setMetadata($meta2);
         try {
             $r->updateMetadata();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -1010,8 +1019,7 @@ class ResourceTest extends TestBase {
         $r->setMetadata($meta);
         try {
             $r->updateMetadata();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -1031,8 +1039,7 @@ class ResourceTest extends TestBase {
         self::$repo->createResource($meta1);
         try {
             self::$repo->createResource($meta2);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -1073,8 +1080,7 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         try {
             self::$repo->createResource($meta);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -1099,11 +1105,10 @@ class ResourceTest extends TestBase {
         self::$repo->begin();
         $res    = self::$repo->createResource($meta);
         $ref1   = self::$repo->getResourceById($norm->normalize($value1));
-        $ref2   = self::$repo->getResourceById($norm->normalize($value2));
+//        $ref2   = self::$repo->getResourceById($norm->normalize($value2));
         try {
-            self::$repo->getResourceById($value1);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $x = self::$repo->getResourceById($value1);
+            $this->fail();
         } catch (NotFound $ex) {
             /** @phpstan-ignore method.alreadyNarrowedType */
             $this->assertTrue(true);
@@ -1111,8 +1116,7 @@ class ResourceTest extends TestBase {
         self::$repo->rollback();
         try {
             self::$repo->getResourceById($value2);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (NotFound $ex) {
             /** @phpstan-ignore method.alreadyNarrowedType */
             $this->assertTrue(true);
@@ -1178,8 +1182,7 @@ class ResourceTest extends TestBase {
         $meta = self::createMetadata($meta, self::$resourceClass);
         try {
             $res = self::$repo->createResource($meta);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $msg = (string) $e->getResponse()->getBody();
             $this->assertEquals("Start date after the end date for $startProp/$endProp (1345-01-01 > 1234-01-01)", $msg);
@@ -1192,8 +1195,7 @@ class ResourceTest extends TestBase {
         $meta = self::createMetadata($meta, self::$resourceClass);
         try {
             $res = self::$repo->createResource($meta);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $msg = (string) $e->getResponse()->getBody();
             $this->assertEquals("Start date after the end date for $startProp/$endProp (1345-01-01 > -1456-01-01)", $msg);
@@ -1206,8 +1208,7 @@ class ResourceTest extends TestBase {
         $meta = self::createMetadata($meta, self::$resourceClass);
         try {
             $res = self::$repo->createResource($meta);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $msg = (string) $e->getResponse()->getBody();
             $this->assertEquals("Start date after the end date for $startProp/$endProp (-1345-01-01 > -1456-01-01)", $msg);
@@ -1220,8 +1221,7 @@ class ResourceTest extends TestBase {
         $meta = self::createMetadata($meta, self::$resourceClass);
         try {
             $res = self::$repo->createResource($meta);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $msg = (string) $e->getResponse()->getBody();
             $this->assertEquals("Start date after the end date for $startProp/$endProp (-19000-05-01 > -200000-01-01)", $msg);
@@ -1234,8 +1234,7 @@ class ResourceTest extends TestBase {
         $meta = self::createMetadata($meta, self::$resourceClass);
         try {
             $res = self::$repo->createResource($meta);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $msg = (string) $e->getResponse()->getBody();
             $this->assertEquals("Start date after the end date for $startProp/$endProp (-19000-05-01 > -19000-04-03)", $msg);
@@ -1253,8 +1252,7 @@ class ResourceTest extends TestBase {
         $cm = self::createMetadata($cm, 'https://vocabs.acdh.oeaw.ac.at/schema#Collection');
         try {
             $cr = self::$repo->createResource($cm);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $ex) {
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
@@ -1273,8 +1271,7 @@ https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem is required for a Kulturpool r
         $cm = self::createMetadata($cm, self::$resourceClass);
         try {
             $cr = self::$repo->createResource($cm);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $ex) {
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
@@ -1292,8 +1289,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
         $cm = self::createMetadata($cm, self::$resourceClass);
         try {
             $cr = self::$repo->createResource($cm);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $ex) {
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
@@ -1333,8 +1329,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
         $r->setMetadata($m);
         try {
             $r->updateMetadata();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $ex) {
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
@@ -1353,8 +1348,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
         self::$repo->begin();
         try {
             self::$repo->createResource($m);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $ex) {
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
@@ -1371,8 +1365,7 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
         self::$repo->begin();
         try {
             self::$repo->createResource($m);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $ex) {
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
@@ -1383,24 +1376,23 @@ Only image and GLB formats are valid for non-collection Kulturpool resources (ap
 
     public function testPersonLastName(): void {
         $lastNameProp = self::$schema->lastName;
-        $m = $this->createMetadata([], self::$schema->classes->person);
+        $m            = $this->createMetadata([], self::$schema->classes->person);
         $m->delete(new PT($lastNameProp));
         self::$repo->begin();
-        
+
         try {
             self::$repo->createResource($m);
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $ex) {
             $msg    = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
             $refMsg = "Resource of class " . self::$schema->classes->person . " has to have the " . $lastNameProp . " property";
             $this->assertEquals($refMsg, $msg);
         }
-        
+
         $m->add(DF::quadNoSubject($lastNameProp, DF::literal("lastname", lang: "und")));
         self::$repo->createResource($m);
-        
+
         self::$repo->rollback();
     }
 }

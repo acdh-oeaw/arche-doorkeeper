@@ -147,7 +147,8 @@ class Resource {
         ];
         $this->uriNorm     = new UriNormalizer($uriNormRules, retryCfg: $this->resolveCfg);
         $this->checkRanges = new stdClass();
-        if (isset($schema->checkRanges)) {
+        /** @phpstan-ignore function.alreadyNarrowedType */
+        if (is_object($schema->checkRanges)) {
             foreach (iterator_to_array($schema->checkRanges) as $class => $rules) {
                 $this->checkRanges->$class = [];
                 foreach (iterator_to_array($rules) as $rule) {
@@ -898,14 +899,12 @@ class Resource {
             $this->log?->debug("\t\tcopied PID $pid to an id");
             $this->meta->add(DF::quad($res, $idProp, DF::namedNode($pid)));
         }
-        
+
         // set smallest PID in the configured prefix as hasPid
-        // if no PIDs in the configured prefix is present, take just the smallest PID
-        sort($curPids);
-        $prefix = str_replace('//', '/', $cfg->resolver . '/' . $cfg->prefix);
-        $pidsWithPrefix = array_filter($curPids, fn($x) => str_starts_with($x, $prefix));
-        $pid = reset($pidsWithPrefix) ?: reset($curPids);
-        if (!empty($pid)) {
+        $pidsWithinPrefix = array_filter($curPids, fn($x) => str_starts_with($x, $cfg->resolver . $cfg->prefix));
+        if (count($pidsWithinPrefix) > 0) {
+            sort($pidsWithinPrefix);
+            $pid = reset($pidsWithinPrefix);
             $this->log?->debug("\t\tsetting PID $pid as " . $pidProp);
             // set first pid as the pid property
             $this->meta->delete($pidTmpl);

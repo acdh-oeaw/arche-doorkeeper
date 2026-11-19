@@ -307,8 +307,7 @@ class TransactionTest extends TestBase {
         $r->updateMetadata();
         try {
             self::$repo->commit();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp   = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -348,8 +347,7 @@ class TransactionTest extends TestBase {
         $this->toDelete[] = $old2r;
         try {
             self::$repo->commit();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $resp = $e->getResponse();
             $this->assertEquals(400, $resp->getStatusCode());
@@ -369,8 +367,7 @@ class TransactionTest extends TestBase {
         $this->toDelete = array_merge($this->toDelete, [$tcr, $cr]);
         try {
             self::$repo->commit();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $msg  = (string) $e->getResponse()->getBody();
             $tcid = preg_replace('|^.*/|', '', $tcr->getUri());
@@ -401,8 +398,7 @@ class TransactionTest extends TestBase {
         $rcr->updateMetadata();
         try {
             self::$repo->commit();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $msg  = (string) $e->getResponse()->getBody();
             $tcid = preg_replace('|^.*/|', '', $tcr->getUri());
@@ -449,8 +445,7 @@ class TransactionTest extends TestBase {
         $r[2]->updateMetadata();
         try {
             self::$repo->commit();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $ex) {
             $msg = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
@@ -469,8 +464,7 @@ class TransactionTest extends TestBase {
         $r[0]->updateMetadata();
         try {
             self::$repo->commit();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $ex) {
             $msg = (string) $ex->getResponse()->getBody();
             $this->assertEquals(400, $ex->getCode());
@@ -621,8 +615,7 @@ class TransactionTest extends TestBase {
         $this->addNextItem($r12r, $r2r);
         try {
             self::$repo->commit();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $this->assertEquals(400, $e->getCode());
             $refErrMsg = "https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem errors:
@@ -638,8 +631,7 @@ Collection https://id.acdh.oeaw.ac.at/ni/tc has a gap in the next item chain in 
         $this->addNextItem($r2r, $r11r);
         try {
             self::$repo->commit();
-            /** @phpstan-ignore method.impossibleType */
-            $this->assertTrue(false);
+            $this->fail();
         } catch (ClientException $e) {
             $this->assertEquals(400, $e->getCode());
             $refErrMsg = "https://vocabs.acdh.oeaw.ac.at/schema#hasNextItem errors:
