@@ -147,8 +147,7 @@ class Resource {
         ];
         $this->uriNorm     = new UriNormalizer($uriNormRules, retryCfg: $this->resolveCfg);
         $this->checkRanges = new stdClass();
-        /** @phpstan-ignore property.notFound */
-        if (is_object($schema->checkRanges)) {
+        if (isset($schema->checkRanges)) {
             foreach (iterator_to_array($schema->checkRanges) as $class => $rules) {
                 $this->checkRanges->$class = [];
                 foreach (iterator_to_array($rules) as $rule) {
@@ -838,7 +837,7 @@ class Resource {
             $ps = new HandleService($cfg->url, $cfg->prefix, $cfg->user, $cfg->pswd);
         }
 
-        // obtain the current PID, PIDs stored as ids and an URI pids should resolve to
+        // obtain the current PID and PIDs stored as ids
         $curPids = $this->meta->listObjects($pidTmpl)->getValues();
         $acdhId  = $idPid   = null;
         foreach ($ids as $i) {
@@ -894,16 +893,23 @@ class Resource {
         }
 
 
-        // promote pids to ids and set first as the pid
-        foreach (array_values($curPids) as $n => $pid) {
+        // promote pids to ids
+        foreach (array_values($curPids) as $pid) {
             $this->log?->debug("\t\tcopied PID $pid to an id");
             $this->meta->add(DF::quad($res, $idProp, DF::namedNode($pid)));
-            if ($n === 0) {
-                $this->log?->debug("\t\tsetting PID $pid as " . $pidProp);
-                // set first pid as the pid property
-                $this->meta->delete($pidTmpl);
-                $this->meta->add(DF::quad($res, $pidProp, DF::literal($pid, null, RDF::XSD_ANY_URI)));
-            }
+        }
+        
+        // set smallest PID in the configured prefix as hasPid
+        // if no PIDs in the configured prefix is present, take just the smallest PID
+        sort($curPids);
+        $prefix = str_replace('//', '/', $cfg->resolver . '/' . $cfg->prefix);
+        $pidsWithPrefix = array_filter($curPids, fn($x) => str_starts_with($x, $prefix));
+        $pid = reset($pidsWithPrefix) ?: reset($curPids);
+        if (!empty($pid)) {
+            $this->log?->debug("\t\tsetting PID $pid as " . $pidProp);
+            // set first pid as the pid property
+            $this->meta->delete($pidTmpl);
+            $this->meta->add(DF::quad($res, $pidProp, DF::literal($pid, null, RDF::XSD_ANY_URI)));
         }
     }
 
